@@ -42,27 +42,16 @@ func CreateDMG(config Config, sourceDir string) error {
 	if err := setupSourceDirectory(config, sourceDir); err != nil {
 		return fmt.Errorf("failed to setup source directory: %w", err)
 	}
-	store := &dsstore.DSStore{}
-	ivcp, err := dsstore.NewIconViewPreferencesEntry(".", 100)
-	if err != nil {
-		return fmt.Errorf("failed to create icon view preferences entry: %w", err)
-	}
-	bwsp, err := dsstore.NewWorkspaceSettingsEntry(".", 0, 0, 640, 480)
-	if err != nil {
-		return fmt.Errorf("failed to create icon view preferences entry: %w", err)
-	}
-	store.AddEntry(bwsp)
-	store.AddEntry(ivcp)
+	store := dsstore.NewDSStore()
+	store.SetIconSize(200)
+	store.SetWindow(640, 480, 0, 0)
+	store.SetBgColor(0, 1, 1)
 	for _, content := range config.Contents {
 		if content.Type == Link {
-			entry, err := dsstore.NewIconLocationEntry(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
-			if err != nil {
-				return fmt.Errorf("failed to create icon location entry: %w", err)
-			}
-			store.AddEntry(entry)
+			store.SetIconPos(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
 		}
 	}
-	err = store.Write(filepath.Join(sourceDir, ".DS_Store"))
+	err := store.Write(filepath.Join(sourceDir, ".DS_Store"))
 	if err != nil {
 		return fmt.Errorf("failed to write .DS_Store: %w", err)
 	}

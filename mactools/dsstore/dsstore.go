@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/samber/lo"
+	"golang.org/x/text/unicode/norm"
 	"os"
 	"sort"
+	"unicode/utf16"
+	"zapp/mactools/dsstore/entry"
 )
 
 import (
@@ -17,47 +20,90 @@ import (
 //go:embed clean
 var DSStoreClean []byte
 
+type Entries []entry.Entry
+
+func (e Entries) Len() int {
+	return len(e)
+}
+
+func (e Entries) Swap(i, j int) {
+	e[i], e[j] = e[j], e[i]
+}
+
+func (e Entries) Less(i, j int) bool {
+	if result := hfsPlusFastUnicodeCompare(e[i].Filename(), e[j].Filename()); result != 0 {
+		return result < 0
+	}
+	if result := hfsPlusFastUnicodeCompare(e[i].EntryType(), e[j].EntryType()); result != 0 {
+		return result < 0
+	}
+	return false
+}
+
 type DSStore struct {
-	Entries []*Entry
+	Entries []entry.Entry
 }
 
 func NewDSStore() *DSStore {
 	return &DSStore{
-		Entries: make([]*Entry, 0),
+		Entries: make([]entry.Entry, 0),
+	}
+}
+func (ds *DSStore) SetIconSize(size float64) {
+	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+		return e.EntryType() == entry.TypeIconViewPreferences
+	})
+	if ok {
+		e.(*entry.IconViewPreferencesEntry).IconSize = size
+	} else {
+		newEntry := entry.NewIconViewPreferencesEntry(100)
+		newEntry.IconSize = size
+		ds.AddEntry(newEntry)
+	}
+}
+
+func (ds *DSStore) SetBgColor(r, g, b float64) {
+	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+		return e.EntryType() == entry.TypeIconViewPreferences
+	})
+	if ok {
+		e.(*entry.IconViewPreferencesEntry).SetBgColor(r, g, b)
+	} else {
+		newEntry := entry.NewIconViewPreferencesEntry(100)
+		newEntry.SetBgColor(r, g, b)
+		ds.AddEntry(newEntry)
 	}
 }
 
 func (ds *DSStore) SetWindow(width, height, x, y int) {
-	entry, ok := lo.Find(ds.Entries, func(entry *Entry) bool {
-		return entry.EntryType == EntryTypeWorkspaceSettings
+	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+		return e.EntryType() == entry.TypeWorkspaceSettings
 	})
-	newEntry, err := NewWorkspaceSettingsEntry(".", x, y, width, height)
-	if err != nil {
-		panic(err)
-	}
 	if ok {
-		entry.Buffer = newEntry.Buffer
+		e.(*entry.WorkspaceSettingsEntry).Width = width
+		e.(*entry.WorkspaceSettingsEntry).Height = height
+		e.(*entry.WorkspaceSettingsEntry).X = x
+		e.(*entry.WorkspaceSettingsEntry).Y = y
 	} else {
+		newEntry := entry.NewWorkspaceSettingsEntry(x, y, width, height)
 		ds.AddEntry(newEntry)
 	}
 }
 
 func (ds *DSStore) SetIconPos(name string, x, y uint32) {
-	entry, ok := lo.Find(ds.Entries, func(entry *Entry) bool {
-		return entry.Filename == name && entry.EntryType == EntryTypeIconLocation
+	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+		return e.Filename() == name && e.EntryType() == entry.TypeIconLocation
 	})
-	newEntry, err := NewIconLocationEntry(name, x, y)
-	if err != nil {
-		panic(err)
-	}
 	if ok {
-		entry.Buffer = newEntry.Buffer
+		e.(*entry.IconLocationEntry).X = x
+		e.(*entry.IconLocationEntry).Y = y
 	} else {
+		newEntry := entry.NewIconLocationEntry(name, x, y)
 		ds.AddEntry(newEntry)
 	}
 }
 
-func (ds *DSStore) AddEntry(entry *Entry) {
+func (ds *DSStore) AddEntry(entry entry.Entry) {
 	ds.Entries = append(ds.Entries, entry)
 }
 
@@ -75,11 +121,36 @@ func (ds *DSStore) Write(filePath string) error {
 	currentPos += 8
 
 	for _, entry := range ds.Entries {
-		copy(modified[currentPos:], entry.Buffer)
-		currentPos += entry.Length()
+		blob := entryBuild(entry)
+		copy(modified[currentPos:], blob)
+		currentPos += len(blob)
 	}
 
 	binary.BigEndian.PutUint32(buf[76:], count)
 	copy(buf[4100:], modified)
 	return os.WriteFile(filePath, buf, 0644)
+}
+
+func entryBuild(entry entry.Entry) []byte {
+	filename := norm.NFD.String(entry.Filename())
+	filenameLength := len(filename)
+	filenameBytes := filenameLength * 2
+	blob := entry.Bytes()
+	buffer := make([]byte, 4+filenameBytes+4+4+len(blob))
+	binary.BigEndian.PutUint32(buffer[0:], uint32(filenameLength))
+	copy(buffer[4:], utf16be(filename))
+	copy(buffer[4+filenameBytes:], entry.EntryType())
+	copy(buffer[8+filenameBytes:], entry.DataType())
+	copy(buffer[12+filenameBytes:], blob)
+	return buffer
+}
+
+// utf16be converts a string to a big-endian UTF-16 byte slice.
+func utf16be(str string) []byte {
+	utf16Encoded := utf16.Encode([]rune(str))
+	buffer := new(bytes.Buffer)
+	for _, r := range utf16Encoded {
+		binary.Write(buffer, binary.BigEndian, r)
+	}
+	return buffer.Bytes()
 }
