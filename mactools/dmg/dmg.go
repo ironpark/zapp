@@ -20,6 +20,7 @@ type Config struct {
 type ItemType string
 
 const (
+	Dir  ItemType = "dir"
 	File ItemType = "file"
 	Link ItemType = "link"
 )
@@ -45,11 +46,9 @@ func CreateDMG(config Config, sourceDir string) error {
 	store := dsstore.NewDSStore()
 	store.SetIconSize(200)
 	store.SetWindow(640, 480, 0, 0)
-	store.SetBgColor(0, 1, 1)
+	// store.SetBgColor(0, 1, 1)
 	for _, content := range config.Contents {
-		if content.Type == Link {
-			store.SetIconPos(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
-		}
+		store.SetIconPos(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
 	}
 	err := store.Write(filepath.Join(sourceDir, ".DS_Store"))
 	if err != nil {
@@ -74,6 +73,12 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 			if err := copyFile(item.Path, destPath); err != nil {
 				return fmt.Errorf("failed to copy file %s to %s: %s", item.Path, destPath, err)
 			}
+		case Dir:
+			// Copy the file to the source directory
+			destPath := filepath.Join(sourceDir, filepath.Base(item.Path))
+			if err := copyDir(item.Path, destPath); err != nil {
+				return fmt.Errorf("failed to copy dir %s to %s: %s", item.Path, destPath, err)
+			}
 		case Link:
 			// Create a symbolic link
 			err := os.Symlink(item.Path, filepath.Join(sourceDir, filepath.Base(item.Path)))
@@ -95,6 +100,39 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 			return fmt.Errorf("failed to copy background: %s", err)
 		}
 	}
+	return nil
+}
+
+// copyDir copies a directory from src to dst recursively.
+func copyDir(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if err = os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err = copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err = copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

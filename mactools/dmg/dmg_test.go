@@ -14,6 +14,7 @@ func TestCreateDMG(t *testing.T) {
 		Background: "",
 		Contents: []Item{
 			{X: 300, Y: 100, Type: Link, Path: "/Applications"},
+			{X: 600, Y: 100, Type: Dir, Path: "/Users/ironpark/Documents/Project/Personal/zapp/assets/test/SyncMaster 240704.app"},
 		},
 	}, "/tmp/test")
 	if err != nil {
