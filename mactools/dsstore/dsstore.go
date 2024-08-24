@@ -5,15 +5,14 @@ package dsstore
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/samber/lo"
-	"golang.org/x/text/unicode/norm"
 	"os"
 	"sort"
 	"unicode/utf16"
 	"zapp/mactools/dsstore/entry"
-)
 
-import (
+	"github.com/samber/lo"
+	"golang.org/x/text/unicode/norm"
+
 	_ "embed"
 )
 
@@ -49,30 +48,32 @@ func NewDSStore() *DSStore {
 		Entries: make([]entry.Entry, 0),
 	}
 }
-func (ds *DSStore) SetIconSize(size float64) {
+func (ds *DSStore) getIconViewPreferences() *entry.IconViewPreferencesEntry {
 	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
 		return e.EntryType() == entry.TypeIconViewPreferences
 	})
 	if ok {
-		e.(*entry.IconViewPreferencesEntry).IconSize = size
-	} else {
-		newEntry := entry.NewIconViewPreferencesEntry(100)
-		newEntry.IconSize = size
-		ds.AddEntry(newEntry)
+		return e.(*entry.IconViewPreferencesEntry)
 	}
+	newEntry := entry.NewIconViewPreferencesEntry(100)
+	ds.AddEntry(newEntry)
+	return newEntry
+}
+
+func (ds *DSStore) SetLabelPlaceToBottom(bottom bool) {
+	ds.getIconViewPreferences().LabelOnBottom = bottom
+}
+
+func (ds *DSStore) SetLabelSize(size float64) {
+	ds.getIconViewPreferences().TextSize = size
+}
+
+func (ds *DSStore) SetIconSize(size float64) {
+	ds.getIconViewPreferences().IconSize = size
 }
 
 func (ds *DSStore) SetBgColor(r, g, b float64) {
-	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
-		return e.EntryType() == entry.TypeIconViewPreferences
-	})
-	if ok {
-		e.(*entry.IconViewPreferencesEntry).SetBgColor(r, g, b)
-	} else {
-		newEntry := entry.NewIconViewPreferencesEntry(100)
-		newEntry.SetBgColor(r, g, b)
-		ds.AddEntry(newEntry)
-	}
+	ds.getIconViewPreferences().SetBgColor(r, g, b)
 }
 
 func (ds *DSStore) SetWindow(width, height, x, y int) {

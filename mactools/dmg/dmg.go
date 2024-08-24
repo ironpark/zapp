@@ -12,11 +12,16 @@ import (
 
 // Config represents the configuration for the DMG file.
 type Config struct {
-	Title      string `json:"title"`
-	Icon       string `json:"icon"`
-	Background string `json:"background"`
-	Contents   []Item `json:"contents"`
+	Title            string `json:"title"`
+	Icon             string `json:"icon"`
+	LabelSize        int    `json:"labelSize"`
+	ContentsIconSize int    `json:"iconSize"`
+	WindowWidth      int    `json:"windowWidth"`
+	WindowHeight     int    `json:"windowHeight"`
+	Background       string `json:"background"`
+	Contents         []Item `json:"contents"`
 }
+
 type ItemType string
 
 const (
@@ -43,10 +48,13 @@ func CreateDMG(config Config, sourceDir string) error {
 	if err := setupSourceDirectory(config, sourceDir); err != nil {
 		return fmt.Errorf("failed to setup source directory: %w", err)
 	}
+
 	store := dsstore.NewDSStore()
-	store.SetIconSize(200)
-	store.SetWindow(640, 480, 0, 0)
-	// store.SetBgColor(0, 1, 1)
+	store.SetIconSize(float64(config.ContentsIconSize))
+	store.SetWindow(config.WindowWidth, config.WindowHeight, 0, 0)
+	store.SetLabelSize(float64(config.LabelSize))
+	store.SetLabelPlaceToBottom(true)
+
 	for _, content := range config.Contents {
 		store.SetIconPos(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
 	}
