@@ -2,19 +2,21 @@ package main
 
 import (
 	"fmt"
-	"github.com/urfave/cli/v2"
 	"log"
 	"os"
+
+	"zapp/cmd"
+
+	"github.com/urfave/cli/v2"
 )
 
 var commands []*cli.Command
 
 func main() {
 	app := &cli.App{
-		Commands: commands,
-		Name:     "boom",
-		Usage:    "make an explosive entrance",
-		Action: func(*cli.Context) error {
+		Commands: cmd.GetCommands(),
+		Usage:    "Simplify your macOS App deployment",
+		Action: func(ctx *cli.Context) error {
 			fmt.Println("boom! I say!")
 			return nil
 		},

@@ -1,14 +1,15 @@
-package main
+package cmd
 
 import (
 	"fmt"
-	"github.com/urfave/cli/v2"
 	"zapp/mactools/security"
+
+	"github.com/urfave/cli/v2"
 )
 
 func init() {
 	commands = append(commands, &cli.Command{
-		Name:        "sign",
+		Name:        "dmg",
 		Usage:       "",
 		UsageText:   "",
 		Description: "",
