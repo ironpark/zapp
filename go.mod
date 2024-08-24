@@ -1,4 +1,4 @@
-module zapp
+module github.com/ironpark/zapp
 
 go 1.22
 

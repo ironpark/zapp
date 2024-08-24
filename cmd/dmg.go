@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"zapp/mactools/dmg"
+
+	"github.com/ironpark/zapp/mactools/dmg"
 
 	"github.com/briandowns/spinner"
 	"github.com/urfave/cli/v2"

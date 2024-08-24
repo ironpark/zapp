@@ -7,7 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"zapp/mactools/dsstore"
+
+	"github.com/ironpark/zapp/mactools/dsstore"
 )
 
 // Config represents the configuration for the DMG file.

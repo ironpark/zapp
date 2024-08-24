@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
-	"zapp/cmd"
+	"github.com/ironpark/zapp/cmd"
 
 	"github.com/urfave/cli/v2"
 )
@@ -17,7 +16,9 @@ func main() {
 		Commands: cmd.GetCommands(),
 		Usage:    "Simplify your macOS App deployment",
 		Action: func(ctx *cli.Context) error {
-			fmt.Println("boom! I say!")
+			if ctx.NArg() == 0 {
+				return cli.ShowAppHelp(ctx)
+			}
 			return nil
 		},
 		Authors: []*cli.Author{

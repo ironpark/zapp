@@ -8,7 +8,8 @@ import (
 	"os"
 	"sort"
 	"unicode/utf16"
-	"zapp/mactools/dsstore/entry"
+
+	"github.com/ironpark/zapp/mactools/dsstore/entry"
 
 	"github.com/samber/lo"
 	"golang.org/x/text/unicode/norm"

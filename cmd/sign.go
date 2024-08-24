@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"zapp/mactools/security"
+
+	"github.com/ironpark/zapp/mactools/security"
 
 	"github.com/urfave/cli/v2"
 )
