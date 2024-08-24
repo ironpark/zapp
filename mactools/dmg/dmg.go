@@ -3,7 +3,6 @@ package dmg
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -103,7 +102,6 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 	}
 
 	if config.Background != "" {
-		log.Println("Copying background", config.Background)
 		if err := copyFile(config.Background, filepath.Join(sourceDir, ".background", "background.png")); err != nil {
 			return fmt.Errorf("failed to copy background: %s", err)
 		}
@@ -146,7 +144,6 @@ func copyDir(src, dst string) error {
 
 // copyFile copies a file from src to dst.
 func copyFile(src, dst string) error {
-	log.Println("Copying file", src, "to", dst)
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
