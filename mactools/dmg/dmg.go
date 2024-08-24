@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"zapp/mactools/dsstore"
 )
 
 // Config represents the configuration for the DMG file.
 type Config struct {
+	FileName         string `json:"fileName"`
 	Title            string `json:"title"`
 	Icon             string `json:"icon"`
 	LabelSize        int    `json:"labelSize"`
@@ -61,8 +63,18 @@ func CreateDMG(config Config, sourceDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to write .DS_Store: %w", err)
 	}
+
+	// Set Default Filename
+	if config.FileName == "" {
+		config.FileName = config.Title + ".dmg"
+	}
+
+	if !strings.HasSuffix(config.FileName, ".dmg") {
+		config.FileName += ".dmg"
+	}
+
 	// Create the DMG file using hdiutil
-	cmd := exec.Command("hdiutil", "create", "-volname", config.Title, "-srcfolder", sourceDir, "-ov", "-format", "UDZO", config.Title+".dmg")
+	cmd := exec.Command("hdiutil", "create", "-volname", config.Title, "-srcfolder", sourceDir, "-ov", "-format", "UDZO", config.FileName)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to create dmg: %s, output: %s", err, string(output))
 	}
