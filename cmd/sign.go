@@ -30,7 +30,7 @@ func init() {
 		},
 		Flags:              nil,
 		SkipFlagParsing:    true,
-		HelpName:           "asdasd",
+		HelpName:           "",
 		CustomHelpTemplate: "",
 	})
 }

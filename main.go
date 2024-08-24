@@ -20,6 +20,12 @@ func main() {
 			fmt.Println("boom! I say!")
 			return nil
 		},
+		Authors: []*cli.Author{
+			{
+				Name:  "Cheolwan. Park",
+				Email: "cjfdhksaos@gmail.com",
+			},
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
