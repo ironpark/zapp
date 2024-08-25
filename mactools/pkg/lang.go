@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// 유효한 ISO 639-1 언어 코드 목록
+// List of valid ISO 639-1 language codes
 var validLanguageCodes = map[string]bool{
 	"aa": true, "ab": true, "af": true, "ak": true, "sq": true, "am": true, "ar": true, "an": true, "hy": true, "as": true,
 	"av": true, "ae": true, "ay": true, "az": true, "ba": true, "bm": true, "eu": true, "be": true, "bn": true, "bh": true,
@@ -27,7 +27,7 @@ var validLanguageCodes = map[string]bool{
 	"za": true, "zu": true,
 }
 
-// 언어 코드 유효성 검사 함수
+// Function to validate language code
 func isValidLanguageCode(code string) bool {
 	return validLanguageCodes[strings.ToLower(code)]
 }

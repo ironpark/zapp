@@ -5,20 +5,22 @@ import (
 	"strings"
 )
 
+// DistributionBuilder is used to build the distribution XML for an installer.
 type DistributionBuilder struct {
-	Title        string
-	Organization string
-	Identifier   string
-	Version      string
-	MinOSVersion string
-	LicenseFile  string
-	Choices      []Choice
+	Title        string   // Title of the installer.
+	Organization string   // Organization name.
+	Identifier   string   // Unique identifier for the installer.
+	Version      string   // Version of the installer.
+	MinOSVersion string   // Minimum OS version required for the installer.
+	LicenseFile  string   // Path to the license file.
+	Choices      []Choice // List of choices available in the installer.
 }
 
+// Choice represents an individual choice in the installer.
 type Choice struct {
-	ID       string
-	Visible  bool
-	PkgRefID string
+	ID       string // Unique identifier for the choice.
+	Visible  bool   // Visibility of the choice in the installer UI.
+	PkgRefID string // Package reference ID associated with the choice.
 }
 
 func NewDistributionBuilder() *DistributionBuilder {
@@ -43,43 +45,36 @@ func (b *DistributionBuilder) AddLicense(file string) {
 func (b *DistributionBuilder) Build() string {
 	var sb strings.Builder
 
-	sb.WriteString(`<?xml version="1.0" encoding="utf-8"?>
-<installer-gui-script minSpecVersion="1">
-`)
-	sb.WriteString(fmt.Sprintf("    <title>%s</title>\n", b.Title))
-	sb.WriteString(fmt.Sprintf("    <organization>%s</organization>\n", b.Organization))
-	sb.WriteString(`    <domains enable_localSystem="true"/>
-    <options customize="never" require-scripts="true" allow-external-scripts="no"/>
-`)
+	sb.WriteString(`<?xml version="1.0" encoding="utf-8"?>` + "\n")
+	sb.WriteString(`<installer-gui-script minSpecVersion="1">`)
+	sb.WriteString(fmt.Sprintf("<title>%s</title>", b.Title))
+	sb.WriteString(fmt.Sprintf("<organization>%s</organization>", b.Organization))
+	sb.WriteString(`<domains enable_localSystem="true"/>`)
+	sb.WriteString(`<options customize="never" require-scripts="true" allow-external-scripts="no"/>`)
 
 	if b.LicenseFile != "" {
-		sb.WriteString(fmt.Sprintf("    <license file=\"%s\" mime-type=\"text/plain\"/>\n", b.LicenseFile))
+		sb.WriteString(fmt.Sprintf("<license file=\"%s\" mime-type=\"text/plain\"/>", b.LicenseFile))
 	}
 
-	sb.WriteString(fmt.Sprintf(`    <volume-check>
-        <allowed-os-versions>
-            <os-version min="%s"/>
-        </allowed-os-versions>
-    </volume-check>
-`, b.MinOSVersion))
+	sb.WriteString(fmt.Sprintf(`<volume-check><allowed-os-versions><os-version min="%s"/></allowed-os-versions></volume-check>`, b.MinOSVersion))
 
-	sb.WriteString("    <choices-outline>\n")
-	sb.WriteString("        <line choice=\"default\">\n")
+	sb.WriteString("<choices-outline>")
+	sb.WriteString("<line choice=\"default\">")
 	for _, choice := range b.Choices {
-		sb.WriteString(fmt.Sprintf("            <line choice=\"%s\"/>\n", choice.ID))
+		sb.WriteString(fmt.Sprintf("<line choice=\"%s\"/>", choice.ID))
 	}
-	sb.WriteString("        </line>\n")
-	sb.WriteString("    </choices-outline>\n")
+	sb.WriteString("</line>")
+	sb.WriteString("</choices-outline>")
 
-	sb.WriteString("    <choice id=\"default\"/>\n")
+	sb.WriteString("<choice id=\"default\"/>")
 	for _, choice := range b.Choices {
-		sb.WriteString(fmt.Sprintf("    <choice id=\"%s\" visible=\"%t\">\n", choice.ID, choice.Visible))
-		sb.WriteString(fmt.Sprintf("        <pkg-ref id=\"%s\"/>\n", choice.PkgRefID))
-		sb.WriteString("    </choice>\n")
+		sb.WriteString(fmt.Sprintf("<choice id=\"%s\" visible=\"%t\">", choice.ID, choice.Visible))
+		sb.WriteString(fmt.Sprintf("<pkg-ref id=\"%s\"/>", choice.PkgRefID))
+		sb.WriteString("</choice>")
 	}
 
 	for _, choice := range b.Choices {
-		sb.WriteString(fmt.Sprintf("    <pkg-ref id=\"%s\" version=\"%s\" onConclusion=\"none\">component.pkg</pkg-ref>\n", choice.PkgRefID, b.Version))
+		sb.WriteString(fmt.Sprintf("<pkg-ref id=\"%s\" version=\"%s\" onConclusion=\"none\">component.pkg</pkg-ref>", choice.PkgRefID, b.Version))
 	}
 
 	sb.WriteString("</installer-gui-script>")
