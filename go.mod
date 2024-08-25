@@ -7,6 +7,7 @@ require (
 	github.com/samber/lo v1.39.0
 	github.com/urfave/cli/v2 v2.27.2
 	golang.org/x/text v0.16.0
+	gopkg.in/yaml.v3 v3.0.1
 	howett.net/plist v1.0.1
 )
 
