@@ -20,7 +20,7 @@ var defaultIconFile []byte
 
 var Command = &cli.Command{
 	Name:        "dmg",
-	Usage:       "",
+	Usage:       "Create a .dmg for macOS application deployment",
 	UsageText:   "",
 	Description: "",
 	Args:        true,

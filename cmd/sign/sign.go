@@ -10,7 +10,7 @@ import (
 
 var Command = &cli.Command{
 	Name:        "sign",
-	Usage:       "",
+	Usage:       "Sign the app/dmg/pkg file",
 	UsageText:   "",
 	Description: "",
 	Args:        true,
