@@ -1,6 +1,7 @@
 package dmg
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp/mactools/dsstore"
+	"github.com/ironpark/zapp/mactools/hdiutil"
 )
 
 // Config represents the configuration for the DMG file.
@@ -73,12 +75,108 @@ func CreateDMG(config Config, sourceDir string) error {
 	if !strings.HasSuffix(config.FileName, ".dmg") {
 		config.FileName += ".dmg"
 	}
-
+	ctx := context.Background()
 	// Create the DMG file using hdiutil
-	cmd := exec.Command("hdiutil", "create", "-volname", config.Title, "-srcfolder", sourceDir, "-ov", "-format", "UDZO", config.FileName)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to create dmg: %s, output: %s", err, string(output))
+	if err := hdiutil.Create(ctx, config.Title, sourceDir, hdiutil.UDRW, config.FileName); err != nil {
+		return fmt.Errorf("failed to create dmg: %w", err)
 	}
+
+	// Set custom icon for the DMG if specified
+	if config.Icon != "" {
+		if err := setDMGIcon(config.FileName, config.Icon); err != nil {
+			return fmt.Errorf("failed to set DMG icon: %w", err)
+		}
+	}
+
+	// Convert the DMG to read-only
+	tempFileName := "temp_" + config.FileName
+	if err := os.Rename(config.FileName, tempFileName); err != nil {
+		return fmt.Errorf("failed to rename DMG file: %w", err)
+	}
+	defer os.Remove(tempFileName) // Ensure cleanup of temp file
+	if err := hdiutil.Convert(ctx, tempFileName, hdiutil.UDRO, config.FileName); err != nil {
+		return fmt.Errorf("failed to convert DMG: %w", err)
+	}
+	if config.Icon != "" {
+		setFileIcon(config.FileName, config.Icon)
+	}
+	return nil
+}
+func setFileIcon(dmgPath, iconPath string) error {
+	// Create temporary mount point
+	tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir) // Ensure cleanup of temp directory
+
+	tempIconPath := filepath.Join(tempDir, "icon.icns")
+	err = copyFile(iconPath, tempIconPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy icon: %w", err)
+	}
+
+	cmd := exec.Command("sips", "-i", tempIconPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set icon: %s, output: %s", err, string(output))
+	}
+	cmd = exec.Command("DeRez", "-only", "icns", tempIconPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to DeRez icon: %s, output: %s", err, string(output))
+	}
+	rsrcPath := filepath.Join(tempDir, "icns.rsrc")
+	if err := os.WriteFile(rsrcPath, output, 0644); err != nil {
+		return fmt.Errorf("failed to write icns.rsrc: %w", err)
+	}
+	cmd = exec.Command("Rez", "-append", rsrcPath, "-o", dmgPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to append icns.rsrc: %s, output: %s", err, string(output))
+	}
+	cmd = exec.Command("SetFile", "-a", "C", dmgPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set icon: %s, output: %s", err, string(output))
+	}
+	return nil
+}
+
+func setDMGIcon(dmgPath, iconPath string) error {
+	// Create temporary mount point
+	tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+
+	mountPoint := filepath.Join(tempDir, "mount")
+	ctx := context.Background()
+	if err := hdiutil.Attach(ctx, dmgPath, mountPoint); err != nil {
+		return fmt.Errorf("failed to attach DMG: %w", err)
+	}
+	defer func() {
+		if err := hdiutil.Detach(ctx, mountPoint); err != nil {
+			fmt.Printf("failed to detach DMG: %s", err)
+		}
+		os.RemoveAll(tempDir)
+	}()
+
+	// Copy the icon to the mount point
+	iconFile := filepath.Join(mountPoint, ".VolumeIcon.icns")
+	if err := copyFile(iconPath, iconFile); err != nil {
+		return fmt.Errorf("failed to copy icon to mount point: %w", err)
+	}
+
+	// Set the icon
+	cmd := exec.Command("SetFile", "-c", "icnC", iconFile)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set icon: %s, output: %s", err, string(output))
+	}
+
+	// Tell the volume that it has a special file attribute
+	cmd = exec.Command("SetFile", "-a", "C", mountPoint)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set icon: %s, output: %s", err, string(output))
+	}
+
 	return nil
 }
 
@@ -105,12 +203,6 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create symbolic link %s: %s", item.Path, err)
 			}
-		}
-	}
-	// Copy the icon and background if specified
-	if config.Icon != "" {
-		if err := copyFile(config.Icon, filepath.Join(sourceDir, ".VolumeIcon.icns")); err != nil {
-			return fmt.Errorf("failed to copy icon: %s", err)
 		}
 	}
 

@@ -9,9 +9,14 @@ import (
 
 	"github.com/ironpark/zapp/mactools/dmg"
 
+	_ "embed"
+
 	"github.com/briandowns/spinner"
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed iconfile.icns
+var defaultIconFile []byte
 
 var Command = &cli.Command{
 	Name:        "dmg",
@@ -41,11 +46,18 @@ var Command = &cli.Command{
 		if c.String("title") != "" {
 			title = c.String("title")
 		}
-		fmt.Fprint(c.App.Writer, "Creating DMG file2...")
+		icon := c.String("icon")
+		if icon == "" {
+			icon = filepath.Join(os.TempDir(), "iconfile.icns")
+			err := os.WriteFile(icon, defaultIconFile, 0644)
+			if err != nil {
+				return fmt.Errorf("error writing default icon file: %v", err)
+			}
+		}
 		defaultConfig := dmg.Config{
 			FileName:         c.String("out"),
 			Title:            title,
-			Icon:             "",
+			Icon:             icon,
 			LabelSize:        30,
 			ContentsIconSize: 100,
 			WindowWidth:      640,
@@ -53,7 +65,7 @@ var Command = &cli.Command{
 			Background:       "",
 			Contents:         []dmg.Item{{X: int(float64(640) / 5 * 1), Y: 480 / 2, Type: dmg.Dir, Path: appFile}, {X: int(float64(640) / 5 * 3), Y: 480 / 2, Type: dmg.Link, Path: "/Applications"}},
 		}
-		tempDir, err := os.MkdirTemp("", "zapp-dmg")
+		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
 		if err != nil {
 			return fmt.Errorf("error creating temporary directory: %v", err)
 		}
@@ -80,6 +92,10 @@ var Command = &cli.Command{
 			Name:    "out",
 			Usage:   "The output file name of the DMG file",
 			Aliases: []string{"o"},
+		},
+		&cli.StringFlag{
+			Name:  "icon",
+			Usage: "The icon file path to be displayed in the DMG file (icns, png)",
 		},
 	},
 	HelpName:           "",
