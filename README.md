@@ -27,22 +27,22 @@ It greatly simplifies the DMG creation process by automatically extracting icons
 
 
 ```bash
-zapp dmg "<path of app-bundle>"
+zapp dmg --app "path/to/target.app"
 ```
 
 ```bash
-zapp dmg --title "My App" --out "MyApp.dmg" --icon "path/to/icon.icns" "path/to/target.app"
+zapp dmg --title "My App" --out "MyApp.dmg" --icon "path/to/icon.icns" --app "path/to/target.app"
 ```
 
 ### Creating PKG Files
 
 #### Create a PKG file from the app bundle
 ```bash
-zapp pkg "<path of app-bundle>"
+zapp pkg "path/to/target.app"
 ```
 
 ```bash
-zapp pkg --out "MyApp.pkg" --version "1.2.3" --identifier "com.example.myapp" "<path of app-bundle>"
+zapp pkg --out "MyApp.pkg" --version "1.2.3" --identifier "com.example.myapp" "path/to/target.app"
 ```
 
 #### With EULA Files
@@ -50,13 +50,13 @@ zapp pkg --out "MyApp.pkg" --version "1.2.3" --identifier "com.example.myapp" "<
 Include End User License Agreement (EULA) files in multiple languages:
 
 ```bash
-zapp pkg "<path of app-bundle>" --eula en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt
+zapp pkg "path/to/target.app" --eula en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt
 ```
 
 ### Code Signing (Coming Soon)
 
 ```bash
-zapp sign "<target app/dmg/pkg>"
+zapp sign "path/to/target.(app,dmg,pkg)"
 ```
 
 ## Advanced Usage

@@ -2,6 +2,7 @@ package entry
 
 import (
 	"bytes"
+
 	"howett.net/plist"
 )
 
@@ -45,6 +46,10 @@ func (i *IconViewPreferencesEntry) Bytes() []byte {
 		return nil
 	}
 	return plistWrap(buffer.Bytes())
+}
+
+func (i *IconViewPreferencesEntry) SetBgToDefault() {
+	i.BackgroundType = 0
 }
 
 func (i *IconViewPreferencesEntry) SetBgColor(r, g, b float64) {

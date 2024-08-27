@@ -77,6 +77,10 @@ func (ds *DSStore) SetBgColor(r, g, b float64) {
 	ds.getIconViewPreferences().SetBgColor(r, g, b)
 }
 
+func (ds *DSStore) SetBgToDefault() {
+	ds.getIconViewPreferences().SetBgToDefault()
+}
+
 func (ds *DSStore) SetWindow(width, height, x, y int) {
 	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
 		return e.EntryType() == entry.TypeWorkspaceSettings

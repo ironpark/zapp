@@ -58,7 +58,7 @@ func CreateDMG(config Config, sourceDir string) error {
 	store.SetWindow(config.WindowWidth, config.WindowHeight, 0, 0)
 	store.SetLabelSize(float64(config.LabelSize))
 	store.SetLabelPlaceToBottom(true)
-
+	store.SetBgToDefault()
 	for _, content := range config.Contents {
 		store.SetIconPos(filepath.Base(content.Path), uint32(content.X), uint32(content.Y))
 	}
