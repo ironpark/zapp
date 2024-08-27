@@ -15,7 +15,12 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 - [ ] Support GitHub Actions
 
 ## Installation
-
+Using Homebrew
+```bash
+brew tap ironpark/zapp
+brew install zapp
+```
+Using Go
 ```bash
 go install github.com/ironpark/zapp@latest
 ```
