@@ -3,3 +3,5 @@
 *.dmg
 *.pkg
 /assets/test
+
+dist/
