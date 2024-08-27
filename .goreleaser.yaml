@@ -36,6 +36,17 @@ archives:
       - goos: windows
         format: zip
 
+brews:
+  - name: zapp
+    homepage: "https://github.com/ironpark/zapp"
+    description: "Zapp is a powerful CLI tool designed to streamline the deployment process for macOS applications. With Zapp, you can effortlessly create DMG and PKG files, perform code signing, notarize your apps, and modify plist files."
+    directory: Formula
+    repository:
+      owner: ironpark
+      name: homebrew-zapp
+    commit_author:
+      name: ironpark
+      email: cjfdhksaos@gmail.com
 changelog:
   sort: asc
   filters:

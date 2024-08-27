@@ -16,7 +16,9 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 
 ## Installation
 
-(TODO: Add installation instructions)
+```bash
+go install github.com/ironpark/zapp@latest
+```
 
 ## Usage
 
