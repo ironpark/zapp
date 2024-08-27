@@ -8,7 +8,7 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 
 - [x] Create DMG files
 - [x] Create PKG files
-- [ ] Code signing
+- [x] Code signing
 - [ ] Notarization / Stapling with Retries
 - [ ] Modify plist (version)
 - [ ] Auto binary dependencies bundling
@@ -52,13 +52,16 @@ Include End User License Agreement (EULA) files in multiple languages:
 ```bash
 zapp pkg "path/to/target.app" --eula en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt
 ```
+### Code Signing
 
-### Code Signing (Coming Soon)
+If the `--identity` flag is not used to select a certificate, Zapp will automatically select an available certificate from the current keychain.
 
 ```bash
 zapp sign "path/to/target.(app,dmg,pkg)"
 ```
-
+```bash
+zapp sign --identity "Developer ID Application" "path/to/target.(app,dmg,pkg)"
+```
 ## Advanced Usage
 
 (TODO: Add advanced usage examples)
