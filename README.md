@@ -22,7 +22,9 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 
 ### Creating DMG Files
 
-Create a DMG file from the app bundle:
+> Zapp can be used to create DMG files, a common format used for distributing macOS apps.
+It greatly simplifies the DMG creation process by automatically extracting icons from the app bundle, compositing disk icons, and providing an interface for drag-and-drop installation of the app.
+
 
 ```bash
 zapp dmg "<path of app-bundle>"
@@ -60,10 +62,6 @@ zapp sign "<target app/dmg/pkg>"
 ## Advanced Usage
 
 (TODO: Add advanced usage examples)
-
-## Contributing
-
-We welcome contributions to Zapp! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more information.
 
 ## License
 

@@ -40,6 +40,14 @@ var Command = &cli.Command{
 		if !fileInfo.IsDir() {
 			return fmt.Errorf("app-bundle path must be a directory")
 		}
+		// Create a temporary working directory
+		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
+		if err != nil {
+			return fmt.Errorf("error creating temporary directory: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		fmt.Fprint(c.App.Writer, c.Bool("disk-icon"), "Creating DMG file...\n")
 
 		fmt.Fprint(c.App.Writer, "Creating DMG file...")
 		title := filepath.Base(appFile)
@@ -48,12 +56,18 @@ var Command = &cli.Command{
 		}
 		icon := c.String("icon")
 		if icon == "" {
-			icon = filepath.Join(os.TempDir(), "iconfile.icns")
-			err := os.WriteFile(icon, defaultIconFile, 0644)
+			tempDirForIcon, err := os.MkdirTemp("", "*-zapp-dmg-icon")
 			if err != nil {
-				return fmt.Errorf("error writing default icon file: %v", err)
+				return fmt.Errorf("error creating temporary directory: %v", err)
+			}
+			defer os.RemoveAll(tempDir)
+			icon = filepath.Join(tempDirForIcon, "icon.icns")
+			err = createIconSet(appFile, icon, !c.Bool("use-original-icon"))
+			if err != nil {
+				return err
 			}
 		}
+
 		defaultConfig := dmg.Config{
 			FileName:         c.String("out"),
 			Title:            title,
@@ -65,11 +79,7 @@ var Command = &cli.Command{
 			Background:       "",
 			Contents:         []dmg.Item{{X: int(float64(640) / 5 * 1), Y: 480 / 2, Type: dmg.Dir, Path: appFile}, {X: int(float64(640) / 5 * 3), Y: 480 / 2, Type: dmg.Link, Path: "/Applications"}},
 		}
-		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
-		if err != nil {
-			return fmt.Errorf("error creating temporary directory: %v", err)
-		}
-		defer os.RemoveAll(tempDir)
+
 		s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
 		s.Suffix = " Creating DMG file..."
 
@@ -96,6 +106,11 @@ var Command = &cli.Command{
 		&cli.StringFlag{
 			Name:  "icon",
 			Usage: "The icon file path to be displayed in the DMG file (icns, png)",
+		},
+		&cli.BoolFlag{
+			Name:    "use-original-icon ",
+			Aliases: []string{"uoi"},
+			Usage:   "Use the original icon (not modified)",
 		},
 	},
 	HelpName:           "",
