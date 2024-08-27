@@ -35,6 +35,7 @@ zapp dmg --title "My App" --out "MyApp.dmg" --icon "path/to/icon.icns" --app "pa
 ```
 
 ### Creating PKG Files
+> If the `--version` and `--identifier` flags are not set, these values will be retrieved from the Info.plist file of the provided app bundle.
 
 #### Create a PKG file from the app bundle
 ```bash

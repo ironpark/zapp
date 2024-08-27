@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironpark/zapp/mactools/pkg"
-
 	"github.com/briandowns/spinner"
+	"github.com/ironpark/zapp/mactools/pkg"
+	"github.com/ironpark/zapp/mactools/plist"
 	"github.com/urfave/cli/v2"
 )
 
@@ -35,6 +35,10 @@ var Command = &cli.Command{
 		if !fileInfo.IsDir() {
 			return fmt.Errorf("app-bundle path must be a directory")
 		}
+		info, err := plist.GetAppInfo(appFile)
+		if err != nil {
+			return fmt.Errorf("failed to get app info: %v", err)
+		}
 
 		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 		s.Suffix = " Creating PKG file..."
@@ -56,10 +60,16 @@ var Command = &cli.Command{
 			config.OutputPath = appName + ".pkg"
 		}
 		if config.Version == "" {
-			config.Version = "1.0"
+			config.Version, _ = info.Version()
+			if config.Version == "" {
+				config.Version = "1.0"
+			}
 		}
 		if config.Identifier == "" {
-			config.Identifier = "com.example." + appName
+			config.Identifier, _ = info.BundleID()
+			if config.Identifier == "" {
+				config.Identifier = "com.example." + appName
+			}
 		}
 
 		for _, eula := range c.StringSlice("eula") {
