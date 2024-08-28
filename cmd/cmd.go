@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/ironpark/zapp/cmd/dmg"
-	"github.com/ironpark/zapp/cmd/notary"
+	"github.com/ironpark/zapp/cmd/notarize"
 	"github.com/ironpark/zapp/cmd/pkg"
 	"github.com/ironpark/zapp/cmd/plist"
 	"github.com/ironpark/zapp/cmd/sign"
@@ -14,7 +14,7 @@ var commands = []*cli.Command{
 	pkg.Command,
 	sign.Command,
 	plist.Command,
-	notary.Command,
+	notarize.Command,
 }
 
 func GetCommands() []*cli.Command {

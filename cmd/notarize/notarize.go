@@ -1,4 +1,4 @@
-package notary
+package notarize
 
 import (
 	"fmt"
@@ -11,15 +11,9 @@ import (
 )
 
 var Command = &cli.Command{
-	Name:  "notary",
+	Name:  "notarize",
 	Usage: "Notarization & Stapling for macOS app/dmg/pkg",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "file",
-			Aliases:  []string{"f"},
-			Usage:    "Path to the file to be notarized and stapled (app/dmg/pkg)",
-			Required: true,
-		},
 		&cli.StringFlag{
 			Name:    "profile",
 			Aliases: []string{"p"},
@@ -37,24 +31,50 @@ var Command = &cli.Command{
 			Name:  "team-id",
 			Usage: "Developer Team ID",
 		},
+		&cli.BoolFlag{
+			Name:  "staple",
+			Usage: "Perform stapling after notarization",
+		},
 	},
 	Action: func(c *cli.Context) error {
-		filePath := c.String("file")
 		profile := c.String("profile")
 		appleID := c.String("apple-id")
 		password := c.String("password")
 		teamID := c.String("team-id")
+		staple := c.Bool("staple")
 
+		filePath := c.Args().First()
+		if filePath == "" {
+			return fmt.Errorf("please provide a path for the target(app,dmg,pkg) file")
+		}
+
+		switch strings.ToLower(filepath.Ext(filePath)) {
+		case ".app", ".dmg", ".pkg":
+		default:
+			return fmt.Errorf("unsupported file type")
+		}
+
+		if _, err := os.Stat(filePath); err != nil {
+			return fmt.Errorf("error accessing path: %v", err)
+		}
 		// Check if either profile or all of apple-id, password, and team-id are provided
 		if profile == "" && (appleID == "" || password == "" || teamID == "") {
 			return fmt.Errorf("either --profile or all of [--apple-id, --password, --team-id] must be provided")
 		}
 
-		return notarizeAndStaple(c, filePath, profile, appleID, password, teamID)
+		err := notarize(c, filePath, profile, appleID, password, teamID)
+		if err != nil {
+			return err
+		}
+
+		if staple {
+			return performStapling(c, filePath)
+		}
+		return nil
 	},
 }
 
-func notarizeAndStaple(c *cli.Context, filePath, profile, appleID, password, teamID string) error {
+func notarize(c *cli.Context, filePath, profile, appleID, password, teamID string) error {
 	// Step 1: Store credentials if profile is not provided
 	if profile == "" {
 		fmt.Println("Storing credentials...")
@@ -107,20 +127,24 @@ func notarizeAndStaple(c *cli.Context, filePath, profile, appleID, password, tea
 		return fmt.Errorf("notarization failed: %s", result.Message)
 	}
 
-	// Step 3: Staple
+	fmt.Printf("%s is now notarized\n", filepath.Base(filePath))
+	return nil
+}
+
+func performStapling(c *cli.Context, filePath string) error {
 	fmt.Println("Stapling the notarization ticket...")
-	err = notarytool.Staple(c.Context, filePath)
+	err := notarytool.Staple(c.Context, filePath)
 	if err != nil {
 		return fmt.Errorf("failed to staple: %w", err)
 	}
 	isStapled, err := notarytool.IsStapled(c.Context, filePath)
 	if err != nil {
-		return fmt.Errorf("failed to check notarization: %w", err)
+		return fmt.Errorf("failed to check stapling: %w", err)
 	}
 	if !isStapled {
-		return fmt.Errorf("file is not notarized after submission")
+		return fmt.Errorf("file is not stapled after notarization")
 	}
-	fmt.Printf("%s is now notarized & stapled\n", filepath.Base(filePath))
+	fmt.Printf("%s is now stapled\n", filepath.Base(filePath))
 	return nil
 }
 

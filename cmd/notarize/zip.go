@@ -1,4 +1,4 @@
-package notary
+package notarize
 
 import (
 	"archive/zip"
