@@ -20,8 +20,7 @@ type Identity struct {
 }
 
 func (i Identity) String() string {
-	return fmt.Sprintf("%d) %s [%s: %s (%s)]",
-		i.ID, i.Fingerprint, i.Type, i.DeveloperName, i.DeveloperID)
+	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
 func FindIdentity(ctx context.Context, keychain string) ([]Identity, error) {

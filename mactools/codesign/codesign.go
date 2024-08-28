@@ -104,8 +104,9 @@ func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option
 
 	args := buildArgs(options)
 	cmd := exec.CommandContext(ctx, "codesign", args...)
+	fmt.Println(cmd.String())
 	output, err := cmd.CombinedOutput()
-
+	fmt.Println(string(output))
 	if err != nil {
 		return fmt.Errorf("%w: %v (output: %s)", ErrCodesignFailed, err, output)
 	}

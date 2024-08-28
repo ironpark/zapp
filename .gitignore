@@ -5,3 +5,5 @@
 /assets/test
 
 dist/
+cmd/init
+.secret
