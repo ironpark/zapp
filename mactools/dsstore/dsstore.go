@@ -77,6 +77,11 @@ func (ds *DSStore) SetBgColor(r, g, b float64) {
 	ds.getIconViewPreferences().SetBgColor(r, g, b)
 }
 
+func (ds *DSStore) SetBackgroundImage(path string) {
+	ivp := ds.getIconViewPreferences()
+	ivp.SetBgImage(path)
+}
+
 func (ds *DSStore) SetBgToDefault() {
 	ds.getIconViewPreferences().SetBgToDefault()
 }

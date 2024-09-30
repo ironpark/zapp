@@ -24,6 +24,7 @@ var (
 	out                       string
 	title                     string
 	icon                      string
+	background                string
 	windowWidth, windowHeight int
 	labelSize                 int
 	contentsIconSize          int
@@ -77,7 +78,7 @@ var Command = &cli.Command{
 			ContentsIconSize: contentsIconSize,
 			WindowWidth:      windowWidth,
 			WindowHeight:     windowHeight,
-			Background:       "",
+			Background:       background,
 			Contents: []dmg.Item{
 				{X: int(float64(windowWidth)/3*1 - float64(contentsIconSize)/2), Y: centerY, Type: dmg.Dir, Path: appDir},
 				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
@@ -96,6 +97,12 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "background",
+			Usage:       "Path to the background image file",
+			Aliases:     []string{"bg"},
+			Destination: &background,
+		},
 		&cli.StringFlag{
 			Name:        "title",
 			Usage:       "The title displayed when the DMG file is mounted",

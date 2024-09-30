@@ -82,10 +82,21 @@ func CreateDMG(config Config, sourceDir string) error {
 	}
 
 	// Set custom icon for the DMG if specified
-	if config.Icon != "" {
-		if err := setDMGIcon(config.FileName, config.Icon); err != nil {
-			return fmt.Errorf("failed to set DMG icon: %w", err)
-		}
+	if config.Icon != "" || config.Background != "" {
+		err = tmpMount(config.FileName, func(dmgFilePath string, mountPoint string) error {
+			if config.Icon != "" {
+				if err := setDMGIcon(mountPoint, config.Icon); err != nil {
+					return fmt.Errorf("failed to set DMG icon: %w", err)
+				}
+			}
+			if config.Background != "" {
+				store.SetBackgroundImage(filepath.Join(mountPoint, ".background", "background.png"))
+				if err := store.Write(filepath.Join(mountPoint, ".DS_Store")); err != nil {
+					return fmt.Errorf("failed to write .DS_Store: %w", err)
+				}
+			}
+			return nil
+		})
 	}
 
 	// Convert the DMG to read-only
@@ -102,6 +113,7 @@ func CreateDMG(config Config, sourceDir string) error {
 	}
 	return nil
 }
+
 func setFileIcon(dmgPath, iconPath string) error {
 	// Create temporary mount point
 	tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
@@ -140,25 +152,27 @@ func setFileIcon(dmgPath, iconPath string) error {
 	return nil
 }
 
-func setDMGIcon(dmgPath, iconPath string) error {
+func tmpMount(dmgPath string, process func(dmgFilePath string, mountPoint string) error) error {
 	// Create temporary mount point
 	tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-
+	defer os.RemoveAll(tempDir)
 	mountPoint := filepath.Join(tempDir, "mount")
 	ctx := context.Background()
-	if err := hdiutil.Attach(ctx, dmgPath, mountPoint); err != nil {
+	if err = hdiutil.Attach(ctx, dmgPath, mountPoint); err != nil {
 		return fmt.Errorf("failed to attach DMG: %w", err)
 	}
 	defer func() {
-		if err := hdiutil.Detach(ctx, mountPoint); err != nil {
+		if err = hdiutil.Detach(ctx, mountPoint); err != nil {
 			fmt.Printf("failed to detach DMG: %s", err)
 		}
-		os.RemoveAll(tempDir)
 	}()
+	return process(dmgPath, mountPoint)
+}
 
+func setDMGIcon(mountPoint, iconPath string) error {
 	// Copy the icon to the mount point
 	iconFile := filepath.Join(mountPoint, ".VolumeIcon.icns")
 	if err := copyFile(iconPath, iconFile); err != nil {
@@ -206,8 +220,13 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 		}
 	}
 
+	// 배경 이미지 복사
 	if config.Background != "" {
-		if err := copyFile(config.Background, filepath.Join(sourceDir, ".background", "background.png")); err != nil {
+		backgroundDir := filepath.Join(sourceDir, ".background")
+		if err := os.MkdirAll(backgroundDir, 0755); err != nil {
+			return fmt.Errorf("failed to create .background directory: %w", err)
+		}
+		if err := copyFile(config.Background, filepath.Join(backgroundDir, "background.png")); err != nil {
 			return fmt.Errorf("failed to copy background: %s", err)
 		}
 	}

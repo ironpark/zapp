@@ -6,16 +6,17 @@ import (
 )
 
 func TestCreateDMG(t *testing.T) {
-	os.Remove("asd.dmg")
+	os.Remove("SyncMaster.dmg")
 	os.RemoveAll("/tmp/test")
+
 	err := CreateDMG(Config{
 		Title:            "SyncMaster",
-		Icon:             "",
+		Icon:             "/Users/ironpark/Documents/Project/Personal/zapp/assets/test/SyncMaster 240704.app/Contents/Resources/iconfile.icns",
 		LabelSize:        15,
 		ContentsIconSize: 200,
 		WindowWidth:      640,
 		WindowHeight:     480,
-		Background:       "",
+		Background:       "/Users/ironpark/Documents/Project/Personal/zapp/mactools/dmg/bg.png",
 		Contents: []Item{
 			{X: int(float64(640) / 5 * 3), Y: 480 / 2, Type: Link, Path: "/Applications"},
 			{X: int(float64(640) / 5 * 1), Y: 480 / 2, Type: Dir, Path: "/Users/ironpark/Documents/Project/Personal/zapp/assets/test/SyncMaster 240704.app"},
