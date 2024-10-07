@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	appPath string
+	appDir string
 )
 var Command = &cli.Command{
 	Name:      "dep",
@@ -23,20 +23,20 @@ var Command = &cli.Command{
 	Args:      true,
 	ArgsUsage: " <path of app-bundle>",
 	Action: func(c *cli.Context) error {
-		if appPath == "" {
+		if appDir == "" {
 			return fmt.Errorf("[--app] target app-bundle is required")
 		}
-		if !strings.HasSuffix(appPath, ".app") {
+		if !strings.HasSuffix(appDir, ".app") {
 			return fmt.Errorf("not valid app bundle extension")
 		}
-		fileInfo, err := os.Stat(appPath)
+		fileInfo, err := os.Stat(appDir)
 		if err != nil {
 			return fmt.Errorf("error accessing app-bundle path: %v", err)
 		}
 		if !fileInfo.IsDir() {
 			return fmt.Errorf("app-bundle path must be a directory")
 		}
-		info, err := plist.GetAppInfo(appPath)
+		info, err := plist.GetAppInfo(appDir)
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}
@@ -44,8 +44,8 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get bundle name: %v", err)
 		}
-		targetBundle := filepath.Join(appPath, "Contents", "MacOS", bundleName)
-		frameworksPath := filepath.Join(appPath, "Contents", "Frameworks")
+		targetBundle := filepath.Join(appDir, "Contents", "MacOS", bundleName)
+		frameworksPath := filepath.Join(appDir, "Contents", "Frameworks")
 
 		fmt.Printf("Target bundle: %s\n", targetBundle)
 		dependencies, err := otool.GetDependencies(targetBundle)
@@ -111,8 +111,22 @@ var Command = &cli.Command{
 		&cli.StringFlag{
 			Name:        "app",
 			Usage:       "App bundle path",
-			Destination: &appPath,
+			Destination: &appDir,
 			Required:    true,
+			Action: func(c *cli.Context, app string) error {
+				if !strings.HasSuffix(app, ".app") {
+					return fmt.Errorf("not valid app bundle extension")
+				}
+				// Check if the app bundle path is valid
+				fileInfo, err := os.Stat(app)
+				if err != nil {
+					return fmt.Errorf("error accessing app-bundle path: %v", err)
+				}
+				if !fileInfo.IsDir() {
+					return fmt.Errorf("app-bundle path must be a directory")
+				}
+				return nil
+			},
 		},
 		&cli.StringSliceFlag{
 			Name:    "libs",

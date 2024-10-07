@@ -46,10 +46,7 @@ var Command = &cli.Command{
 	Args:        true,
 	ArgsUsage:   " <path of target>",
 	Action: func(c *cli.Context) error {
-		path := c.Args().First()
-		if path == "" {
-			return fmt.Errorf("please provide a path for the target(app,dmg,pkg) file")
-		}
+		path := c.String("target")
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("error accessing path: %v", err)
 		}
@@ -83,6 +80,35 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "target",
+			Aliases:  []string{"t"},
+			Usage:    "Path to the target(app,dmg,pkg) file",
+			Required: true,
+			Action: func(c *cli.Context, target string) error {
+				ext := strings.ToLower(filepath.Ext(target))
+				switch ext {
+				case ".app", ".dmg", ".pkg":
+				default:
+					return fmt.Errorf("unsupported file type")
+				}
+				// Check if the app bundle path is valid
+				fileInfo, err := os.Stat(target)
+				if err != nil {
+					return fmt.Errorf("error accessing target: %v", err)
+				}
+				if ext == ".app" {
+					if !fileInfo.IsDir() {
+						return fmt.Errorf("app-bundle path must be a directory")
+					}
+				} else {
+					if fileInfo.IsDir() {
+						return fmt.Errorf("dmg/pkg is must be a file")
+					}
+				}
+				return nil
+			},
+		},
 		&cli.StringFlag{
 			Name:        "identity",
 			Aliases:     []string{"i"},

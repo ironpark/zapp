@@ -63,6 +63,14 @@ func (a *AppInfo) BundleID() (string, error) {
 	return value.(string), nil
 }
 
+func (a *AppInfo) BundleName() (string, error) {
+	value, err := a.Get("CFBundleName")
+	if err != nil {
+		return "", err
+	}
+	return value.(string), nil
+}
+
 func (a *AppInfo) IconFilePath() (string, error) {
 	value, err := a.Get("CFBundleIconFile")
 	if err != nil {
@@ -97,5 +105,6 @@ func GetAppInfo(path string) (*AppInfo, error) {
 	}
 	return &AppInfo{
 		path: plistPath,
+		data: plistData,
 	}, nil
 }

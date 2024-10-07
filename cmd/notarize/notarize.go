@@ -15,6 +15,35 @@ var Command = &cli.Command{
 	Usage: "Notarization & Stapling for macOS app/dmg/pkg",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
+			Name:     "target",
+			Aliases:  []string{"t"},
+			Usage:    "Path to the target(app,dmg,pkg) file",
+			Required: true,
+			Action: func(c *cli.Context, target string) error {
+				ext := strings.ToLower(filepath.Ext(target))
+				switch ext {
+				case ".app", ".dmg", ".pkg":
+				default:
+					return fmt.Errorf("unsupported file type")
+				}
+				// Check if the app bundle path is valid
+				fileInfo, err := os.Stat(target)
+				if err != nil {
+					return fmt.Errorf("error accessing target: %v", err)
+				}
+				if ext == ".app" {
+					if !fileInfo.IsDir() {
+						return fmt.Errorf("app-bundle path must be a directory")
+					}
+				} else {
+					if fileInfo.IsDir() {
+						return fmt.Errorf("dmg/pkg is must be a file")
+					}
+				}
+				return nil
+			},
+		},
+		&cli.StringFlag{
 			Name:    "profile",
 			Aliases: []string{"p"},
 			Usage:   "Keychain profile name",
@@ -42,26 +71,11 @@ var Command = &cli.Command{
 		password := c.String("password")
 		teamID := c.String("team-id")
 		staple := c.Bool("staple")
-
-		filePath := c.Args().First()
-		if filePath == "" {
-			return fmt.Errorf("please provide a path for the target(app,dmg,pkg) file")
-		}
-
-		switch strings.ToLower(filepath.Ext(filePath)) {
-		case ".app", ".dmg", ".pkg":
-		default:
-			return fmt.Errorf("unsupported file type")
-		}
-
-		if _, err := os.Stat(filePath); err != nil {
-			return fmt.Errorf("error accessing path: %v", err)
-		}
+		filePath := c.String("target")
 		// Check if either profile or all of apple-id, password, and team-id are provided
 		if profile == "" && (appleID == "" || password == "" || teamID == "") {
 			return fmt.Errorf("either --profile or all of [--apple-id, --password, --team-id] must be provided")
 		}
-
 		err := notarize(c, filePath, profile, appleID, password, teamID)
 		if err != nil {
 			return err

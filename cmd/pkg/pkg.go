@@ -13,29 +13,17 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	appDir string
+)
 var Command = &cli.Command{
 	Name:        "pkg",
 	Usage:       "Create a .pkg installer for macOS",
-	UsageText:   "zapp pkg <path of app-bundle>",
+	UsageText:   "zapp pkg --app=<path of app-bundle>",
 	Description: "Creates a .pkg installer from the specified .app bundle",
 	Args:        true,
-	ArgsUsage:   " <path of app-bundle>",
 	Action: func(c *cli.Context) error {
-		appFile := c.Args().First()
-		if appFile == "" {
-			return fmt.Errorf("target app-bundle is required")
-		}
-		if !strings.HasSuffix(appFile, ".app") {
-			return fmt.Errorf("not valid app bundle extension")
-		}
-		fileInfo, err := os.Stat(appFile)
-		if err != nil {
-			return fmt.Errorf("error accessing app-bundle path: %v", err)
-		}
-		if !fileInfo.IsDir() {
-			return fmt.Errorf("app-bundle path must be a directory")
-		}
-		info, err := plist.GetAppInfo(appFile)
+		info, err := plist.GetAppInfo(appDir)
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}
@@ -44,11 +32,11 @@ var Command = &cli.Command{
 		s.Suffix = " Creating PKG file..."
 		s.Start()
 
-		appName := filepath.Base(appFile)
+		appName := filepath.Base(appDir)
 		appName = strings.TrimSuffix(appName, ".app")
 
 		config := pkg.Config{
-			AppPath:         appFile,
+			AppPath:         appDir,
 			OutputPath:      c.String("out"),
 			Version:         c.String("version"),
 			Identifier:      c.String("identifier"),
@@ -90,6 +78,26 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "app",
+			Usage:       "App bundle path",
+			Destination: &appDir,
+			Required:    true,
+			Action: func(c *cli.Context, app string) error {
+				if !strings.HasSuffix(app, ".app") {
+					return fmt.Errorf("not valid app bundle extension")
+				}
+				// Check if the app bundle path is valid
+				fileInfo, err := os.Stat(app)
+				if err != nil {
+					return fmt.Errorf("error accessing app-bundle path: %v", err)
+				}
+				if !fileInfo.IsDir() {
+					return fmt.Errorf("app-bundle path must be a directory")
+				}
+				return nil
+			},
+		},
 		&cli.StringFlag{
 			Name:    "out",
 			Usage:   "The output file name of the PKG file",

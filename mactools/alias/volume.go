@@ -27,42 +27,40 @@ const char* OSErrDescription(OSErr err) {
     }
     return "Could not get volume name";
 }
-
-char* GetVolumeName(const char* path) {
+char* GetVolumeNameV2(const char* path) {
     CFStringRef volumePath = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+    if (volumePath == NULL) {
+        return "Failed to create CFString from path";
+    }
+
     CFURLRef url = CFURLCreateWithFileSystemPath(NULL, volumePath, kCFURLPOSIXPathStyle, true);
-
-    FSRef urlFS;
-    if (!CFURLGetFSRef(url, &urlFS)) {
-        return "Failed to convert URL to file or directory object";
+    CFRelease(volumePath);
+    if (url == NULL) {
+        return "Failed to create CFURL from path";
     }
 
-    FSCatalogInfo urlInfo;
-    OSErr err = FSGetCatalogInfo(&urlFS, kFSCatInfoVolume, &urlInfo, NULL, NULL, NULL);
-    if (err != noErr) {
-        return (char*)OSErrDescription(err);
+    CFStringRef volumeName = NULL;
+    Boolean success = CFURLCopyResourcePropertyForKey(url, kCFURLVolumeNameKey, &volumeName, NULL);
+    CFRelease(url);
+
+    if (!success || volumeName == NULL) {
+        return "Failed to get volume name";
     }
 
-    HFSUniStr255 outString;
-    err = FSGetVolumeInfo(urlInfo.volume, 0, NULL, kFSVolInfoNone, NULL, &outString, NULL);
-    if (err != noErr) {
-        return (char*)OSErrDescription(err);
-    }
-
-    CFStringRef cfStr = CFStringCreateWithCharacters(NULL, outString.unicode, outString.length);
-    CFIndex bufferSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr), kCFStringEncodingUTF8) + 1;
+    CFIndex bufferSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(volumeName), kCFStringEncodingUTF8) + 1;
     char* result = (char*)malloc(bufferSize);
-    if (CFStringGetCString(cfStr, result, bufferSize, kCFStringEncodingUTF8)) {
-        CFRelease(cfStr);
-        CFRelease(url);
-        CFRelease(volumePath);
+    if (result == NULL) {
+        CFRelease(volumeName);
+        return "Failed to allocate memory for volume name";
+    }
+
+    if (CFStringGetCString(volumeName, result, bufferSize, kCFStringEncodingUTF8)) {
+        CFRelease(volumeName);
         return result;
     }
 
     free(result);
-    CFRelease(cfStr);
-    CFRelease(url);
-    CFRelease(volumePath);
+    CFRelease(volumeName);
     return "Failed to convert volume name to string";
 }
 */
@@ -72,12 +70,15 @@ func GetVolumeName(path string) (string, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
-	cResult := C.GetVolumeName(cPath)
+	cResult := C.GetVolumeNameV2(cPath)
 	defer C.free(unsafe.Pointer(cResult))
 
 	result := C.GoString(cResult)
 
-	if result == "Failed to convert URL to file or directory object" ||
+	if result == "Failed to create CFString from path" ||
+		result == "Failed to create CFURL from path" ||
+		result == "Failed to get volume name" ||
+		result == "Failed to allocate memory for volume name" ||
 		result == "Failed to convert volume name to string" {
 		return "", errors.New(result)
 	}
