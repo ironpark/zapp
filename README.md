@@ -12,7 +12,7 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 - [x] Notarization / Stapling
   - [ ] Retrieve notarization
 - [ ] Modify plist (version)
-- [ ] Auto binary dependencies bundling
+- [x] Auto binary dependencies bundling
 - [ ] Support GitHub Actions
 
 ## Installation
@@ -28,14 +28,28 @@ go install github.com/ironpark/zapp@latest
 
 ## Usage
 
-### Simple Example
-The following is a complete example showing how to use `zapp` to sign, package, notarize, and staple `MyApp.app`:
+### Full Example
+The following is a complete example showing how to use `zapp` to dependency bundling, codesign, packaging, notarize, and staple `MyApp.app`:
 ```bash
-zapp sign "MyApp.app"
-zapp pkg --out="MyApp.pkg" "MyApp.app"
-zapp sign "MyApp.pkg"
-zapp notarize --profile="key-chain-profile" "MyApp.pkg" --staple
+zapp dep --app="MyApp.app"
+zapp sign --target="MyApp.app"
+zapp pkg --out="MyApp.pkg" --app="MyApp.app"
+zapp sign --target="MyApp.pkg"
+zapp notarize --profile="key-chain-profile" --target="MyApp.pkg" --staple
 ```
+
+
+### Dependency Bundling
+This process inspects the dependencies of the application executable, includes the necessary libraries within /Contents/Frameworks, and modifies the link paths to enable standalone execution.
+
+```bash
+zapp dep --app="path/to/target.app"
+```
+You can add additional paths to search for libraries
+```bash
+zapp dep --app="path/to/target.app" --libs="/usr/local/lib" --libs="/opt/homebrew/Cellar/ffmpeg/7.0.2/lib"
+```
+
 
 ### Creating DMG Files
 
@@ -48,19 +62,23 @@ zapp dmg --app="path/to/target.app"
 ```
 
 ```bash
-zapp dmg --title="My App" --out="MyApp.dmg" --icon="path/to/icon.icns" --app="path/to/target.app"
+zapp dmg --title="My App" \ 
+  --app="path/to/target.app" \
+  --icon="path/to/icon.icns" \
+  --bg="path/to/background.png" \ 
+  --out="MyApp.dmg"
 ```
 
 ### Creating PKG Files
-> If the `--version` and `--identifier` flags are not set, these values will be retrieved from the Info.plist file of the provided app bundle.
+> If the `--version` and `--identifier` flags are not set, these values will be automatically retrieved from the Info.plist file of the provided app bundle
 
 #### Create a PKG file from the app bundle
 ```bash
-zapp pkg "path/to/target.app"
+zapp pkg --app="path/to/target.app"
 ```
 
 ```bash
-zapp pkg --out="MyApp.pkg" --version="1.2.3" --identifier="com.example.myapp" "path/to/target.app"
+zapp pkg --out="MyApp.pkg" --version="1.2.3" --identifier="com.example.myapp" --app="path/to/target.app"
 ```
 
 #### With EULA Files
@@ -68,28 +86,28 @@ zapp pkg --out="MyApp.pkg" --version="1.2.3" --identifier="com.example.myapp" "p
 Include End User License Agreement (EULA) files in multiple languages:
 
 ```bash
-zapp pkg "path/to/target.app" --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt
+zapp pkg --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt --app="path/to/target.app" 
 ```
 ### Code Signing
 
 If the `--identity` flag is not used to select a certificate, Zapp will automatically select an available certificate from the current keychain.
 
 ```bash
-zapp sign "path/to/target.(app,dmg,pkg)"
+zapp sign --target="path/to/target.(app,dmg,pkg)"
 ```
 ```bash
-zapp sign --identity="Developer ID Application" "path/to/target.(app,dmg,pkg)"
+zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dmg,pkg)"
 ```
 
 ### Notarization & Stapling
 > When executing the notarize command, if Zapp receives an app bundle path, it automatically compresses the app bundle and attempts to notarize it.
 
 ```bash
-zapp notarize --profile="key-chain-profile" "path/to/target.(app,dmg,pkg)" --staple
+zapp notarize --profile="key-chain-profile" --target="path/to/target.(app,dmg,pkg)" --staple
 ```
 
 ```bash
-zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" "path/to/target.(app,dmg,pkg)" --staple
+zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" --target="path/to/target.(app,dmg,pkg)" --staple
 ```
 
 ## Advanced Usage
@@ -102,4 +120,4 @@ Zapp is released under the [MIT License](LICENSE).
 
 ## Support
 
-If you encounter any issues or have questions, please file an issue on the [GitHub issue tracker](https://github.com/your-repo/zapp/issues).
+If you encounter any issues or have questions, please file an issue on the [GitHub issue tracker](https://github.com/ironpark/zapp/issues).
