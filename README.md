@@ -1,5 +1,7 @@
 # ZAPP
 
+[**English**](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) 
+
 **Simplify your macOS App deployment**
 
 Zapp is a powerful CLI tool designed to streamline the deployment process for macOS applications. With Zapp, you can effortlessly create DMG and PKG files, perform code signing, notarize your apps, and modify plist files.
