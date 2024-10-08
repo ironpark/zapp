@@ -14,6 +14,7 @@ import (
 
 var (
 	identity string
+	target   string
 )
 
 func getIdentity(c *cli.Context, prioritys ...string) (security.Identity, error) {
@@ -44,15 +45,11 @@ var Command = &cli.Command{
 	UsageText:   "",
 	Description: "",
 	Args:        true,
-	ArgsUsage:   " <path of target>",
+	ArgsUsage:   "",
 	Action: func(c *cli.Context) error {
-		path := c.String("target")
-		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("error accessing path: %v", err)
-		}
 		var idt security.Identity
 		var err error
-		switch filepath.Ext(path) {
+		switch filepath.Ext(target) {
 		case ".app":
 			idt, err = getIdentity(c, "Developer ID Application")
 		case ".dmg":
@@ -68,23 +65,23 @@ var Command = &cli.Command{
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(path) == ".pkg" {
-			err = signPKG(path, idt.String())
+		if filepath.Ext(target) == ".pkg" {
+			err = signPKG(target, idt.String())
 		} else {
-			err = codesign.CodeSign(c.Context, idt.Fingerprint, path)
+			err = codesign.CodeSign(c.Context, idt.Fingerprint, target)
 		}
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Successfully signed %s\n", path)
+		fmt.Printf("Successfully signed %s\n", target)
 		return nil
 	},
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "target",
-			Aliases:  []string{"t"},
-			Usage:    "Path to the target(app,dmg,pkg) file",
-			Required: true,
+			Name:        "target",
+			Usage:       "Path to the target(app,dmg,pkg) file",
+			Destination: &target,
+			Required:    true,
 			Action: func(c *cli.Context, target string) error {
 				ext := strings.ToLower(filepath.Ext(target))
 				switch ext {
@@ -116,9 +113,7 @@ var Command = &cli.Command{
 			Destination: &identity,
 		},
 	},
-	SkipFlagParsing:    true,
-	HelpName:           "",
-	CustomHelpTemplate: "",
+	SkipFlagParsing: false,
 }
 
 func signPKG(path, identity string) error {
