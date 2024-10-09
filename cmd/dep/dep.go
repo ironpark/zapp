@@ -2,6 +2,7 @@ package dep
 
 import (
 	"fmt"
+	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/mactools/install_name_tool"
 	"github.com/ironpark/zapp/mactools/otool"
 	"github.com/ironpark/zapp/mactools/plist"
@@ -105,9 +106,18 @@ var Command = &cli.Command{
 			}
 		}
 		fmt.Printf("(%d) Dependencies bundled successfully\n", len(foundedDeps))
+		err = cmd.RunSignCmd(c, appDir)
+		if err != nil {
+			return fmt.Errorf("failed to sign PKG: %v", err)
+		}
+
+		err = cmd.RunNotarizeCmd(c, appDir)
+		if err != nil {
+			return fmt.Errorf("failed to notarize PKG: %v", err)
+		}
 		return nil
 	},
-	Flags: []cli.Flag{
+	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:        "app",
 			Usage:       "App bundle path",
@@ -134,7 +144,7 @@ var Command = &cli.Command{
 			Aliases: []string{"l"},
 			//Destination: &libPaths,
 		},
-	},
+	}, cmd.CreateSubTaskFlags()...),
 }
 
 func CopyFile(src, dst string) (int64, error) {
