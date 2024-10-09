@@ -8,18 +8,6 @@ import (
 func CreateSubTaskFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.BoolFlag{
-			Category: "[with --sign (default: false)]",
-			Name:     "sign",
-			Usage:    "Codesign after creating DMG",
-			Hidden:   true,
-		},
-		&cli.StringFlag{
-			Category: "[with --sign (default: false)]",
-			Name:     "identity",
-			Usage:    "Identity to use for signing",
-			Action:   requireFlag[string]("sign", "identity"),
-		},
-		&cli.BoolFlag{
 			Category: "[with --notarize (default: false)]",
 			Name:     "notarize",
 			Hidden:   true,
@@ -54,6 +42,18 @@ func CreateSubTaskFlags() []cli.Flag {
 			Name:     "staple",
 			Usage:    "Perform stapling after notarization",
 			Action:   requireFlag[bool]("notarize", "staple"),
+		},
+		&cli.BoolFlag{
+			Category: "[with --sign (default: false)]",
+			Name:     "sign",
+			Usage:    "Codesign after creating DMG",
+			Hidden:   true,
+		},
+		&cli.StringFlag{
+			Category: "[with --sign (default: false)]",
+			Name:     "identity",
+			Usage:    "Identity to use for signing",
+			Action:   requireFlag[string]("sign", "identity"),
 		},
 	}
 }

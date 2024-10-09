@@ -4,7 +4,7 @@
 
 **Simplify your macOS App deployment**
 
-Zapp is a powerful CLI tool designed to streamline the deployment process for macOS applications. With Zapp, you can effortlessly create DMG and PKG files, perform code signing, notarize your apps, and modify plist files.
+`zapp` is a powerful CLI tool designed to streamline and automate the deployment process for macOS applications. It handles all stages of deployment in one tool, from dependency bundling to DMG/PKG creation, code signing, and notarization.
 
 ## Features
 
@@ -12,7 +12,6 @@ Zapp is a powerful CLI tool designed to streamline the deployment process for ma
 - [x] Create PKG files
 - [x] Code signing
 - [x] Notarization / Stapling
-  - [ ] Retrieve notarization
 - [ ] Modify plist (version)
 - [x] Auto binary dependencies bundling
 - [ ] Support GitHub Actions
@@ -32,14 +31,36 @@ go install github.com/ironpark/zapp@latest
 
 ### Full Example
 The following is a complete example showing how to use `zapp` to dependency bundling, codesign, packaging, notarize, and staple `MyApp.app`:
-```bash
-zapp dep --app="MyApp.app"
-zapp sign --target="MyApp.app"
-zapp pkg --out="MyApp.pkg" --app="MyApp.app"
-zapp sign --target="MyApp.pkg"
-zapp notarize --profile="key-chain-profile" --target="MyApp.pkg" --staple
-```
 
+```bash
+# Dependency bundling
+zapp dep --app="MyApp.app"
+
+# Codesign / notarize / staple
+zapp sign --target="MyApp.app"
+zapp notarize --profile="key-chain-profile" --target="MyApp.app" --staple
+
+# Create pkg/dmg file
+zapp pkg --app="MyApp.app" --out="MyApp.pkg"
+zapp dmg --app="MyApp.app" --out="MyApp.dmg"
+
+# Codesign / notarize / staple for pkg/dmg
+zapp sign --target="MyApp.app"
+zapp sign --target="MyApp.pkg"
+
+zapp notarize --profile="key-chain-profile" --target="MyApp.pkg" --staple
+zapp notarize --profile="key-chain-profile" --target="MyApp.dmg" --staple
+```
+or just use the shorthand command
+```bash
+zapp dep --app="MyApp.app" --sign --notarize --staple
+
+zapp pkg --out="MyApp.pkg" --app="MyApp.app" \ 
+  --sign --notarize --profile="key-chain-profile" --staple
+
+zapp dmg --out="MyApp.dmg" --app="MyApp.app" \
+  --sign --notarize --profile="key-chain-profile" --staple
+```
 
 ### Dependency Bundling
 This process inspects the dependencies of the application executable, includes the necessary libraries within /Contents/Frameworks, and modifies the link paths to enable standalone execution.
@@ -72,6 +93,9 @@ zapp dmg --title="My App" \
 ```
 
 ### Creating PKG Files
+
+> [!NOTE]
+> 
 > If the `--version` and `--identifier` flags are not set, these values will be automatically retrieved from the Info.plist file of the provided app bundle
 
 #### Create a PKG file from the app bundle
@@ -102,6 +126,8 @@ zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dm
 ```
 
 ### Notarization & Stapling
+> [!NOTE]
+> 
 > When executing the notarize command, if Zapp receives an app bundle path, it automatically compresses the app bundle and attempts to notarize it.
 
 ```bash
@@ -111,10 +137,6 @@ zapp notarize --profile="key-chain-profile" --target="path/to/target.(app,dmg,pk
 ```bash
 zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" --target="path/to/target.(app,dmg,pkg)" --staple
 ```
-
-## Advanced Usage
-
-(TODO: Add advanced usage examples)
 
 ## License
 

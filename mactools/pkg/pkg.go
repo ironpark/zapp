@@ -33,7 +33,7 @@ func CreatePKG(config Config) error {
 
 	componentPkgPath := filepath.Join(tempDir, "component.pkg")
 	cmd := exec.Command("pkgbuild",
-		"--root", config.AppPath,
+		"--root", filepath.Dir(config.AppPath),
 		"--install-location", config.InstallLocation,
 		"--identifier", config.Identifier,
 		"--version", config.Version,
@@ -67,7 +67,6 @@ func CreatePKG(config Config) error {
 	builder.Version = config.Version
 	builder.AddLicense("license.txt")
 	builder.AddChoice("choice1", false, config.Identifier)
-
 	distributionContent := builder.Build()
 
 	distributionPath := filepath.Join(tempDir, "distribution.xml")
