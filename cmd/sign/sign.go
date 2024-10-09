@@ -102,6 +102,7 @@ var Command = &cli.Command{
 				}
 				return nil
 			},
+			Aliases: []string{"app", "dmg", "pkg"},
 		},
 		&cli.StringFlag{
 			Name:        "identity",

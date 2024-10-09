@@ -16,7 +16,7 @@ var Command = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "target",
-			Aliases:  []string{"t"},
+			Aliases:  []string{"app", "dmg", "pkg"},
 			Usage:    "Path to the target(app,dmg,pkg) file",
 			Required: true,
 			Action: func(c *cli.Context, target string) error {
