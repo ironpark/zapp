@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"github.com/ironpark/zapp/cmd"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,6 +76,15 @@ var Command = &cli.Command{
 		}
 
 		fmt.Fprintln(c.App.Writer, "PKG file created successfully!")
+		err = cmd.RunSignCmd(c, config.OutputPath)
+		if err != nil {
+			return fmt.Errorf("failed to sign PKG: %v", err)
+		}
+
+		err = cmd.RunNotarizeCmd(c, config.OutputPath)
+		if err != nil {
+			return fmt.Errorf("failed to notarize PKG: %v", err)
+		}
 		return nil
 	},
 	Flags: append([]cli.Flag{
@@ -118,5 +128,5 @@ var Command = &cli.Command{
 			Usage:   "Path to the license (EULA) file (format: lang:path, e.g., en:en_eula.txt,ko:ko_eula.txt)",
 			Aliases: []string{"eula"},
 		},
-	}),
+	}, cmd.CreateSubTaskFlags()...),
 }

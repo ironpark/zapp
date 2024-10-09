@@ -2,6 +2,7 @@ package dmg
 
 import (
 	"fmt"
+	"github.com/ironpark/zapp/cmd"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,9 +95,18 @@ var Command = &cli.Command{
 			return err
 		}
 		fmt.Fprintf(c.App.Writer, "%s created at %s\n", out, time.Now().Format("2006-01-02 15:04:05"))
+		err = cmd.RunSignCmd(c, out)
+		if err != nil {
+			return fmt.Errorf("failed to sign PKG: %v", err)
+		}
+
+		err = cmd.RunNotarizeCmd(c, out)
+		if err != nil {
+			return fmt.Errorf("failed to notarize PKG: %v", err)
+		}
 		return nil
 	},
-	Flags: []cli.Flag{
+	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:        "background",
 			Usage:       "Path to the background image file",
@@ -185,7 +195,7 @@ var Command = &cli.Command{
 			Aliases: []string{"uoi"},
 			Usage:   "Use the original icon file without modifications.",
 		},
-	},
+	}, cmd.CreateSubTaskFlags()...),
 	HelpName:           "",
 	CustomHelpTemplate: "",
 }

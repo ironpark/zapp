@@ -25,9 +25,6 @@ func getIdentity(c *cli.Context, prioritys ...string) (security.Identity, error)
 	if len(idt) == 0 {
 		return security.Identity{}, fmt.Errorf("no identity found")
 	}
-	for _, identity := range idt {
-		fmt.Println(identity)
-	}
 	for _, t := range prioritys {
 		for _, identity := range idt {
 			if strings.Contains(identity.String(), t) {

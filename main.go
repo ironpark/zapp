@@ -1,20 +1,29 @@
 package main
 
 import (
+	"github.com/ironpark/zapp/cmd/dep"
+	"github.com/ironpark/zapp/cmd/dmg"
+	"github.com/ironpark/zapp/cmd/notarize"
+	"github.com/ironpark/zapp/cmd/pkg"
+	"github.com/ironpark/zapp/cmd/plist"
+	"github.com/ironpark/zapp/cmd/sign"
 	"log"
 	"os"
-
-	"github.com/ironpark/zapp/cmd"
 
 	"github.com/urfave/cli/v2"
 )
 
-var commands []*cli.Command
-
 func main() {
 	app := &cli.App{
-		Commands: cmd.GetCommands(),
-		Usage:    "Simplify your macOS App deployment",
+		Commands: []*cli.Command{
+			dmg.Command,
+			pkg.Command,
+			sign.Command,
+			plist.Command,
+			notarize.Command,
+			dep.Command,
+		},
+		Usage: "Simplify your macOS App deployment",
 		Action: func(ctx *cli.Context) error {
 			if ctx.NArg() == 0 {
 				return cli.ShowAppHelp(ctx)
