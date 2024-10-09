@@ -77,7 +77,7 @@ var Command = &cli.Command{
 		fmt.Fprintln(c.App.Writer, "PKG file created successfully!")
 		return nil
 	},
-	Flags: []cli.Flag{
+	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:        "app",
 			Usage:       "App bundle path",
@@ -118,5 +118,5 @@ var Command = &cli.Command{
 			Usage:   "Path to the license (EULA) file (format: lang:path, e.g., en:en_eula.txt,ko:ko_eula.txt)",
 			Aliases: []string{"eula"},
 		},
-	},
+	}),
 }
