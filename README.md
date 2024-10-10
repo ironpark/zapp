@@ -1,4 +1,6 @@
 # ZAPP
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fironpark%2Fzapp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fironpark%2Fzapp?ref=badge_shield)
+
 
 [**English**](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) 
 
@@ -141,6 +143,9 @@ zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" --
 ## License
 
 Zapp is released under the [MIT License](LICENSE).
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fironpark%2Fzapp.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fironpark%2Fzapp?ref=badge_large)
 
 ## Support
 
