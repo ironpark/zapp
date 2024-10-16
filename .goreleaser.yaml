@@ -18,8 +18,7 @@ builds:
       - CGO_ENABLED=1
     goos:
       - darwin
-    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/info.BuildDate={{.Date}}'.
-
+    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/info.BuildDate={{.Date}}'
 
 archives:
   - format: tar.gz
