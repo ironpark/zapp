@@ -19,6 +19,21 @@ type Identity struct {
 	DeveloperID   string
 }
 
+func (i Identity) SecureString() string {
+	// 개발자 이름 마스킹
+	nameParts := strings.Fields(i.DeveloperName)
+	maskedName := make([]string, len(nameParts))
+	for j, part := range nameParts {
+		maskedName[j] = strings.Repeat("*", len(part))
+	}
+	securedName := strings.Join(maskedName, " ")
+
+	// 개발자 ID 마스킹 (마지막 5자리만 표시)
+	idLength := len(i.DeveloperID)
+	securedID := fmt.Sprintf("%s%s", i.DeveloperID[:5], strings.Repeat("*", idLength-5))
+
+	return fmt.Sprintf("%s: %s (%s)", i.Type, securedName, securedID)
+}
 func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }

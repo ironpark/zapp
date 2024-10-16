@@ -3,16 +3,13 @@ package dmg
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/mactools/dmg"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/ironpark/zapp/mactools/dmg"
 
 	_ "embed"
 
-	"github.com/briandowns/spinner"
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,6 +36,7 @@ var Command = &cli.Command{
 	Args:        true,
 	ArgsUsage:   " <path of app-bundle>",
 	Action: func(c *cli.Context) error {
+		logger := cmd.NewAppLogger(c.App)
 		// Create a temporary working directory
 		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
 		if err != nil {
@@ -46,9 +44,11 @@ var Command = &cli.Command{
 		}
 		defer os.RemoveAll(tempDir)
 
-		fmt.Fprint(c.App.Writer, "Creating DMG file...")
+		logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
 
 		if icon == "" {
+			logger.Println("Icon file not provided")
+			logger.Println("Create dmg disk file icon using app icon")
 			tempDirForIcon, err := os.MkdirTemp("", "*-zapp-dmg-icon")
 			if err != nil {
 				return fmt.Errorf("error creating temporary directory: %v", err)
@@ -85,16 +85,21 @@ var Command = &cli.Command{
 				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
 			},
 		}
-
-		s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-		s.Suffix = " Creating DMG file..."
-		s.Start()
+		logger.PrintValue("Title", title)
+		logger.PrintValue("Icon", icon)
+		logger.PrintValue("labelSize", labelSize)
+		logger.PrintValue("AppPath", appDir)
+		logger.PrintValue("OutputPath", out)
+		logger.PrintValue("ContentsIconSize", contentsIconSize)
+		logger.PrintValue("WindowWidth", windowWidth)
+		logger.PrintValue("WindowHeight", windowHeight)
+		logger.PrintValue("Background", background)
+		logger.Println("Creating DMG file...")
 		err = dmg.CreateDMG(defaultConfig, tempDir)
-		s.Stop()
+		logger.Success("DMG file created successfully!")
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(c.App.Writer, "%s created at %s\n", out, time.Now().Format("2006-01-02 15:04:05"))
 		err = cmd.RunSignCmd(c, out)
 		if err != nil {
 			return fmt.Errorf("failed to sign PKG: %v", err)

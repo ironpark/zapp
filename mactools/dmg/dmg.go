@@ -24,6 +24,7 @@ type Config struct {
 	WindowHeight     int    `json:"windowHeight"`
 	Background       string `json:"background"`
 	Contents         []Item `json:"contents"`
+	LogWriter        io.Writer
 }
 
 type ItemType string
@@ -52,7 +53,9 @@ func CreateDMG(config Config, sourceDir string) error {
 	if err := setupSourceDirectory(config, sourceDir); err != nil {
 		return fmt.Errorf("failed to setup source directory: %w", err)
 	}
-
+	if config.LogWriter == nil {
+		config.LogWriter = os.Stdout
+	}
 	store := dsstore.NewDSStore()
 	store.SetIconSize(float64(config.ContentsIconSize))
 	store.SetWindow(config.WindowWidth, config.WindowHeight, 0, 0)

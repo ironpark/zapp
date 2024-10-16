@@ -2,6 +2,7 @@ package notarize
 
 import (
 	"fmt"
+	"github.com/ironpark/zapp/cmd"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,33 +66,48 @@ var Command = &cli.Command{
 			Usage: "Perform stapling after notarization",
 		},
 	},
-	Action: func(c *cli.Context) error {
-		profile := c.String("profile")
-		appleID := c.String("apple-id")
-		password := c.String("password")
-		teamID := c.String("team-id")
-		staple := c.Bool("staple")
-		filePath := c.String("target")
-		// Check if either profile or all of apple-id, password, and team-id are provided
-		if profile == "" && (appleID == "" || password == "" || teamID == "") {
-			return fmt.Errorf("either --profile or all of [--apple-id, --password, --team-id] must be provided")
-		}
-		err := notarize(c, filePath, profile, appleID, password, teamID)
+	Action: action,
+}
+
+func action(c *cli.Context) error {
+	logger := cmd.NewAppLogger(c.App)
+	profile := c.String("profile")
+	appleID := c.String("apple-id")
+	password := c.String("password")
+	teamID := c.String("team-id")
+	staple := c.Bool("staple")
+	filePath := c.String("target")
+	// Check if either profile or all of apple-id, password, and team-id are provided
+	if profile == "" && (appleID == "" || password == "" || teamID == "") {
+		return fmt.Errorf("either --profile or all of [--apple-id, --password, --team-id] must be provided")
+	}
+	logger.Println("Start notarization")
+
+	if profile != "" {
+		logger.PrintValue("Profile", profile)
+	}
+	logger.PrintValue("Target", filePath)
+
+	err := notarize(c, filePath, profile, appleID, password, teamID)
+	if err != nil {
+		return err
+	}
+	logger.Success("Notarization completed successfully!")
+	if staple {
+		logger.Println("Start stapling")
+		err = performStapling(c, filePath)
 		if err != nil {
 			return err
 		}
-
-		if staple {
-			return performStapling(c, filePath)
-		}
-		return nil
-	},
+	}
+	return nil
 }
-
 func notarize(c *cli.Context, filePath, profile, appleID, password, teamID string) error {
+	logger := cmd.NewAppLogger(c.App)
+
 	// Step 1: Store credentials if profile is not provided
 	if profile == "" {
-		fmt.Println("Storing credentials...")
+		logger.Println("Storing credentials...")
 		profile = "temp_profile"
 		err := notarytool.StoreCredentials(c.Context, appleID, password, teamID, profile)
 		if err != nil {
@@ -111,7 +127,7 @@ func notarize(c *cli.Context, filePath, profile, appleID, password, teamID strin
 			return fmt.Errorf("failed to create temp directory: %w", err)
 		}
 		defer os.RemoveAll(tempDir) // Clean up temp directory after notarization
-		fmt.Println("Zipping the app...")
+		logger.Println("Zipping the app...")
 		fileToSubmit, err = zipApp(filePath, tempDir)
 		if err != nil {
 			return err
@@ -121,32 +137,35 @@ func notarize(c *cli.Context, filePath, profile, appleID, password, teamID strin
 	} else {
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
-	fmt.Println("Submitting for notarization...")
+	logger.Println("Submitting for notarization...")
 	result, err := notarytool.Submit(c.Context, fileToSubmit, profile)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Submission ID: %s\nStatus: %s\nMessage: %s\n", result.ID, result.Status, result.Message)
+
+	logger.PrintValue("Submission ID", result.ID)
+	logger.PrintValue("Status", result.Status)
+	logger.PrintValue("Message", result.Message)
 
 	if result.Status == "In Progress" {
-		fmt.Println("Waiting for notarization to complete...")
+		logger.Println("Waiting for notarization to complete...")
 		result, err = notarytool.WaitForCompletion(c.Context, result.ID, profile)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Final Status: %s\nMessage: %s\n", result.Status, result.Message)
+		logger.PrintValue("Final Status", result.Status)
+		logger.PrintValue("Message", result.Message)
 	}
 
 	if result.Status != "Accepted" {
 		return fmt.Errorf("notarization failed: %s", result.Message)
 	}
-
-	fmt.Printf("%s is now notarized\n", filepath.Base(filePath))
 	return nil
 }
 
 func performStapling(c *cli.Context, filePath string) error {
-	fmt.Println("Stapling the notarization ticket...")
+	logger := cmd.NewAppLogger(c.App)
+	logger.Println("Stapling the notarization ticket...")
 	err := notarytool.Staple(c.Context, filePath)
 	if err != nil {
 		return fmt.Errorf("failed to staple: %w", err)
@@ -158,7 +177,7 @@ func performStapling(c *cli.Context, filePath string) error {
 	if !isStapled {
 		return fmt.Errorf("file is not stapled after notarization")
 	}
-	fmt.Printf("%s is now stapled\n", filepath.Base(filePath))
+	logger.Success("Stapling completed successfully!")
 	return nil
 }
 

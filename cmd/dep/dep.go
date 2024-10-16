@@ -24,6 +24,7 @@ var Command = &cli.Command{
 	Args:      true,
 	ArgsUsage: " <path of app-bundle>",
 	Action: func(c *cli.Context) error {
+		logger := cmd.NewAppLogger(c.App)
 		if appDir == "" {
 			return fmt.Errorf("[--app] target app-bundle is required")
 		}
@@ -48,7 +49,10 @@ var Command = &cli.Command{
 		targetBundle := filepath.Join(appDir, "Contents", "MacOS", bundleName)
 		frameworksPath := filepath.Join(appDir, "Contents", "Frameworks")
 
-		fmt.Printf("Target bundle: %s\n", targetBundle)
+		logger.Printf("Start bundling dependencies for %s\n", bundleName)
+		logger.PrintValue("Target Bundle", targetBundle)
+		logger.PrintValue("Frameworks Path", frameworksPath)
+		logger.Println("Getting dependencies")
 		dependencies, err := otool.GetDependencies(targetBundle)
 		if err != nil {
 			return fmt.Errorf("failed to get dependencies: %v", err)
@@ -60,12 +64,20 @@ var Command = &cli.Command{
 		if len(dependencies) == 0 {
 			return fmt.Errorf("no dependencies found")
 		}
-		fmt.Println("Dependencies:")
-		for _, dep := range dependencies {
-			fmt.Println("\t", dep)
+
+		for i, dep := range dependencies {
+			logger.PrintValue(fmt.Sprintf("%d", i), dep)
 		}
 
 		libPaths := c.StringSlice("libs")
+		if len(libPaths) == 0 {
+			logger.Println("No library path specified, using default paths")
+		} else {
+			logger.Println("Using specified library paths first")
+			for i, path := range libPaths {
+				logger.PrintValue(fmt.Sprintf("%d", i), path)
+			}
+		}
 		// Copy dependencies to the specified directory
 		foundedDeps := map[string]string{}
 		for _, dependency := range dependencies {
@@ -93,9 +105,10 @@ var Command = &cli.Command{
 		}
 		_ = os.Mkdir(frameworksPath, os.ModePerm)
 		// Copy dependencies to the specified directory
-		fmt.Println("Dependencies copied to the Frameworks directory")
+		logger.Println("Dependencies copied to the Frameworks directory")
 
 		for dep, depPath := range foundedDeps {
+			logger.PrintValue(dep, depPath)
 			_, err = CopyFile(depPath, filepath.Join(frameworksPath, filepath.Base(dep)))
 			if err != nil {
 				return fmt.Errorf("failed to copy dependency: %v", err)
@@ -105,15 +118,15 @@ var Command = &cli.Command{
 				return fmt.Errorf("failed to change install name: %v", err)
 			}
 		}
-		fmt.Printf("(%d) Dependencies bundled successfully\n", len(foundedDeps))
+		logger.Printf("(%d) Dependencies bundled successfully\n", len(foundedDeps))
 		err = cmd.RunSignCmd(c, appDir)
 		if err != nil {
-			return fmt.Errorf("failed to sign PKG: %v", err)
+			return fmt.Errorf("failed to sign: %v", err)
 		}
 
 		err = cmd.RunNotarizeCmd(c, appDir)
 		if err != nil {
-			return fmt.Errorf("failed to notarize PKG: %v", err)
+			return fmt.Errorf("failed to notarize: %v", err)
 		}
 		return nil
 	},

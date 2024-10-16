@@ -2,6 +2,7 @@ package sign
 
 import (
 	"fmt"
+	"github.com/ironpark/zapp/cmd"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,9 +45,11 @@ var Command = &cli.Command{
 	Args:        true,
 	ArgsUsage:   "",
 	Action: func(c *cli.Context) error {
+		logger := cmd.NewAppLogger(c.App)
 		var idt security.Identity
 		var err error
-		switch filepath.Ext(target) {
+		targetExt := filepath.Ext(target)
+		switch targetExt {
 		case ".app":
 			idt, err = getIdentity(c, "Developer ID Application")
 		case ".dmg":
@@ -56,21 +59,27 @@ var Command = &cli.Command{
 		default:
 			return fmt.Errorf("not a valid target type please provide a valid target(app,dmg,pkg)")
 		}
+		logger.Println("Start signing")
+		logger.PrintValue("Target", target)
 		if identity != "" {
 			idt, err = getIdentity(c, identity)
 		}
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(target) == ".pkg" {
+		logger.PrintValue("Selected Identity", idt.SecureString())
+
+		if targetExt == ".pkg" {
+			logger.Println("Product sign (pkg)..")
 			err = signPKG(target, idt.String())
 		} else {
+			logger.Println("Codesign (app/dmg)..")
 			err = codesign.CodeSign(c.Context, idt.Fingerprint, target)
 		}
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Successfully signed %s\n", target)
+		logger.Success("%s signed successfully!", target)
 		return nil
 	},
 	Flags: []cli.Flag{

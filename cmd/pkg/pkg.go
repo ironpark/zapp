@@ -3,15 +3,13 @@ package pkg
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/mactools/pkg"
+	"github.com/ironpark/zapp/mactools/plist"
+	"github.com/samber/lo"
+	"github.com/urfave/cli/v2"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/briandowns/spinner"
-	"github.com/ironpark/zapp/mactools/pkg"
-	"github.com/ironpark/zapp/mactools/plist"
-	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -28,12 +26,9 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}
-
-		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-		s.Suffix = " Creating PKG file..."
-		s.Start()
-
+		logger := cmd.NewAppLogger(c.App)
 		appName := filepath.Base(appDir)
+		logger.Printf("Start Creating PKG file for %s\n", appName)
 		appName = strings.TrimSuffix(appName, ".app")
 
 		config := pkg.Config{
@@ -61,21 +56,28 @@ var Command = &cli.Command{
 			}
 		}
 
+		logger.PrintValue("AppPath", config.AppPath)
+		logger.PrintValue("OutputPath", config.OutputPath)
+		logger.PrintValue("Version", config.Version)
+		logger.PrintValue("Identifier", config.Identifier)
+
 		for _, eula := range c.StringSlice("eula") {
 			parts := strings.SplitN(eula, ":", 2)
 			if len(parts) != 2 {
-				return fmt.Errorf("invalid eula format: %s", eula)
+				return fmt.Errorf("invalid eula arg format: %s", eula)
 			}
 			config.LicensePaths[parts[0]] = parts[1]
 		}
-
+		keys := lo.Keys(config.LicensePaths)
+		if len(keys) == 0 {
+			logger.Println("EULA files not found.")
+		}
 		err = pkg.CreatePKG(config)
-		s.Stop()
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}
-
-		fmt.Fprintln(c.App.Writer, "PKG file created successfully!")
+		logger.Success("PKG file created successfully!")
+		logger.PrintValue("OutputPath", config.OutputPath)
 		err = cmd.RunSignCmd(c, config.OutputPath)
 		if err != nil {
 			return fmt.Errorf("failed to sign PKG: %v", err)
