@@ -12,14 +12,14 @@ before:
   hooks:
     # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
 
 builds:
   - env:
       - CGO_ENABLED=1
     goos:
       - darwin
+    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/info.BuildDate={{.Date}}'.
+
 
 archives:
   - format: tar.gz
@@ -55,4 +55,5 @@ changelog:
       - "^docs:"
       - "^doc:"
       - "^test:"
+      - "^build:"
       - "README"
