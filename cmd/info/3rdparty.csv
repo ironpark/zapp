@@ -1,6 +1,11 @@
 First Party Licenses
   License,File Count
-    MIT,16
+    Apache-2.0,1
+    BSD-2-Clause,1
+    bsd-2-clause-views,1
+    BSD-3-Clause,6
+    ISC,1
+    MIT,14
     Direct Dependencies
 Title,Version,Authors,Declared License,Declared License File Matches,Declared License Header,Discovered License(s),Discovered License File Matches,Discovered License Header,Package Download Url,
 "blackfriday",4c9bf9512682b995722660a4196c0013228e2049,"vytas@rtfb.lt, iain@exolete.com, vas@commonkarma.org, bjorn.erik.pedersen@gmail.com, zhssmail@gmail.com, shurcooL@gmail.com, dunglas@gmail.com, moorereason@gmail.com, contact@tomkwok.com, shawnpsmith@gmail.com, shawn@signalsciences.com, nat@natwelch.com, FooSoft@users.noreply.github.com, nitoyon@gmail.com, foka@debian.org, dmitri@shuralyov.com, russ@russross.com, kolyshkin@gmail.com, atwoodm@amazon.com, tom@tomforb.es","BSD-2-Clause","LICENSE.txt","Blackfriday is distributed under the Simplified BSD License:
@@ -33,7 +38,7 @@ Title,Version,Authors,Declared License,Declared License File Matches,Declared Li
 > ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 > POSSIBILITY OF SUCH DAMAGE.
 ","","","","https://github.com/russross/blackfriday/archive/4c9bf9512682b995722660a4196c0013228e2049.zip",
-"cli",a1a099bd1c28a2a6beac29123308e87b9606fcc0,"ajitem.s@outlook.com, dear.chap@gmail.com, mahadzaryab1@gmail.com, rassudov99@yandex.ru, engzerjun@gmail.com, github@bugs.cc, dan@meatballhat.com, 10927621+abennett@users.noreply.github.com, imran.b.solanki@gmail.com, 38054771+midirhee12@users.noreply.github.com, kolyshkin@gmail.com, rliebz@gmail.com, tycho@tycho.ws, firemagelynn@gmail.com, ole.orhagen@northern.tech, virrages@gmail.com, ajitem.sahasrabuddhe@perennialsys.com, lynn@textio.com, audrius.butkevicius@gmail.com, atc0005@users.noreply.github.com","MIT","LICENSE","MIT License
+"cli",f035ffaa3749afda2cd26fb824aa940747297ef1,"ajitem.s@outlook.com, dear.chap@gmail.com, mahadzaryab1@gmail.com, rassudov99@yandex.ru, engzerjun@gmail.com, github@bugs.cc, dan@meatballhat.com, 10927621+abennett@users.noreply.github.com, imran.b.solanki@gmail.com, 38054771+midirhee12@users.noreply.github.com, kolyshkin@gmail.com, rliebz@gmail.com, tycho@tycho.ws, firemagelynn@gmail.com, ole.orhagen@northern.tech, virrages@gmail.com, ajitem.sahasrabuddhe@perennialsys.com, lynn@textio.com, audrius.butkevicius@gmail.com, atc0005@users.noreply.github.com","MIT","LICENSE","MIT License
 
 Copyright (c) 2022 urfave/cli maintainers
 
@@ -79,8 +84,8 @@ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.","https://github.com/urfave/cli/archive/a1a099bd1c28a2a6beac29123308e87b9606fcc0.zip",
-"color",5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4,"49699333+dependabot[bot]@users.noreply.github.com, ftharsln@gmail.com, andreas@deininger.net, klauspost@gmail.com, gregpoirson@yahoo.fr, hyunsooda@kaist.ac.kr, 464157+ilyabrin@users.noreply.github.com, pellared@hotmail.com, martin@ubique.se, max@mpatterson.xyz, jonathan@onrewind.com, andrii.rubtsov@gmail.com, github@hollensbe.org, rhysd@users.noreply.github.com","MIT","LICENSE.md, vendor/github.com/mattn/go-colorable/LICENSE, vendor/github.com/mattn/go-isatty/LICENSE","The MIT License (MIT)
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.","https://github.com/urfave/cli/archive/f035ffaa3749afda2cd26fb824aa940747297ef1.zip",
+"color",b6598b12a645b3159c1bce51b0e3fafc269510be,"49699333+dependabot[bot]@users.noreply.github.com, ftharsln@gmail.com, andreas@deininger.net, klauspost@gmail.com, gregpoirson@yahoo.fr, hyunsooda@kaist.ac.kr, 464157+ilyabrin@users.noreply.github.com, pellared@hotmail.com, martin@ubique.se, max@mpatterson.xyz, jonathan@onrewind.com, andrii.rubtsov@gmail.com, github@hollensbe.org, rhysd@users.noreply.github.com","MIT","LICENSE.md","The MIT License (MIT)
 
 Copyright (c) 2013 Fatih Arslan
 
@@ -100,83 +105,8 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-","BSD-3-Clause","vendor/golang.org/x/sys/LICENSE, vendor/golang.org/x/sys/plan9/asm_plan9_386.s, vendor/golang.org/x/sys/plan9/asm_plan9_amd64.s, vendor/golang.org/x/sys/plan9/asm_plan9_arm.s, vendor/golang.org/x/sys/plan9/asm.s, vendor/golang.org/x/sys/plan9/dir_plan9.go, vendor/golang.org/x/sys/plan9/env_plan9.go, vendor/golang.org/x/sys/plan9/errors_plan9.go, vendor/golang.org/x/sys/plan9/mkall.sh, vendor/golang.org/x/sys/plan9/mkerrors.sh, vendor/golang.org/x/sys/plan9/mksyscall.pl, vendor/golang.org/x/sys/plan9/mksysnum_plan9.sh, vendor/golang.org/x/sys/plan9/pwd_go15_plan9.go, vendor/golang.org/x/sys/plan9/pwd_plan9.go, vendor/golang.org/x/sys/plan9/race.go, vendor/golang.org/x/sys/plan9/race0.go, vendor/golang.org/x/sys/plan9/str.go, vendor/golang.org/x/sys/plan9/syscall_plan9.go, vendor/golang.org/x/sys/plan9/syscall_test.go, vendor/golang.org/x/sys/plan9/syscall.go, vendor/golang.org/x/sys/unix/affinity_linux.go, vendor/golang.org/x/sys/unix/asm_darwin_386.s, vendor/golang.org/x/sys/unix/asm_darwin_amd64.s, vendor/golang.org/x/sys/unix/asm_darwin_arm.s, vendor/golang.org/x/sys/unix/asm_darwin_arm64.s, vendor/golang.org/x/sys/unix/asm_dragonfly_amd64.s, vendor/golang.org/x/sys/unix/asm_freebsd_386.s, vendor/golang.org/x/sys/unix/asm_freebsd_amd64.s, vendor/golang.org/x/sys/unix/asm_freebsd_arm.s, vendor/golang.org/x/sys/unix/asm_linux_386.s, vendor/golang.org/x/sys/unix/asm_linux_amd64.s, vendor/golang.org/x/sys/unix/asm_linux_arm.s, vendor/golang.org/x/sys/unix/asm_linux_arm64.s, vendor/golang.org/x/sys/unix/asm_linux_mips64x.s, vendor/golang.org/x/sys/unix/asm_linux_mipsx.s, vendor/golang.org/x/sys/unix/asm_linux_ppc64x.s, vendor/golang.org/x/sys/unix/asm_linux_s390x.s, vendor/golang.org/x/sys/unix/asm_netbsd_386.s, vendor/golang.org/x/sys/unix/asm_netbsd_amd64.s, vendor/golang.org/x/sys/unix/asm_netbsd_arm.s, vendor/golang.org/x/sys/unix/asm_openbsd_386.s, vendor/golang.org/x/sys/unix/asm_openbsd_amd64.s, vendor/golang.org/x/sys/unix/asm_openbsd_arm.s, vendor/golang.org/x/sys/unix/asm_solaris_amd64.s, vendor/golang.org/x/sys/unix/bluetooth_linux.go, vendor/golang.org/x/sys/unix/cap_freebsd.go, vendor/golang.org/x/sys/unix/constants.go, vendor/golang.org/x/sys/unix/creds_test.go, vendor/golang.org/x/sys/unix/dev_darwin_test.go, vendor/golang.org/x/sys/unix/dev_darwin.go, vendor/golang.org/x/sys/unix/dev_dragonfly_test.go, vendor/golang.org/x/sys/unix/dev_dragonfly.go, vendor/golang.org/x/sys/unix/dev_freebsd.go, vendor/golang.org/x/sys/unix/dev_linux_test.go, vendor/golang.org/x/sys/unix/dev_linux.go, vendor/golang.org/x/sys/unix/dev_netbsd_test.go, vendor/golang.org/x/sys/unix/dev_netbsd.go, vendor/golang.org/x/sys/unix/dev_openbsd_test.go, vendor/golang.org/x/sys/unix/dev_openbsd.go, vendor/golang.org/x/sys/unix/dev_solaris_test.go, vendor/golang.org/x/sys/unix/dirent.go, vendor/golang.org/x/sys/unix/endian_big.go, vendor/golang.org/x/sys/unix/endian_little.go, vendor/golang.org/x/sys/unix/env_unix.go, vendor/golang.org/x/sys/unix/errors_freebsd_386.go, vendor/golang.org/x/sys/unix/errors_freebsd_amd64.go, vendor/golang.org/x/sys/unix/errors_freebsd_arm.go, vendor/golang.org/x/sys/unix/export_test.go, vendor/golang.org/x/sys/unix/flock_linux_32bit.go, vendor/golang.org/x/sys/unix/flock.go, vendor/golang.org/x/sys/unix/gccgo_c.c, vendor/golang.org/x/sys/unix/gccgo_linux_amd64.go, vendor/golang.org/x/sys/unix/gccgo.go, vendor/golang.org/x/sys/unix/linux/mkall.go, vendor/golang.org/x/sys/unix/linux/mksysnum.pl, vendor/golang.org/x/sys/unix/linux/types.go, vendor/golang.org/x/sys/unix/mkall.sh, vendor/golang.org/x/sys/unix/mkerrors.sh, vendor/golang.org/x/sys/unix/mkpost.go, vendor/golang.org/x/sys/unix/mksyscall_solaris.pl, vendor/golang.org/x/sys/unix/mksyscall.pl, vendor/golang.org/x/sys/unix/mksysctl_openbsd.pl, vendor/golang.org/x/sys/unix/mksysnum_darwin.pl, vendor/golang.org/x/sys/unix/mksysnum_dragonfly.pl, vendor/golang.org/x/sys/unix/mksysnum_freebsd.pl, vendor/golang.org/x/sys/unix/mksysnum_netbsd.pl, vendor/golang.org/x/sys/unix/mksysnum_openbsd.pl, vendor/golang.org/x/sys/unix/mmap_unix_test.go, vendor/golang.org/x/sys/unix/openbsd_pledge.go, vendor/golang.org/x/sys/unix/openbsd_test.go, vendor/golang.org/x/sys/unix/pagesize_unix.go, vendor/golang.org/x/sys/unix/race.go, vendor/golang.org/x/sys/unix/race0.go, vendor/golang.org/x/sys/unix/sockcmsg_linux.go, vendor/golang.org/x/sys/unix/sockcmsg_unix.go, vendor/golang.org/x/sys/unix/str.go, vendor/golang.org/x/sys/unix/syscall_bsd_test.go, vendor/golang.org/x/sys/unix/syscall_bsd.go, vendor/golang.org/x/sys/unix/syscall_darwin_386.go, vendor/golang.org/x/sys/unix/syscall_darwin_amd64.go, vendor/golang.org/x/sys/unix/syscall_darwin_arm.go, vendor/golang.org/x/sys/unix/syscall_darwin_arm64.go, vendor/golang.org/x/sys/unix/syscall_darwin.go, vendor/golang.org/x/sys/unix/syscall_dragonfly_amd64.go, vendor/golang.org/x/sys/unix/syscall_dragonfly.go, vendor/golang.org/x/sys/unix/syscall_freebsd_386.go, vendor/golang.org/x/sys/unix/syscall_freebsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_freebsd_arm.go, vendor/golang.org/x/sys/unix/syscall_freebsd_test.go, vendor/golang.org/x/sys/unix/syscall_freebsd.go, vendor/golang.org/x/sys/unix/syscall_linux_386.go, vendor/golang.org/x/sys/unix/syscall_linux_amd64_gc.go, vendor/golang.org/x/sys/unix/syscall_linux_amd64.go, vendor/golang.org/x/sys/unix/syscall_linux_arm.go, vendor/golang.org/x/sys/unix/syscall_linux_arm64.go, vendor/golang.org/x/sys/unix/syscall_linux_gc.go, vendor/golang.org/x/sys/unix/syscall_linux_mips64x.go, vendor/golang.org/x/sys/unix/syscall_linux_mipsx.go, vendor/golang.org/x/sys/unix/syscall_linux_ppc64x.go, vendor/golang.org/x/sys/unix/syscall_linux_s390x.go, vendor/golang.org/x/sys/unix/syscall_linux_sparc64.go, vendor/golang.org/x/sys/unix/syscall_linux_test.go, vendor/golang.org/x/sys/unix/syscall_linux.go, vendor/golang.org/x/sys/unix/syscall_netbsd_386.go, vendor/golang.org/x/sys/unix/syscall_netbsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_netbsd_arm.go, vendor/golang.org/x/sys/unix/syscall_netbsd.go, vendor/golang.org/x/sys/unix/syscall_openbsd_386.go, vendor/golang.org/x/sys/unix/syscall_openbsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_openbsd_arm.go, vendor/golang.org/x/sys/unix/syscall_openbsd.go, vendor/golang.org/x/sys/unix/syscall_solaris_amd64.go, vendor/golang.org/x/sys/unix/syscall_solaris_test.go, vendor/golang.org/x/sys/unix/syscall_solaris.go, vendor/golang.org/x/sys/unix/syscall_test.go, vendor/golang.org/x/sys/unix/syscall_unix_gc.go, vendor/golang.org/x/sys/unix/syscall_unix_test.go, vendor/golang.org/x/sys/unix/syscall_unix.go, vendor/golang.org/x/sys/unix/syscall.go, vendor/golang.org/x/sys/unix/timestruct_test.go, vendor/golang.org/x/sys/unix/timestruct.go, vendor/golang.org/x/sys/unix/types_darwin.go, vendor/golang.org/x/sys/unix/types_dragonfly.go, vendor/golang.org/x/sys/unix/types_freebsd.go, vendor/golang.org/x/sys/unix/types_netbsd.go, vendor/golang.org/x/sys/unix/types_openbsd.go, vendor/golang.org/x/sys/unix/types_solaris.go, vendor/golang.org/x/sys/windows/asm_windows_386.s, vendor/golang.org/x/sys/windows/asm_windows_amd64.s, vendor/golang.org/x/sys/windows/dll_windows.go, vendor/golang.org/x/sys/windows/env_windows.go, vendor/golang.org/x/sys/windows/eventlog.go, vendor/golang.org/x/sys/windows/exec_windows.go, vendor/golang.org/x/sys/windows/memory_windows.go, vendor/golang.org/x/sys/windows/mksyscall.go, vendor/golang.org/x/sys/windows/race.go, vendor/golang.org/x/sys/windows/race0.go, vendor/golang.org/x/sys/windows/registry/export_test.go, vendor/golang.org/x/sys/windows/registry/key.go, vendor/golang.org/x/sys/windows/registry/mksyscall.go, vendor/golang.org/x/sys/windows/registry/registry_test.go, vendor/golang.org/x/sys/windows/registry/syscall.go, vendor/golang.org/x/sys/windows/registry/value.go, vendor/golang.org/x/sys/windows/security_windows.go, vendor/golang.org/x/sys/windows/service.go, vendor/golang.org/x/sys/windows/str.go, vendor/golang.org/x/sys/windows/svc/debug/log.go, vendor/golang.org/x/sys/windows/svc/debug/service.go, vendor/golang.org/x/sys/windows/svc/event.go, vendor/golang.org/x/sys/windows/svc/eventlog/install.go, vendor/golang.org/x/sys/windows/svc/eventlog/log_test.go, vendor/golang.org/x/sys/windows/svc/eventlog/log.go, vendor/golang.org/x/sys/windows/svc/example/beep.go, vendor/golang.org/x/sys/windows/svc/example/install.go, vendor/golang.org/x/sys/windows/svc/example/main.go, vendor/golang.org/x/sys/windows/svc/example/manage.go, vendor/golang.org/x/sys/windows/svc/example/service.go, vendor/golang.org/x/sys/windows/svc/go12.c, vendor/golang.org/x/sys/windows/svc/go12.go, vendor/golang.org/x/sys/windows/svc/go13.go, vendor/golang.org/x/sys/windows/svc/mgr/config.go, vendor/golang.org/x/sys/windows/svc/mgr/mgr_test.go, vendor/golang.org/x/sys/windows/svc/mgr/mgr.go, vendor/golang.org/x/sys/windows/svc/mgr/service.go, vendor/golang.org/x/sys/windows/svc/security.go, vendor/golang.org/x/sys/windows/svc/service.go, vendor/golang.org/x/sys/windows/svc/svc_test.go, vendor/golang.org/x/sys/windows/svc/sys_386.s, vendor/golang.org/x/sys/windows/svc/sys_amd64.s, vendor/golang.org/x/sys/windows/syscall_test.go, vendor/golang.org/x/sys/windows/syscall_windows_test.go, vendor/golang.org/x/sys/windows/syscall_windows.go, vendor/golang.org/x/sys/windows/syscall.go, vendor/golang.org/x/sys/windows/types_windows_386.go, vendor/golang.org/x/sys/windows/types_windows_amd64.go, vendor/golang.org/x/sys/windows/types_windows.go","Copyright (c) 2009 The Go Authors. All rights reserved. . All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-   1. Redistributions of source code must retain the above copyright notice,
-      this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-   3. Neither the name of the copyright holder nor the names of its
-      contributors may be used to endorse or promote products derived from
-      this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ""AS IS""
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.","https://github.com/fatih/color/archive/5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4.zip",
-"exp",bbda1eaf7a17dcb377e0f6130dd4f38e1d4b1b63,"jba@google.com, gobot@golang.org, dmitshur@golang.org, imcusg@gmail.com, iant@golang.org, rhys.hiltner@gmail.com, rsc@golang.org, bimargulies@google.com, mknyszek@google.com, aktau@google.com, roland@golang.org, deleplace@google.com, tatianabradley@google.com, cuong.manhle.vn@gmail.com, btik-git@scoubidou.com, artichaut2023@gmail.com, maxbowsher@gmail.com, heschi@google.com, ndietz@google.com, egonelbre@gmail.com","BSD-3-Clause","shootout/spectral-norm.go","Copyright (c) 2009 The Go Authors. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-   * Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above
-copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the
-distribution.
-   * Neither the name of Google Inc. nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-""AS IS"" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-","","","","https://go.googlesource.com/exp",
-"github.com/xrash/smetrics",5f08fbb34913,"","MIT","LICENSE","Copyright (C) 2016 Felipe da Cunha Gonçalves
-All Rights Reserved.
-
-MIT LICENSE
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the ""Software""), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-","","","","",
-"go-colorable",8029fb3788e5a4a9c00e415f586a6d033f5d38b3,"mattn.jp@gmail.com, shuiyuzhe@gmail.com, iyahaya@nifty.com, devld@ikedam.jp, dolmen@cpan.org, mislav.marohnic@gmail.com, koron.kaoriya@gmail.com, naru123456789@gmail.com, alexandre@alexandreviau.net, cenkalti@gmail.com, mitaka.214@gmail.com, tklauser@distanz.ch, max.altgelt@nextron-systems.com, sergey.simonchik@jetbrains.com, ujiprog@gmail.com, nick@craig-wood.com, alec.therabbit.git@gmail.com, me@toshimaru.net, radek.simko@gmail.com, tyru.exe@gmail.com","MIT","LICENSE, README.md","The MIT License (MIT)
+","","","","https://github.com/fatih/color/archive/b6598b12a645b3159c1bce51b0e3fafc269510be.zip",
+"go-colorable",11a925cff3d38c293ddc8c05a16b504e3e2c63be,"mattn.jp@gmail.com, shuiyuzhe@gmail.com, iyahaya@nifty.com, devld@ikedam.jp, dolmen@cpan.org, mislav.marohnic@gmail.com, koron.kaoriya@gmail.com, naru123456789@gmail.com, alexandre@alexandreviau.net, cenkalti@gmail.com, mitaka.214@gmail.com, tklauser@distanz.ch, max.altgelt@nextron-systems.com, sergey.simonchik@jetbrains.com, ujiprog@gmail.com, nick@craig-wood.com, alec.therabbit.git@gmail.com, me@toshimaru.net, radek.simko@gmail.com, tyru.exe@gmail.com","MIT","LICENSE","The MIT License (MIT)
 
 Copyright (c) 2016 Yasuhiro Matsumoto
 
@@ -197,7 +127,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-","","","","https://github.com/mattn/go-colorable/archive/8029fb3788e5a4a9c00e415f586a6d033f5d38b3.zip",
+","","","","https://github.com/mattn/go-colorable/archive/11a925cff3d38c293ddc8c05a16b504e3e2c63be.zip",
 "go-icns",de3ea6a57b33e011304f46616f0cf49d48580a2d,"yhodique@google.com, yann.hodique@gmail.com","Apache-2.0","constants.go, format_test.go, format.go, icns.go, internal/binary/reader.go, internal/binary/writer.go, internal/codec/argb.go, internal/codec/iface.go, internal/codec/image.go, internal/codec/mask.go, internal/codec/pack.go, internal/rle/rle_test.go, internal/rle/rle.go, internal/utils/math.go, internal/utils/nrgba.go, LICENSE, reader.go, writer.go","
                                  Apache License
                            Version 2.0, January 2004
@@ -401,7 +331,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 ","","","","https://github.com/sigma/go-icns/archive/de3ea6a57b33e011304f46616f0cf49d48580a2d.zip",
-"go-isatty",1311e847b0cb909da63b5fecfb5370aa66236465,"mattn.jp@gmail.com, grafov@gmail.com, stuartnelson3@gmail.com, simon@captaincodeman.com, majid@apsalar.com, fike@midstorm.org, fabian.raetz@gmail.com, dkegel@fastly.com, dolmen@cpan.org, samuel.thibault@ens-lyon.org, 3806110+tjni@users.noreply.github.com, tklauser@distanz.ch, henry@yearning.io, shogo82148@gmail.com, contact@marc-auberer.com, seyed.mahdi.hosseini.moghaddam@ibm.com, martin@ubique.se, 29139614+renovate[bot]@users.noreply.github.com, 5332688+dmgk@users.noreply.github.com, nick@craig-wood.com","MIT","LICENSE, README.md","Copyright (c) Yasuhiro MATSUMOTO <mattn.jp@gmail.com>
+"go-isatty",a7c02353c47bc4ec6b30dc9628154ae4fe760c11,"mattn.jp@gmail.com, grafov@gmail.com, stuartnelson3@gmail.com, simon@captaincodeman.com, majid@apsalar.com, fike@midstorm.org, fabian.raetz@gmail.com, dkegel@fastly.com, dolmen@cpan.org, samuel.thibault@ens-lyon.org, 3806110+tjni@users.noreply.github.com, tklauser@distanz.ch, henry@yearning.io, shogo82148@gmail.com, contact@marc-auberer.com, seyed.mahdi.hosseini.moghaddam@ibm.com, martin@ubique.se, 29139614+renovate[bot]@users.noreply.github.com, 5332688+dmgk@users.noreply.github.com, nick@craig-wood.com","MIT","LICENSE","Copyright (c) Yasuhiro MATSUMOTO <mattn.jp@gmail.com>
 
 MIT License (Expat)
 
@@ -410,8 +340,8 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-","","","","https://github.com/mattn/go-isatty/archive/1311e847b0cb909da63b5fecfb5370aa66236465.zip",
-"go-md2man",d6816bfbea7506064a28119f805fb79f9bc5aeec,"cpuguy83@gmail.com, twaugh@redhat.com, admwiggin@gmail.com, kolyshkin@gmail.com, github@gone.nl, mmorel-35@users.noreply.github.com, tklauser@distanz.ch, robstenklippa@gmail.com, qbrosse@scaleway.com, iv@nvald.es, iwaim.sub@gmail.com, estesp@gmail.com, msimacek@redhat.com, Zev.Goldstein@gmail.com, zgoldstein@bloomberg.net, hhorak@redhat.com, suda.akihiro@lab.ntt.co.jp, foka@debian.org, eparis@redhat.com, bexelbie@redhat.com","MIT","LICENSE.md","The MIT License (MIT)
+","","","","https://github.com/mattn/go-isatty/archive/a7c02353c47bc4ec6b30dc9628154ae4fe760c11.zip",
+"go-md2man",b14773d4db11046c50d0d1c05955839604aae991,"cpuguy83@gmail.com, twaugh@redhat.com, admwiggin@gmail.com, kolyshkin@gmail.com, github@gone.nl, mmorel-35@users.noreply.github.com, tklauser@distanz.ch, robstenklippa@gmail.com, qbrosse@scaleway.com, iv@nvald.es, iwaim.sub@gmail.com, estesp@gmail.com, msimacek@redhat.com, Zev.Goldstein@gmail.com, zgoldstein@bloomberg.net, hhorak@redhat.com, suda.akihiro@lab.ntt.co.jp, foka@debian.org, eparis@redhat.com, bexelbie@redhat.com","MIT","LICENSE.md","The MIT License (MIT)
 
 Copyright (c) 2014 Brian Goff
 
@@ -432,7 +362,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-","","","","https://github.com/cpuguy83/go-md2man/archive/d6816bfbea7506064a28119f805fb79f9bc5aeec.zip",
+","","","","https://github.com/cpuguy83/go-md2man/archive/b14773d4db11046c50d0d1c05955839604aae991.zip",
 "go-plist",5afcd134990e1c90a92bac94906f74af0b10042d,"dustin@howett.net, arthur200126@gmail.com, me@bobrnor.com, wozniakk@gmail.com, frederik.wallner@gmail.com, tom@fadedcode.net, simeon@maryasin.name, graham.miln@dssw.co.uk, 7979773+lpusok@users.noreply.github.com","BSD-3-Clause; bsd-2-clause-views","cmd/experimental/plait/web/ply_exec.js, LICENSE","Copyright (c) 2013 Dustin L. Howett. All rights reserved. . All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -521,7 +451,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ","","","","https://github.com/DHowett/go-plist/archive/5afcd134990e1c90a92bac94906f74af0b10042d.zip",
-"lo",5777c5a3ee09f852d55a5bb5f585fcaeb5a0aedb,"dev@samuel-berthe.fr, phith0n.ph2f@gmail.com, FGasper@users.noreply.github.com, zhangjie.iet@gmail.com, wen.sprint@gmail.com, trim21.me@gmail.com, cwb2819259@163.com, lennonguan@foxmail.com, 55282922+rolancia@users.noreply.github.com, 57010661+Alireza-Kiani@users.noreply.github.com, gubtosmail@gmail.com, nlwkobe30@gmail.com, invzhi@protonmail.com, 42866718+usman1100@users.noreply.github.com, 43112758+d-enk@users.noreply.github.com, jiroron666@gmail.com, 990656271@qq.com, 1557291+yanmhlv@users.noreply.github.com, ericleb010@gmail.com, ppawelslomka@gmail.com","MIT","LICENSE","MIT License
+"lo",bbd44ff2a9c7f4bd4a28ecd9cfdfc41e3339453b,"dev@samuel-berthe.fr, phith0n.ph2f@gmail.com, FGasper@users.noreply.github.com, zhangjie.iet@gmail.com, wen.sprint@gmail.com, trim21.me@gmail.com, cwb2819259@163.com, lennonguan@foxmail.com, 55282922+rolancia@users.noreply.github.com, 57010661+Alireza-Kiani@users.noreply.github.com, gubtosmail@gmail.com, nlwkobe30@gmail.com, invzhi@protonmail.com, 42866718+usman1100@users.noreply.github.com, 43112758+d-enk@users.noreply.github.com, jiroron666@gmail.com, 990656271@qq.com, 1557291+yanmhlv@users.noreply.github.com, ericleb010@gmail.com, ppawelslomka@gmail.com","MIT","LICENSE","MIT License
 
 Copyright (c) 2022 Samuel Berthe
 
@@ -542,7 +472,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-","","","","https://github.com/samber/lo/archive/5777c5a3ee09f852d55a5bb5f585fcaeb5a0aedb.zip",
+","BSD-3-Clause","internal/constraints/constraints.go","Copyright (c) 2021 The Go Authors. All rights reserved. . All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+   1. Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+   3. Neither the name of the copyright holder nor the names of its
+      contributors may be used to endorse or promote products derived from
+      this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ""AS IS""
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.","https://github.com/samber/lo/archive/bbd44ff2a9c7f4bd4a28ecd9cfdfc41e3339453b.zip",
 "resize",83c6a9932646f83e3267f353373d47347b6036b2,"jan.schlicht+gh@gmail.com, jan@mesosphere.io, charlie.vieth@gmail.com, ad@mthomason.net, janschlicht@gmail.com, e.asphyx@gmail.com, daisuke.mino@gmail.com, jan.schlicht@gmail.com, disintegration.git@gmail.com, dlackty@gmail.com, accipiter@gmail.com, matrixik@gmail.com, gadams@avernus.com","ISC","converter.go, filters.go, LICENSE, nearest_test.go, nearest.go, resize.go, thumbnail.go, ycc_test.go, ycc.go","Copyright (c) 2012, Jan Schlicht <jan.schlicht@gmail.com>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -574,228 +529,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.","https://github.com/nfnt/resize/archive/83c6a9932646f83e3267f353373d47347b6036b2.zip",
-"spinner",8f269dd04fbfe2363e158724efdb3d02bd8884ab,"brian.downs@gmail.com, johnkenneth.moore@gmail.com, alice@askalice.me, chenyupeng@agora.io, sebas.risco@gmail.com, ankitpokhrel@gmail.com, 70637961+santosh653@users.noreply.github.com, blake@opsani.com, elynes@akamai.com, mislav.marohnic@gmail.com, mislav@github.com, eugene@terentev.net, karakuse@amazon.com, gongzhxu@163.com, 3495636+joshrickert@users.noreply.github.com, emilytaford@gmail.com, kill.coder@gmail.com, koethke@th-brandenburg.de, ivenkoethke@hotmail.de, alejandro@buoyant.io","Apache-2.0","character_sets.go, LICENSE, NOTICE.txt, spinner_test.go, spinner.go","                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
+"smetrics",686a1a2994c11fac124829fadcb683a24ab8d25f,"felipe@xra.sh, samsalisbury@gmail.com, adam@ashannon.us, elezar@nvidia.com, michael@sigmaratings.com","MIT","LICENSE","Copyright (C) 2016 Felipe da Cunha Gonçalves
+All Rights Reserved.
 
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+MIT LICENSE
 
-   1. Definitions.
-
-      ""License"" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      ""Licensor"" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      ""Legal Entity"" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      ""control"" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      ""You"" (or ""Your"") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      ""Source"" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      ""Object"" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      ""Work"" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      ""Derivative Works"" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      ""Contribution"" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, ""submitted""
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as ""Not a Contribution.""
-
-      ""Contributor"" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a ""NOTICE"" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an ""AS IS"" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-","BSD-3-Clause; MIT","vendor/golang.org/x/sys/internal/unsafeheader/unsafeheader.go, vendor/golang.org/x/sys/LICENSE, vendor/golang.org/x/sys/plan9/asm_plan9_386.s, vendor/golang.org/x/sys/plan9/asm_plan9_amd64.s, vendor/golang.org/x/sys/plan9/asm_plan9_arm.s, vendor/golang.org/x/sys/plan9/asm.s, vendor/golang.org/x/sys/plan9/dir_plan9.go, vendor/golang.org/x/sys/plan9/env_plan9.go, vendor/golang.org/x/sys/plan9/errors_plan9.go, vendor/golang.org/x/sys/plan9/mkall.sh, vendor/golang.org/x/sys/plan9/mkerrors.sh, vendor/golang.org/x/sys/plan9/mksysnum_plan9.sh, vendor/golang.org/x/sys/plan9/pwd_go15_plan9.go, vendor/golang.org/x/sys/plan9/pwd_plan9.go, vendor/golang.org/x/sys/plan9/race.go, vendor/golang.org/x/sys/plan9/race0.go, vendor/golang.org/x/sys/plan9/str.go, vendor/golang.org/x/sys/plan9/syscall_plan9.go, vendor/golang.org/x/sys/plan9/syscall.go, vendor/golang.org/x/sys/unix/affinity_linux.go, vendor/golang.org/x/sys/unix/aliases.go, vendor/golang.org/x/sys/unix/asm_aix_ppc64.s, vendor/golang.org/x/sys/unix/asm_bsd_386.s, vendor/golang.org/x/sys/unix/asm_bsd_amd64.s, vendor/golang.org/x/sys/unix/asm_bsd_arm.s, vendor/golang.org/x/sys/unix/asm_bsd_arm64.s, vendor/golang.org/x/sys/unix/asm_linux_386.s, vendor/golang.org/x/sys/unix/asm_linux_amd64.s, vendor/golang.org/x/sys/unix/asm_linux_arm.s, vendor/golang.org/x/sys/unix/asm_linux_arm64.s, vendor/golang.org/x/sys/unix/asm_linux_mips64x.s, vendor/golang.org/x/sys/unix/asm_linux_mipsx.s, vendor/golang.org/x/sys/unix/asm_linux_ppc64x.s, vendor/golang.org/x/sys/unix/asm_linux_riscv64.s, vendor/golang.org/x/sys/unix/asm_linux_s390x.s, vendor/golang.org/x/sys/unix/asm_openbsd_mips64.s, vendor/golang.org/x/sys/unix/asm_solaris_amd64.s, vendor/golang.org/x/sys/unix/asm_zos_s390x.s, vendor/golang.org/x/sys/unix/bluetooth_linux.go, vendor/golang.org/x/sys/unix/cap_freebsd.go, vendor/golang.org/x/sys/unix/constants.go, vendor/golang.org/x/sys/unix/dev_aix_ppc.go, vendor/golang.org/x/sys/unix/dev_aix_ppc64.go, vendor/golang.org/x/sys/unix/dev_darwin.go, vendor/golang.org/x/sys/unix/dev_dragonfly.go, vendor/golang.org/x/sys/unix/dev_freebsd.go, vendor/golang.org/x/sys/unix/dev_linux.go, vendor/golang.org/x/sys/unix/dev_netbsd.go, vendor/golang.org/x/sys/unix/dev_openbsd.go, vendor/golang.org/x/sys/unix/dev_zos.go, vendor/golang.org/x/sys/unix/dirent.go, vendor/golang.org/x/sys/unix/endian_big.go, vendor/golang.org/x/sys/unix/endian_little.go, vendor/golang.org/x/sys/unix/env_unix.go, vendor/golang.org/x/sys/unix/epoll_zos.go, vendor/golang.org/x/sys/unix/errors_freebsd_386.go, vendor/golang.org/x/sys/unix/errors_freebsd_amd64.go, vendor/golang.org/x/sys/unix/errors_freebsd_arm.go, vendor/golang.org/x/sys/unix/errors_freebsd_arm64.go, vendor/golang.org/x/sys/unix/fcntl_darwin.go, vendor/golang.org/x/sys/unix/fcntl_linux_32bit.go, vendor/golang.org/x/sys/unix/fcntl.go, vendor/golang.org/x/sys/unix/fdset.go, vendor/golang.org/x/sys/unix/fstatfs_zos.go, vendor/golang.org/x/sys/unix/gccgo_c.c, vendor/golang.org/x/sys/unix/gccgo_linux_amd64.go, vendor/golang.org/x/sys/unix/gccgo.go, vendor/golang.org/x/sys/unix/ioctl_linux.go, vendor/golang.org/x/sys/unix/ioctl_zos.go, vendor/golang.org/x/sys/unix/ioctl.go, vendor/golang.org/x/sys/unix/mkall.sh, vendor/golang.org/x/sys/unix/mkerrors.sh, vendor/golang.org/x/sys/unix/pagesize_unix.go, vendor/golang.org/x/sys/unix/pledge_openbsd.go, vendor/golang.org/x/sys/unix/ptrace_darwin.go, vendor/golang.org/x/sys/unix/ptrace_ios.go, vendor/golang.org/x/sys/unix/race.go, vendor/golang.org/x/sys/unix/race0.go, vendor/golang.org/x/sys/unix/readdirent_getdents.go, vendor/golang.org/x/sys/unix/readdirent_getdirentries.go, vendor/golang.org/x/sys/unix/sockcmsg_dragonfly.go, vendor/golang.org/x/sys/unix/sockcmsg_linux.go, vendor/golang.org/x/sys/unix/sockcmsg_unix_other.go, vendor/golang.org/x/sys/unix/sockcmsg_unix.go, vendor/golang.org/x/sys/unix/str.go, vendor/golang.org/x/sys/unix/syscall_aix_ppc.go, vendor/golang.org/x/sys/unix/syscall_aix_ppc64.go, vendor/golang.org/x/sys/unix/syscall_aix.go, vendor/golang.org/x/sys/unix/syscall_bsd.go, vendor/golang.org/x/sys/unix/syscall_darwin_amd64.go, vendor/golang.org/x/sys/unix/syscall_darwin_arm64.go, vendor/golang.org/x/sys/unix/syscall_darwin_libSystem.go, vendor/golang.org/x/sys/unix/syscall_darwin.1_12.go, vendor/golang.org/x/sys/unix/syscall_darwin.1_13.go, vendor/golang.org/x/sys/unix/syscall_darwin.go, vendor/golang.org/x/sys/unix/syscall_dragonfly_amd64.go, vendor/golang.org/x/sys/unix/syscall_dragonfly.go, vendor/golang.org/x/sys/unix/syscall_freebsd_386.go, vendor/golang.org/x/sys/unix/syscall_freebsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_freebsd_arm.go, vendor/golang.org/x/sys/unix/syscall_freebsd_arm64.go, vendor/golang.org/x/sys/unix/syscall_freebsd.go, vendor/golang.org/x/sys/unix/syscall_illumos.go, vendor/golang.org/x/sys/unix/syscall_linux_386.go, vendor/golang.org/x/sys/unix/syscall_linux_amd64_gc.go, vendor/golang.org/x/sys/unix/syscall_linux_amd64.go, vendor/golang.org/x/sys/unix/syscall_linux_arm.go, vendor/golang.org/x/sys/unix/syscall_linux_arm64.go, vendor/golang.org/x/sys/unix/syscall_linux_gc_386.go, vendor/golang.org/x/sys/unix/syscall_linux_gc_arm.go, vendor/golang.org/x/sys/unix/syscall_linux_gc.go, vendor/golang.org/x/sys/unix/syscall_linux_gccgo_386.go, vendor/golang.org/x/sys/unix/syscall_linux_gccgo_arm.go, vendor/golang.org/x/sys/unix/syscall_linux_mips64x.go, vendor/golang.org/x/sys/unix/syscall_linux_mipsx.go, vendor/golang.org/x/sys/unix/syscall_linux_ppc.go, vendor/golang.org/x/sys/unix/syscall_linux_ppc64x.go, vendor/golang.org/x/sys/unix/syscall_linux_riscv64.go, vendor/golang.org/x/sys/unix/syscall_linux_s390x.go, vendor/golang.org/x/sys/unix/syscall_linux_sparc64.go, vendor/golang.org/x/sys/unix/syscall_linux.go, vendor/golang.org/x/sys/unix/syscall_netbsd_386.go, vendor/golang.org/x/sys/unix/syscall_netbsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_netbsd_arm.go, vendor/golang.org/x/sys/unix/syscall_netbsd_arm64.go, vendor/golang.org/x/sys/unix/syscall_netbsd.go, vendor/golang.org/x/sys/unix/syscall_openbsd_386.go, vendor/golang.org/x/sys/unix/syscall_openbsd_amd64.go, vendor/golang.org/x/sys/unix/syscall_openbsd_arm.go, vendor/golang.org/x/sys/unix/syscall_openbsd_arm64.go, vendor/golang.org/x/sys/unix/syscall_openbsd_mips64.go, vendor/golang.org/x/sys/unix/syscall_openbsd.go, vendor/golang.org/x/sys/unix/syscall_solaris_amd64.go, vendor/golang.org/x/sys/unix/syscall_solaris.go, vendor/golang.org/x/sys/unix/syscall_unix_gc_ppc64x.go, vendor/golang.org/x/sys/unix/syscall_unix_gc.go, vendor/golang.org/x/sys/unix/syscall_unix.go, vendor/golang.org/x/sys/unix/syscall_zos_s390x.go, vendor/golang.org/x/sys/unix/syscall.go, vendor/golang.org/x/sys/unix/timestruct.go, vendor/golang.org/x/sys/unix/unveil_openbsd.go, vendor/golang.org/x/sys/unix/xattr_bsd.go, vendor/golang.org/x/sys/unix/zerrors_zos_s390x.go, vendor/golang.org/x/sys/unix/zsysnum_zos_s390x.go, vendor/golang.org/x/sys/unix/ztypes_zos_s390x.go, vendor/golang.org/x/sys/windows/aliases.go, vendor/golang.org/x/sys/windows/dll_windows.go, vendor/golang.org/x/sys/windows/empty.s, vendor/golang.org/x/sys/windows/env_windows.go, vendor/golang.org/x/sys/windows/eventlog.go, vendor/golang.org/x/sys/windows/exec_windows.go, vendor/golang.org/x/sys/windows/memory_windows.go, vendor/golang.org/x/sys/windows/mkerrors.bash, vendor/golang.org/x/sys/windows/mkknownfolderids.bash, vendor/golang.org/x/sys/windows/mksyscall.go, vendor/golang.org/x/sys/windows/race.go, vendor/golang.org/x/sys/windows/race0.go, vendor/golang.org/x/sys/windows/security_windows.go, vendor/golang.org/x/sys/windows/service.go, vendor/golang.org/x/sys/windows/setupapierrors_windows.go, vendor/golang.org/x/sys/windows/str.go, vendor/golang.org/x/sys/windows/syscall_windows.go, vendor/golang.org/x/sys/windows/syscall.go, vendor/golang.org/x/sys/windows/types_windows_386.go, vendor/golang.org/x/sys/windows/types_windows_amd64.go, vendor/golang.org/x/sys/windows/types_windows_arm.go, vendor/golang.org/x/sys/windows/types_windows_arm64.go, vendor/golang.org/x/sys/windows/types_windows.go, vendor/golang.org/x/term/LICENSE, vendor/golang.org/x/term/term_plan9.go, vendor/golang.org/x/term/term_unix_bsd.go, vendor/golang.org/x/term/term_unix_other.go, vendor/golang.org/x/term/term_unix.go, vendor/golang.org/x/term/term_unsupported.go, vendor/golang.org/x/term/term_windows.go, vendor/golang.org/x/term/term.go, vendor/golang.org/x/term/terminal.go, vendor/github.com/fatih/color/LICENSE.md, vendor/github.com/mattn/go-colorable/LICENSE, vendor/github.com/mattn/go-isatty/LICENSE","Copyright (c) 2009 The Go Authors. All rights reserved. . All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-   1. Redistributions of source code must retain the above copyright notice,
-      this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-   3. Neither the name of the copyright holder nor the names of its
-      contributors may be used to endorse or promote products derived from
-      this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ""AS IS""
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------------------------
-
-Copyright (c) 2013 Fatih Arslan
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the ""Software""), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the ""Software""), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.","https://github.com/briandowns/spinner/archive/8f269dd04fbfe2363e158724efdb3d02bd8884ab.zip",
-"sys",33da011f77ade50ff5b6a6fb4a9a1e6d6b285809,"Jason@zx2c4.com, tklauser@distanz.ch, farmer1992@gmail.com, guillaumesottas@gmail.com, mdlayher@gmail.com, tamird@google.com, alex.brainman@gmail.com, dkess@google.com, dev@der-flo.net, joel@sing.id.au, mzh@golangcn.org, billotosyr@gmail.com, Ben@Benjojo.co.uk, chigot.c@gmail.com, iant@golang.org, github@gone.nl, anton.a.kuklin@gmail.com, cherryyz@google.com, stanhu@gmail.com, nemesismk2@gmail.com","BSD-3-Clause","cpu/asm_aix_ppc64.s, cpu/byteorder.go, cpu/cpu_aix.go, cpu/cpu_arm.go, cpu/cpu_arm64.go, cpu/cpu_arm64.s, cpu/cpu_gc_arm64.go, cpu/cpu_gc_s390x.go, cpu/cpu_gc_x86.go, cpu/cpu_gccgo_arm64.go, cpu/cpu_gccgo_s390x.go, cpu/cpu_gccgo_x86.c, cpu/cpu_gccgo_x86.go, cpu/cpu_linux_arm.go, cpu/cpu_linux_arm64.go, cpu/cpu_linux_mips64x.go, cpu/cpu_linux_noinit.go, cpu/cpu_linux_ppc64x.go, cpu/cpu_linux_s390x.go, cpu/cpu_linux.go, cpu/cpu_loong64.go, cpu/cpu_mips64x.go, cpu/cpu_mipsx.go, cpu/cpu_netbsd_arm64.go, cpu/cpu_other_arm.go, cpu/cpu_other_arm64.go, cpu/cpu_other_mips64x.go, cpu/cpu_ppc64x.go, cpu/cpu_riscv64.go, cpu/cpu_s390x_test.go, cpu/cpu_s390x.go, cpu/cpu_s390x.s, cpu/cpu_test.go, cpu/cpu_wasm.go, cpu/cpu_x86.go, cpu/cpu_x86.s, cpu/cpu_zos_s390x.go, cpu/cpu_zos.go, cpu/cpu.go, cpu/hwcap_linux.go, cpu/syscall_aix_gccgo.go, cpu/syscall_aix_ppc64_gc.go, execabs/execabs_test.go, execabs/execabs.go, internal/unsafeheader/unsafeheader_test.go, internal/unsafeheader/unsafeheader.go, LICENSE, plan9/asm_plan9_386.s, plan9/asm_plan9_amd64.s, plan9/asm_plan9_arm.s, plan9/asm.s, plan9/dir_plan9.go, plan9/env_plan9.go, plan9/errors_plan9.go, plan9/mkall.sh, plan9/mkerrors.sh, plan9/mksyscall.go, plan9/mksysnum_plan9.sh, plan9/pwd_go15_plan9.go, plan9/pwd_plan9.go, plan9/race.go, plan9/race0.go, plan9/str.go, plan9/syscall_plan9.go, plan9/syscall_test.go, plan9/syscall.go, unix/affinity_linux.go, unix/aliases.go, unix/asm_aix_ppc64.s, unix/asm_bsd_386.s, unix/asm_bsd_amd64.s, unix/asm_bsd_arm.s, unix/asm_bsd_arm64.s, unix/asm_linux_386.s, unix/asm_linux_amd64.s, unix/asm_linux_arm.s, unix/asm_linux_arm64.s, unix/asm_linux_loong64.s, unix/asm_linux_mips64x.s, unix/asm_linux_mipsx.s, unix/asm_linux_ppc64x.s, unix/asm_linux_riscv64.s, unix/asm_linux_s390x.s, unix/asm_openbsd_mips64.s, unix/asm_solaris_amd64.s, unix/asm_zos_s390x.s, unix/bluetooth_linux.go, unix/cap_freebsd.go, unix/constants.go, unix/creds_test.go, unix/darwin_test.go, unix/dev_aix_ppc.go, unix/dev_aix_ppc64.go, unix/dev_darwin.go, unix/dev_dragonfly.go, unix/dev_freebsd.go, unix/dev_linux_test.go, unix/dev_linux.go, unix/dev_netbsd.go, unix/dev_openbsd.go, unix/dev_zos_test.go, unix/dev_zos.go, unix/dirent_test.go, unix/dirent.go, unix/endian_big.go, unix/endian_little.go, unix/env_unix.go, unix/epoll_zos_test.go, unix/epoll_zos.go, unix/errors_freebsd_386.go, unix/errors_freebsd_amd64.go, unix/errors_freebsd_arm.go, unix/errors_freebsd_arm64.go, unix/example_exec_test.go, unix/example_flock_test.go, unix/example_sysvshm_test.go, unix/export_test.go, unix/fcntl_darwin.go, unix/fcntl_linux_32bit.go, unix/fcntl.go, unix/fdset_test.go, unix/fdset.go, unix/fstatfs_zos_test.go, unix/fstatfs_zos.go, unix/gccgo_c.c, unix/gccgo_linux_amd64.go, unix/gccgo.go, unix/getdirentries_test.go, unix/getfsstat_test.go, unix/ifreq_linux_test.go, unix/ifreq_linux.go, unix/internal/mkmerge/mkmerge_test.go, unix/internal/mkmerge/mkmerge.go, unix/ioctl_linux.go, unix/ioctl_zos.go, unix/ioctl.go, unix/linux/mkall.go, unix/linux/mksysnum.go, unix/linux/types.go, unix/mkall.sh, unix/mkasm_darwin.go, unix/mkerrors.sh, unix/mkpost.go, unix/mksyscall_aix_ppc.go, unix/mksyscall_aix_ppc64.go, unix/mksyscall_solaris.go, unix/mksyscall.go, unix/mksysctl_openbsd.go, unix/mksysnum.go, unix/mmap_unix_test.go, unix/mmap_zos_test.go, unix/openbsd_test.go, unix/pagesize_unix.go, unix/pipe2_test.go, unix/pledge_openbsd.go, unix/ptrace_darwin.go, unix/ptrace_ios.go, unix/race.go, unix/race0.go, unix/readdirent_getdents.go, unix/readdirent_getdirentries.go, unix/sendfile_test.go, unix/sockcmsg_dragonfly.go, unix/sockcmsg_linux.go, unix/sockcmsg_unix_other.go, unix/sockcmsg_unix.go, unix/str.go, unix/syscall_aix_ppc.go, unix/syscall_aix_ppc64.go, unix/syscall_aix_test.go, unix/syscall_aix.go, unix/syscall_bsd_test.go, unix/syscall_bsd.go, unix/syscall_darwin_amd64.go, unix/syscall_darwin_arm64.go, unix/syscall_darwin_libSystem.go, unix/syscall_darwin_test.go, unix/syscall_darwin.1_12.go, unix/syscall_darwin.1_13.go, unix/syscall_darwin.go, unix/syscall_dragonfly_amd64.go, unix/syscall_dragonfly.go, unix/syscall_freebsd_386.go, unix/syscall_freebsd_amd64.go, unix/syscall_freebsd_arm.go, unix/syscall_freebsd_arm64.go, unix/syscall_freebsd_test.go, unix/syscall_freebsd.go, unix/syscall_illumos_test.go, unix/syscall_illumos.go, unix/syscall_internal_bsd_test.go, unix/syscall_internal_darwin_test.go, unix/syscall_internal_linux_test.go, unix/syscall_internal_solaris_test.go, unix/syscall_linux_386.go, unix/syscall_linux_alarm.go, unix/syscall_linux_amd64_gc.go, unix/syscall_linux_amd64.go, unix/syscall_linux_arm.go, unix/syscall_linux_arm64.go, unix/syscall_linux_gc_386.go, unix/syscall_linux_gc_arm.go, unix/syscall_linux_gc.go, unix/syscall_linux_gccgo_386.go, unix/syscall_linux_gccgo_arm.go, unix/syscall_linux_mips64x.go, unix/syscall_linux_mipsx.go, unix/syscall_linux_ppc.go, unix/syscall_linux_ppc64x.go, unix/syscall_linux_riscv64.go, unix/syscall_linux_s390x.go, unix/syscall_linux_sparc64.go, unix/syscall_linux_test.go, unix/syscall_linux.go, unix/syscall_netbsd_386.go, unix/syscall_netbsd_amd64.go, unix/syscall_netbsd_arm.go, unix/syscall_netbsd_arm64.go, unix/syscall_netbsd_test.go, unix/syscall_netbsd.go, unix/syscall_openbsd_386.go, unix/syscall_openbsd_amd64.go, unix/syscall_openbsd_arm.go, unix/syscall_openbsd_arm64.go, unix/syscall_openbsd_mips64.go, unix/syscall_openbsd_test.go, unix/syscall_openbsd.go, unix/syscall_solaris_amd64.go, unix/syscall_solaris_test.go, unix/syscall_solaris.go, unix/syscall_test.go, unix/syscall_unix_gc_ppc64x.go, unix/syscall_unix_gc.go, unix/syscall_unix_test.go, unix/syscall_unix.go, unix/syscall_zos_s390x.go, unix/syscall_zos_test.go, unix/syscall.go, unix/sysvshm_linux.go, unix/sysvshm_unix_other.go, unix/sysvshm_unix_test.go, unix/sysvshm_unix.go, unix/timestruct_test.go, unix/timestruct.go, unix/types_aix.go, unix/types_darwin.go, unix/types_dragonfly.go, unix/types_freebsd.go, unix/types_illumos.go, unix/types_netbsd.go, unix/types_openbsd.go, unix/types_solaris.go, unix/unveil_openbsd.go, unix/xattr_bsd.go, unix/xattr_test.go, unix/zerrors_zos_s390x.go, unix/zsysnum_zos_s390x.go, unix/ztypes_zos_s390x.go, windows/aliases.go, windows/dll_windows.go, windows/empty.s, windows/env_windows.go, windows/eventlog.go, windows/exec_windows.go, windows/memory_windows.go, windows/mkerrors.bash, windows/mkknownfolderids.bash, windows/mksyscall.go, windows/mkwinsyscall/mkwinsyscall.go, windows/race.go, windows/race0.go, windows/registry/export_test.go, windows/registry/key.go, windows/registry/mksyscall.go, windows/registry/registry_test.go, windows/registry/syscall.go, windows/registry/value.go, windows/security_windows.go, windows/service.go, windows/setupapi_windows.go, windows/str.go, windows/svc/debug/log.go, windows/svc/debug/service.go, windows/svc/eventlog/install.go, windows/svc/eventlog/log_test.go, windows/svc/eventlog/log.go, windows/svc/example/beep.go, windows/svc/example/install.go, windows/svc/example/main.go, windows/svc/example/manage.go, windows/svc/example/service.go, windows/svc/mgr/config.go, windows/svc/mgr/mgr_test.go, windows/svc/mgr/mgr.go, windows/svc/mgr/recovery.go, windows/svc/mgr/service.go, windows/svc/security.go, windows/svc/service.go, windows/svc/svc_test.go, windows/syscall_test.go, windows/syscall_windows_test.go, windows/syscall_windows.go, windows/syscall.go, windows/types_windows_386.go, windows/types_windows_amd64.go, windows/types_windows_arm.go, windows/types_windows_arm64.go, windows/types_windows.go","Copyright (c) 2009 The Go Authors. All rights reserved.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+","","","","https://github.com/xrash/smetrics/archive/686a1a2994c11fac124829fadcb683a24ab8d25f.zip",
+"sys",360f961f8978a4c9a7c2e849bb482780cd6bb553,"Jason@zx2c4.com, tklauser@distanz.ch, farmer1992@gmail.com, guillaumesottas@gmail.com, mdlayher@gmail.com, tamird@google.com, alex.brainman@gmail.com, dkess@google.com, dev@der-flo.net, joel@sing.id.au, mzh@golangcn.org, billotosyr@gmail.com, Ben@Benjojo.co.uk, chigot.c@gmail.com, iant@golang.org, github@gone.nl, anton.a.kuklin@gmail.com, cherryyz@google.com, stanhu@gmail.com, nemesismk2@gmail.com","BSD-3-Clause","cpu/asm_aix_ppc64.s, cpu/byteorder.go, cpu/cpu_aix.go, cpu/cpu_arm.go, cpu/cpu_arm64.go, cpu/cpu_arm64.s, cpu/cpu_gc_arm64.go, cpu/cpu_gc_s390x.go, cpu/cpu_gc_x86.go, cpu/cpu_gccgo_arm64.go, cpu/cpu_gccgo_s390x.go, cpu/cpu_gccgo_x86.c, cpu/cpu_gccgo_x86.go, cpu/cpu_linux_arm.go, cpu/cpu_linux_arm64.go, cpu/cpu_linux_mips64x.go, cpu/cpu_linux_noinit.go, cpu/cpu_linux_ppc64x.go, cpu/cpu_linux_s390x.go, cpu/cpu_linux.go, cpu/cpu_loong64.go, cpu/cpu_mips64x.go, cpu/cpu_mipsx.go, cpu/cpu_netbsd_arm64.go, cpu/cpu_openbsd_arm64.go, cpu/cpu_openbsd_arm64.s, cpu/cpu_other_arm.go, cpu/cpu_other_arm64.go, cpu/cpu_other_mips64x.go, cpu/cpu_other_ppc64x.go, cpu/cpu_other_riscv64.go, cpu/cpu_ppc64x.go, cpu/cpu_riscv64.go, cpu/cpu_s390x_test.go, cpu/cpu_s390x.go, cpu/cpu_s390x.s, cpu/cpu_test.go, cpu/cpu_wasm.go, cpu/cpu_x86.go, cpu/cpu_x86.s, cpu/cpu_zos_s390x.go, cpu/cpu_zos.go, cpu/cpu.go, cpu/endian_big.go, cpu/endian_little.go, cpu/endian_test.go, cpu/hwcap_linux.go, cpu/parse_test.go, cpu/parse.go, cpu/proc_cpuinfo_linux.go, cpu/runtime_auxv_go121_test.go, cpu/runtime_auxv_go121.go, cpu/runtime_auxv.go, cpu/syscall_aix_gccgo.go, cpu/syscall_aix_ppc64_gc.go, execabs/execabs_go118.go, execabs/execabs_go119.go, execabs/execabs_test.go, execabs/execabs.go, LICENSE, plan9/asm_plan9_386.s, plan9/asm_plan9_amd64.s, plan9/asm_plan9_arm.s, plan9/asm.s, plan9/dir_plan9.go, plan9/env_plan9.go, plan9/errors_plan9.go, plan9/mkall.sh, plan9/mkerrors.sh, plan9/mksyscall.go, plan9/mksysnum_plan9.sh, plan9/pwd_go15_plan9.go, plan9/pwd_plan9.go, plan9/race.go, plan9/race0.go, plan9/str.go, plan9/syscall_plan9.go, plan9/syscall_test.go, plan9/syscall.go, unix/affinity_linux.go, unix/aliases.go, unix/asm_aix_ppc64.s, unix/asm_bsd_386.s, unix/asm_bsd_amd64.s, unix/asm_bsd_arm.s, unix/asm_bsd_arm64.s, unix/asm_bsd_ppc64.s, unix/asm_bsd_riscv64.s, unix/asm_linux_386.s, unix/asm_linux_amd64.s, unix/asm_linux_arm.s, unix/asm_linux_arm64.s, unix/asm_linux_loong64.s, unix/asm_linux_mips64x.s, unix/asm_linux_mipsx.s, unix/asm_linux_ppc64x.s, unix/asm_linux_riscv64.s, unix/asm_linux_s390x.s, unix/asm_openbsd_mips64.s, unix/asm_solaris_amd64.s, unix/asm_zos_s390x.s, unix/bluetooth_linux.go, unix/cap_freebsd.go, unix/constants.go, unix/creds_test.go, unix/darwin_test.go, unix/dev_aix_ppc.go, unix/dev_aix_ppc64.go, unix/dev_darwin.go, unix/dev_dragonfly.go, unix/dev_freebsd.go, unix/dev_linux_test.go, unix/dev_linux.go, unix/dev_netbsd.go, unix/dev_openbsd.go, unix/dev_zos_test.go, unix/dev_zos.go, unix/dirent_test.go, unix/dirent.go, unix/dup3_test.go, unix/endian_big.go, unix/endian_little.go, unix/env_unix.go, unix/epoll_zos_test.go, unix/epoll_zos.go, unix/example_exec_test.go, unix/example_flock_test.go, unix/example_sysvshm_test.go, unix/export_mremap_test.go, unix/fcntl_darwin.go, unix/fcntl_linux_32bit.go, unix/fcntl.go, unix/fdset_test.go, unix/fdset.go, unix/fstatfs_zos_test.go, unix/fstatfs_zos.go, unix/gccgo_c.c, unix/gccgo_linux_amd64.go, unix/gccgo.go, unix/getdirentries_test.go, unix/getfsstat_test.go, unix/ifreq_linux_test.go, unix/ifreq_linux.go, unix/internal/mkmerge/mkmerge_test.go, unix/internal/mkmerge/mkmerge.go, unix/ioctl_linux.go, unix/ioctl_signed.go, unix/ioctl_unsigned.go, unix/ioctl_zos.go, unix/linux/mkall.go, unix/linux/mksysnum.go, unix/linux/types.go, unix/mkall.sh, unix/mkasm.go, unix/mkerrors.sh, unix/mkpost.go, unix/mksyscall_aix_ppc.go, unix/mksyscall_aix_ppc64.go, unix/mksyscall_solaris.go, unix/mksyscall.go, unix/mksysctl_openbsd.go, unix/mksysnum.go, unix/mmap_nomremap.go, unix/mmap_unix_test.go, unix/mmap_zos_test.go, unix/mremap_test.go, unix/mremap.go, unix/openbsd_test.go, unix/pagesize_unix.go, unix/pipe2_test.go, unix/pledge_openbsd.go, unix/ptrace_darwin.go, unix/ptrace_ios.go, unix/race.go, unix/race0.go, unix/readdirent_getdents.go, unix/readdirent_getdirentries.go, unix/sendfile_test.go, unix/sockcmsg_dragonfly.go, unix/sockcmsg_linux.go, unix/sockcmsg_unix_other.go, unix/sockcmsg_unix.go, unix/syscall_aix_ppc.go, unix/syscall_aix_ppc64.go, unix/syscall_aix_test.go, unix/syscall_aix.go, unix/syscall_bsd_test.go, unix/syscall_bsd.go, unix/syscall_darwin_amd64.go, unix/syscall_darwin_arm64.go, unix/syscall_darwin_libSystem.go, unix/syscall_darwin_test.go, unix/syscall_darwin.go, unix/syscall_dragonfly_amd64.go, unix/syscall_dragonfly.go, unix/syscall_freebsd_386.go, unix/syscall_freebsd_amd64.go, unix/syscall_freebsd_arm.go, unix/syscall_freebsd_arm64.go, unix/syscall_freebsd_riscv64.go, unix/syscall_freebsd_test.go, unix/syscall_freebsd.go, unix/syscall_hurd_386.go, unix/syscall_hurd.go, unix/syscall_illumos.go, unix/syscall_internal_bsd_test.go, unix/syscall_internal_darwin_test.go, unix/syscall_internal_linux_test.go, unix/syscall_internal_solaris_test.go, unix/syscall_linux_386.go, unix/syscall_linux_alarm.go, unix/syscall_linux_amd64_gc.go, unix/syscall_linux_amd64.go, unix/syscall_linux_arm.go, unix/syscall_linux_arm64.go, unix/syscall_linux_gc_386.go, unix/syscall_linux_gc_arm.go, unix/syscall_linux_gc.go, unix/syscall_linux_gccgo_386.go, unix/syscall_linux_gccgo_arm.go, unix/syscall_linux_loong64.go, unix/syscall_linux_mips64x.go, unix/syscall_linux_mipsx.go, unix/syscall_linux_ppc.go, unix/syscall_linux_ppc64x.go, unix/syscall_linux_riscv64.go, unix/syscall_linux_s390x.go, unix/syscall_linux_sparc64.go, unix/syscall_linux_test.go, unix/syscall_linux.go, unix/syscall_netbsd_386.go, unix/syscall_netbsd_amd64.go, unix/syscall_netbsd_arm.go, unix/syscall_netbsd_arm64.go, unix/syscall_netbsd_test.go, unix/syscall_netbsd.go, unix/syscall_openbsd_386.go, unix/syscall_openbsd_amd64.go, unix/syscall_openbsd_arm.go, unix/syscall_openbsd_arm64.go, unix/syscall_openbsd_libc.go, unix/syscall_openbsd_mips64.go, unix/syscall_openbsd_ppc64.go, unix/syscall_openbsd_riscv64.go, unix/syscall_openbsd_test.go, unix/syscall_openbsd.go, unix/syscall_solaris_amd64.go, unix/syscall_solaris_test.go, unix/syscall_solaris.go, unix/syscall_test.go, unix/syscall_unix_gc_ppc64x.go, unix/syscall_unix_gc.go, unix/syscall_unix_test.go, unix/syscall_unix.go, unix/syscall_zos_s390x.go, unix/syscall_zos_test.go, unix/syscall.go, unix/sysctl_netbsd_test.go, unix/sysvshm_linux.go, unix/sysvshm_unix_other.go, unix/sysvshm_unix_test.go, unix/sysvshm_unix.go, unix/timestruct_test.go, unix/timestruct.go, unix/types_aix.go, unix/types_darwin.go, unix/types_dragonfly.go, unix/types_freebsd.go, unix/types_netbsd.go, unix/types_openbsd.go, unix/types_solaris.go, unix/unveil_openbsd.go, unix/xattr_bsd.go, unix/xattr_test.go, unix/zerrors_zos_s390x.go, unix/zsysnum_zos_s390x.go, unix/ztypes_zos_s390x.go, windows/aliases.go, windows/dll_windows.go, windows/empty.s, windows/env_windows_test.go, windows/env_windows.go, windows/eventlog.go, windows/exec_windows.go, windows/memory_windows.go, windows/mkerrors.bash, windows/mkknownfolderids.bash, windows/mksyscall.go, windows/mkwinsyscall/mkwinsyscall_test.go, windows/mkwinsyscall/mkwinsyscall.go, windows/race.go, windows/race0.go, windows/registry/export_test.go, windows/registry/key.go, windows/registry/mksyscall.go, windows/registry/registry_test.go, windows/registry/syscall.go, windows/registry/value.go, windows/security_windows.go, windows/service.go, windows/setupapi_windows.go, windows/str.go, windows/svc/debug/log.go, windows/svc/debug/service.go, windows/svc/eventlog/install.go, windows/svc/eventlog/log_test.go, windows/svc/eventlog/log.go, windows/svc/example/beep.go, windows/svc/example/install.go, windows/svc/example/main.go, windows/svc/example/manage.go, windows/svc/example/service.go, windows/svc/mgr/config.go, windows/svc/mgr/mgr_test.go, windows/svc/mgr/mgr.go, windows/svc/mgr/recovery.go, windows/svc/mgr/service.go, windows/svc/security.go, windows/svc/service.go, windows/svc/svc_test.go, windows/syscall_test.go, windows/syscall_windows_test.go, windows/syscall_windows.go, windows/syscall.go, windows/types_windows_386.go, windows/types_windows_amd64.go, windows/types_windows_arm.go, windows/types_windows_arm64.go, windows/types_windows.go","Copyright (c) 2009 The Go Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -823,34 +579,6 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ","","","","https://go.googlesource.com/sys",
-"term",7a66f970e0879c3baa7bc9fa168ebe5119c5f693,"bcmills@google.com, tklauser@distanz.ch, 25111343+makeworld-the-better-one@users.noreply.github.com, rsc@golang.org, martin@arp242.net, julie@golang.org, filippo@golang.org, seyed.mahdi.hosseini.moghaddam@ibm.com, hyangah@gmail.com, alex.brainman@gmail.com, mattn.jp@gmail.com, dgoutnik@gmail.com, bradfitz@golang.org, Jason@zx2c4.com, andrey.petrov@shazow.net, maxsem.wiki@gmail.com, mbohuslavek@gmail.com, clement.chigot@atos.net, andybons@golang.org, kev@inburke.com","BSD-3-Clause","CONTRIBUTING.md, LICENSE, term_plan9.go, term_test.go, term_unix_bsd.go, term_unix_other.go, term_unix.go, term_unsupported.go, term_windows.go, term.go, terminal_test.go, terminal.go","Copyright (c) 2009 The Go Authors. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-   * Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above
-copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the
-distribution.
-   * Neither the name of Google Inc. nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-""AS IS"" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-","","","","https://go.googlesource.com/term",
 "yaml.v3",f6f7691b1fdeb513f56608cd2c32c51f8194bf51,"gustavo@niemeyer.net, sylvain@abstraction.fr, ktnyt@users.noreply.github.com, chenrui333@gmail.com, afriza.na@gmail.com, laverya@umich.edu, tcolgate@gmail.com, rui@meetup.com, zhoupingtkbjb@163.com, andrewheberle@users.noreply.github.com, github@prashantv.com, matthewm@boedicker.org, leo@zeppelin.solutions, hartzell@alerce.com, joe2farrell@gmail.com, rogpeppe@gmail.com, abishopric@squareup.com, king-jam@users.noreply.github.com, gabriel.aszalos@gmail.com, rliebz@gmail.com","MIT; Apache-2.0","apic.go, emitterc.go, LICENSE, parserc.go, readerc.go, scannerc.go, writerc.go, yamlh.go, yamlprivateh.go, decode_test.go, decode.go, encode_test.go, encode.go, example_embedded_test.go, node_test.go, NOTICE, resolve.go, sorter.go, suite_test.go, yaml.go","Copyright (c)  staring in 2011 when the project was ported over:
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the ""Software""), to deal

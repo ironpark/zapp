@@ -52,12 +52,9 @@ func print3rdPartyLicenseOverview(app *cli.App) error {
 	c2 := color.New(color.FgHiWhite)
 
 	// Get csv data (fossa scan result)
-	thirdPartyLicenses := strings.Split(thirdPartyLicensesCsv, "\n")
-	if len(thirdPartyLicenses) < 4 {
-		return nil
-	}
+	thirdPartyLicenses := strings.Split(thirdPartyLicensesCsv, "    Direct Dependencies\n")
 	// Skip the first 4 lines (First Party Licenses header)
-	thirdPartyLicenses = thirdPartyLicenses[4:]
+	thirdPartyLicenses = thirdPartyLicenses[1:]
 
 	// Parse CSV (3rd party licenses)
 	reader := csv.NewReader(strings.NewReader(strings.Join(thirdPartyLicenses, "\n")))
