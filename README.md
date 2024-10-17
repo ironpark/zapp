@@ -1,14 +1,19 @@
 # ZAPP
 
-![asd](/docs/demo.gif)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ironpark/zapp)](https://goreportcard.com/report/github.com/ironpark/zapp)
+[![codebeat badge](https://codebeat.co/badges/6b004587-036c-4324-bc97-c2e76d58b474)](https://codebeat.co/projects/github-com-ironpark-zapp-main)
+![GitHub Repo stars](https://img.shields.io/github/stars/ironpark/zapp)
 
-[**English**](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) 
+
+🌐 [**English**](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
+
+![asd](/docs/demo.gif)
 
 **Simplify your macOS App deployment**
 
 `zapp` is a powerful CLI tool designed to streamline and automate the deployment process for macOS applications. It handles all stages of deployment in one tool, from dependency bundling to DMG/PKG creation, code signing, and notarization.
 
-## Features
+## ✨ Features
 
 - [x] Create DMG files
 - [x] Create PKG files
@@ -18,18 +23,17 @@
 - [x] Auto binary dependencies bundling
 - [ ] Support GitHub Actions
 
-## Installation
-Using Homebrew
+## ⚡️ Quick start
+🍺 Using Homebrew
 ```bash
 brew tap ironpark/zapp
 brew install zapp
 ```
-Using Go
 ```bash
 go install github.com/ironpark/zapp@latest
 ```
 
-## Usage
+## 📖 Usage
 
 ### Full Example
 The following is a complete example showing how to use `zapp` to dependency bundling, codesign, packaging, notarize, and staple `MyApp.app`:
@@ -65,7 +69,7 @@ zapp dmg --out="MyApp.dmg" --app="MyApp.app" \
 ```
 
 ### Dependency Bundling
-This process inspects the dependencies of the application executable, includes the necessary libraries within /Contents/Frameworks, and modifies the link paths to enable standalone execution.
+This process inspects the dependencies of the application executable, includes the necessary libraries within `/Contents/Frameworks` and modifies the link paths to enable standalone execution.
 
 ```bash
 zapp dep --app="path/to/target.app"
@@ -118,7 +122,9 @@ zapp pkg --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt --app="path/to/targ
 ```
 ### Code Signing
 
-If the `--identity` flag is not used to select a certificate, Zapp will automatically select an available certificate from the current keychain.
+> [!TIP]
+> 
+> If the `--identity` flag is not used to select a certificate, Zapp will automatically select an available certificate from the current keychain.
 
 ```bash
 zapp sign --target="path/to/target.(app,dmg,pkg)"
@@ -128,7 +134,7 @@ zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dm
 ```
 
 ### Notarization & Stapling
-> [!NOTE]
+> [!TIP]
 > 
 > When executing the notarize command, if Zapp receives an app bundle path, it automatically compresses the app bundle and attempts to notarize it.
 
