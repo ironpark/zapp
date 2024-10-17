@@ -101,7 +101,7 @@ zapp dmg --title="My App" \
 
 ### PKG 파일 생성
 
-> [!NOTE]
+> [!TIP]
 >
 > `--version`과 `--identifier` 플래그가 설정되지 않은 경우, 이 값들은 제공된 앱 번들의 Info.plist 파일에서 자동으로 추출됩니다.
 
@@ -135,7 +135,7 @@ zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dm
 ```
 
 ### 공증 & 스테이플링
-> [!TIP]
+> [!NOTE]
 >
 > 공증 명령을 실행할 때 Zapp가 앱 번들 경로를 받으면, 자동으로 앱 번들을 압축하고 공증을 시도합니다.
 

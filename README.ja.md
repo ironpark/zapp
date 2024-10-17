@@ -99,7 +99,7 @@ zapp dmg --title="My App" \
 
 ### PKGファイルの作成
 
-> [!NOTE]
+> [!TIP]
 >
 > `--version`と`--identifier`フラグが設定されていない場合、これらの値は提供されたアプリバンドルのInfo.plistファイルから自動的に取得されます。
 
@@ -134,7 +134,7 @@ zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dm
 ```
 
 ### 公証 & ステープリング
-> [!TIP]
+> [!NOTE]
 >
 > 公証コマンドを実行する際、Zappがアプリバンドルパスを受け取ると、自動的にアプリバンドルを圧縮し、公証を試みます。
 

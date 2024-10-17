@@ -100,7 +100,7 @@ zapp dmg --title="My App" \
 
 ### Creating PKG Files
 
-> [!NOTE]
+> [!TIP]
 > 
 > If the `--version` and `--identifier` flags are not set, these values will be automatically retrieved from the Info.plist file of the provided app bundle
 
@@ -134,7 +134,7 @@ zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dm
 ```
 
 ### Notarization & Stapling
-> [!TIP]
+> [!NOTE]
 > 
 > When executing the notarize command, if Zapp receives an app bundle path, it automatically compresses the app bundle and attempts to notarize it.
 
