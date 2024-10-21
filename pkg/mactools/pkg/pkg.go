@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"fmt"
-	"io"
+	"github.com/ironpark/zapp/pkg/fsutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,7 +55,7 @@ func CreatePKG(config Config) error {
 			return fmt.Errorf("failed to create lproj directory for %s: %v", lang, err)
 		}
 		destPath := filepath.Join(lprojDir, "license.txt")
-		if err := copyFile(sourcePath, destPath); err != nil {
+		if err := fsutil.CopyFileAnyway(sourcePath, destPath); err != nil {
 			return fmt.Errorf("failed to copy license file for %s: %v", lang, err)
 		}
 	}
@@ -86,25 +86,4 @@ func CreatePKG(config Config) error {
 	}
 
 	return nil
-}
-
-func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return err
-	}
-
-	return destFile.Sync()
 }
