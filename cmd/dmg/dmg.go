@@ -3,7 +3,7 @@ package dmg
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
-	"github.com/ironpark/zapp/mactools/dmg"
+	"github.com/ironpark/zapp/pkg/mactools/dmg"
 	"os"
 	"path/filepath"
 	"strings"

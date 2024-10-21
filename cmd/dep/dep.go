@@ -3,12 +3,12 @@ package dep
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
-	"github.com/ironpark/zapp/mactools/install_name_tool"
-	"github.com/ironpark/zapp/mactools/otool"
-	"github.com/ironpark/zapp/mactools/plist"
+	"github.com/ironpark/zapp/pkg/fsutil"
+	"github.com/ironpark/zapp/pkg/mactools/install_name_tool"
+	"github.com/ironpark/zapp/pkg/mactools/otool"
+	"github.com/ironpark/zapp/pkg/mactools/plist"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,7 +109,7 @@ var Command = &cli.Command{
 
 		for dep, depPath := range foundedDeps {
 			logger.PrintValue(dep, depPath)
-			_, err = CopyFile(depPath, filepath.Join(frameworksPath, filepath.Base(dep)))
+			err = fsutil.CopyFileAnyway(depPath, filepath.Join(frameworksPath, filepath.Base(dep)))
 			if err != nil {
 				return fmt.Errorf("failed to copy dependency: %v", err)
 			}
@@ -158,29 +158,4 @@ var Command = &cli.Command{
 			//Destination: &libPaths,
 		},
 	}, cmd.CreateSubTaskFlags()...),
-}
-
-func CopyFile(src, dst string) (int64, error) {
-	sourceFileStat, err := os.Stat(src)
-	if err != nil {
-		return 0, err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return 0, err
-	}
-	defer source.Close()
-
-	destination, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, sourceFileStat.Mode())
-	if err != nil {
-		return 0, err
-	}
-	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	return nBytes, err
 }

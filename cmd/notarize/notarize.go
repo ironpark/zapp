@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ironpark/zapp/mactools/notarytool" // 이 패키지를 새로 만들어야 합니다
+	"github.com/ironpark/zapp/pkg/mactools/notarytool" // 이 패키지를 새로 만들어야 합니다
 	"github.com/urfave/cli/v2"
 )
 

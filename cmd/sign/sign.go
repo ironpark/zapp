@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ironpark/zapp/mactools/codesign"
-	"github.com/ironpark/zapp/mactools/security"
+	"github.com/ironpark/zapp/pkg/mactools/codesign"
+	"github.com/ironpark/zapp/pkg/mactools/security"
 	"github.com/urfave/cli/v2"
 )
 
