@@ -202,6 +202,7 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 	// Copy the application and other files to the source directory
 	for _, item := range config.Contents {
 		switch item.Type {
+
 		case File:
 			// Copy the file to the source directory
 			destPath := filepath.Join(sourceDir, filepath.Base(item.Path))
@@ -236,6 +237,27 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 	return nil
 }
 
+func isDir(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	// handle symbol link
+	if fi.Mode()&os.ModeSymlink != 0 {
+		realPath, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return false, err
+		}
+		fi, err = os.Stat(realPath)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return fi.IsDir(), nil
+}
+
 // copyDir copies a directory from src to dst recursively.
 func copyDir(src, dst string) error {
 	srcInfo, err := os.Stat(src)
@@ -255,7 +277,13 @@ func copyDir(src, dst string) error {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 
-		if entry.IsDir() {
+		entryPath := srcPath
+		is_dir, err := isDir(entryPath)
+		if err != nil {
+			continue
+		}
+
+		if is_dir  {
 			if err = copyDir(srcPath, dstPath); err != nil {
 				return err
 			}
