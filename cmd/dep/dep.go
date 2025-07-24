@@ -42,17 +42,18 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}
-		bundleName, err := info.BundleName()
+		bundleExecutable, err := info.BundleExecutable()
 		if err != nil {
-			return fmt.Errorf("failed to get bundle name: %v", err)
+			return fmt.Errorf("failed to get BundleExecutable: %v", err)
 		}
-		targetBundle := filepath.Join(appDir, "Contents", "MacOS", bundleName)
+		targetBundle := filepath.Join(appDir, "Contents", "MacOS", bundleExecutable)
 		frameworksPath := filepath.Join(appDir, "Contents", "Frameworks")
 
-		logger.Printf("Start bundling dependencies for %s\n", bundleName)
+		logger.Printf("Start bundling dependencies for %s\n", bundleExecutable)
 		logger.PrintValue("Target Bundle", targetBundle)
 		logger.PrintValue("Frameworks Path", frameworksPath)
 		logger.Println("Getting dependencies")
+
 		dependencies, err := otool.GetDependencies(targetBundle)
 		if err != nil {
 			return fmt.Errorf("failed to get dependencies: %v", err)

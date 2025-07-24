@@ -63,6 +63,13 @@ func (a *AppInfo) BundleID() (string, error) {
 	return value.(string), nil
 }
 
+func (a *AppInfo) BundleExecutable() (string, error) {
+	value, err := a.Get("CFBundleExecutable")
+	if err != nil {
+		return "", err
+	}
+	return value.(string), nil
+}
 func (a *AppInfo) BundleName() (string, error) {
 	value, err := a.Get("CFBundleName")
 	if err != nil {
