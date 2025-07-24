@@ -96,10 +96,10 @@ var Command = &cli.Command{
 		logger.PrintValue("Background", background)
 		logger.Println("Creating DMG file...")
 		err = dmg.CreateDMG(defaultConfig, tempDir)
-		logger.Success("DMG file created successfully!")
 		if err != nil {
 			return err
 		}
+		logger.Success("DMG file created successfully!")
 		err = cmd.RunSignCmd(c, out)
 		if err != nil {
 			return fmt.Errorf("failed to sign PKG: %v", err)

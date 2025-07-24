@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ironpark/zapp/pkg/mactools/dsstore"
 	"github.com/ironpark/zapp/pkg/mactools/hdiutil"
@@ -104,6 +105,8 @@ func CreateDMG(config Config, sourceDir string) error {
 
 	// Convert the DMG to read-only
 	tempFileName := "temp_" + config.FileName
+	dir, file := filepath.Split(config.FileName)
+	tempFileName = filepath.Join(dir, fmt.Sprintf("temp_%d_%s.dmg", time.Now().UnixNano(), file))
 	if err := os.Rename(config.FileName, tempFileName); err != nil {
 		return fmt.Errorf("failed to rename DMG file: %w", err)
 	}
@@ -283,7 +286,7 @@ func copyDir(src, dst string) error {
 			continue
 		}
 
-		if is_dir  {
+		if is_dir {
 			if err = copyDir(srcPath, dstPath); err != nil {
 				return err
 			}
