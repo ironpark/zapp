@@ -7,3 +7,4 @@
 dist/
 cmd/init
 .secret
+.env
