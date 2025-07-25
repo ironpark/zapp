@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 
 #==============================================================================
 # README Translation Script
@@ -28,20 +28,21 @@ if [ -f ".env" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TRANSLATOR_SCRIPT="$SCRIPT_DIR/trans-md-batch.sh"
+TRANSLATOR_SCRIPT="$SCRIPT_DIR/trans-md.sh"
 
 # Default README file
 DEFAULT_README="README.md"
 
 # Target languages for README
-README_LANGUAGES="ko ja"
+README_LANGUAGES="zh-tw"
 
 # Language descriptions
 declare -A LANG_DESCRIPTIONS=(
     ["en"]="English"
     ["ko"]="Korean (한국어)"
     ["ja"]="Japanese (日本語)"
-    ["zh"]="Chinese (中文)"
+    ["zh-cn"]="Chinese Simplified (简体中文)"
+    ["zh-tw"]="Chinese Traditional (繁體中文)"
 )
 
 # Check if translator script exists
@@ -67,7 +68,7 @@ fi
 echo "🌍 README Multi-Language Translation"
 echo "===================================="
 echo "Source file: $README_FILE"
-echo "Target languages: English, Korean, Japanese, Chinese"
+echo "Target languages: English, Korean, Japanese, Chinese Simplified, Chinese Traditional"
 echo ""
 
 # Check for existing translations

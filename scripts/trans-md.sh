@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 
 #==============================================================================
 # Markdown Translation Script
@@ -66,7 +66,7 @@ if [[ ${BASH_VERSION%%.*} -ge 4 ]]; then
         ["en"]="meta-llama/llama-3.3-70b-instruct:free"
         ["ko"]="google/gemini-2.0-flash-exp:free"
         ["ja"]="google/gemini-2.0-flash-exp:free"
-        ["zh"]="qwen/qwen3-30b-a3b:free"
+        ["zh"]="qwen/qwen3-14b:free"
         ["es"]="meta-llama/llama-3.3-70b-instruct:free"
         ["fr"]="meta-llama/llama-3.3-70b-instruct:free"
         ["de"]="meta-llama/llama-3.3-70b-instruct:free"
@@ -95,7 +95,9 @@ get_lang_info() {
     case $lang in
         ja) echo "Japanese|google/gemini-2.0-flash-exp:free" ;;
         ko) echo "Korean|google/gemini-2.0-flash-exp:free" ;;
-        zh) echo "Chinese|meta-llama/llama-3.3-70b-instruct:free" ;;
+        zh) echo "Chinese Simplified|meta-llama/llama-3.3-70b-instruct:free" ;;
+        zh-cn) echo "Chinese Simplified|qwen/qwen3-14b:free" ;;
+        zh-tw) echo "Chinese Traditional|qwen/qwen3-14b:free" ;;
         es) echo "Spanish|meta-llama/llama-3.3-70b-instruct:free" ;;
         fr) echo "French|meta-llama/llama-3.3-70b-instruct:free" ;;
         de) echo "German|meta-llama/llama-3.3-70b-instruct:free" ;;
@@ -122,7 +124,7 @@ else
 
     if [[ "$LANG_NAME" == "Unknown" ]]; then
         echo "Unsupported language code: $TARGET_LANG"
-        echo "Supported languages: en ja ko zh es fr de"
+        echo "Supported languages: en ja ko zh zh-cn zh-tw es fr de"
         exit 1
     fi
 fi
@@ -158,7 +160,7 @@ JSON_PAYLOAD=$(cat << EOF
   "messages": [
     {
       "role": "system",
-      "content": "You are a professional translator specializing in technical documentation. Translate the provided markdown content to $LANG_NAME following these strict guidelines:\\n\\n1. ALWAYS translate the actual content provided by the user\\n2. Preserve all markdown formatting (headers, links, code blocks, lists, etc.)\\n3. Do NOT translate code syntax, variable names, function names, or keywords\\n4. DO translate comments within code blocks\\n5. Keep URLs, file paths, and technical identifiers unchanged\\n6. Use natural, fluent $LANG_NAME that sounds native\\n7. Consider cultural and technical conventions for $LANG_NAME\\n\\nIMPORTANT: Translate the markdown content directly. Do not ask for content or provide explanations - just translate what is given."
+      "content": "You are a professional translator specializing in technical documentation. Translate the provided markdown content to $LANG_NAME following these strict guidelines:\\n\\n1. ALWAYS translate the actual content provided by the user\\n2. Preserve all markdown formatting (headers, links, code blocks, lists, etc.)\\n3. Do NOT translate code syntax, variable names, function names, or keywords\\n4. DO translate comments within code blocks\\n5. Keep URLs, file paths, and technical identifiers unchanged\\n6. Use natural, fluent $LANG_NAME that sounds native\\n7. Consider cultural and technical conventions for $LANG_NAME\\n\\n$([ "$TARGET_LANG" = "zh-tw" ] && echo "IMPORTANT: Use Traditional Chinese characters (繁體中文). Do not use Simplified Chinese." || [ "$TARGET_LANG" = "zh-cn" ] && echo "IMPORTANT: Use Simplified Chinese characters (简体中文). Do not use Traditional Chinese." || [ "$TARGET_LANG" = "zh" ] && echo "IMPORTANT: Use Simplified Chinese characters (简体中文) as default.")\\n\\nIMPORTANT: Translate the markdown content directly. Do not ask for content or provide explanations - just translate what is given."
     },
     {
       "role": "user",
