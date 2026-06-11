@@ -24,6 +24,7 @@ type Config struct {
 	WindowHeight     int    `json:"windowHeight"`
 	Background       string `json:"background"`
 	Contents         []Item `json:"contents"`
+	Format           string `json:"format"`
 	LogWriter        io.Writer
 }
 
@@ -102,19 +103,37 @@ func CreateDMG(config Config, sourceDir string) error {
 		})
 	}
 
-	// Convert the DMG to read-only
+	outputFormat, err := resolveOutputFormat(config.Format)
+	if err != nil {
+		return err
+	}
+
+	// Convert the DMG to the final output format
 	tempFileName := "temp_" + config.FileName
 	if err := os.Rename(config.FileName, tempFileName); err != nil {
 		return fmt.Errorf("failed to rename DMG file: %w", err)
 	}
 	defer os.Remove(tempFileName) // Ensure cleanup of temp file
-	if err := hdiutil.Convert(ctx, tempFileName, hdiutil.UDRO, config.FileName); err != nil {
+	if err := hdiutil.Convert(ctx, tempFileName, outputFormat, config.FileName); err != nil {
 		return fmt.Errorf("failed to convert DMG: %w", err)
 	}
 	if config.Icon != "" {
 		setFileIcon(config.FileName, config.Icon)
 	}
 	return nil
+}
+
+func resolveOutputFormat(format string) (hdiutil.Format, error) {
+	if format == "" {
+		return hdiutil.UDZO, nil
+	}
+	f := hdiutil.Format(strings.ToUpper(format))
+	switch f {
+	case hdiutil.UDRO, hdiutil.UDZO, hdiutil.UDBZ, hdiutil.UDCO:
+		return f, nil
+	default:
+		return "", fmt.Errorf("unsupported output format: %s (supported: UDRO, UDZO, UDBZ, UDCO)", format)
+	}
 }
 
 func setFileIcon(dmgPath, iconPath string) error {

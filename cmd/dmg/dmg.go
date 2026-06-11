@@ -26,6 +26,7 @@ var (
 	windowWidth, windowHeight int
 	labelSize                 int
 	contentsIconSize          int
+	format                    string
 )
 
 var Command = &cli.Command{
@@ -80,6 +81,7 @@ var Command = &cli.Command{
 			WindowWidth:      windowWidth,
 			WindowHeight:     windowHeight,
 			Background:       background,
+			Format:           format,
 			Contents: []dmg.Item{
 				{X: int(float64(windowWidth)/3*1 - float64(contentsIconSize)/2), Y: centerY, Type: dmg.Dir, Path: appDir},
 				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
@@ -94,6 +96,7 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowWidth", windowWidth)
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
+		logger.PrintValue("Format", format)
 		logger.Println("Creating DMG file...")
 		err = dmg.CreateDMG(defaultConfig, tempDir)
 		logger.Success("DMG file created successfully!")
@@ -199,6 +202,20 @@ var Command = &cli.Command{
 			Name:    "use-original-icon ",
 			Aliases: []string{"uoi"},
 			Usage:   "Use the original icon file without modifications.",
+		},
+		&cli.StringFlag{
+			Name:        "format",
+			Usage:       "Output DMG format: UDRO (uncompressed), UDZO (zlib compressed, default), UDBZ (bzip2), UDCO (ADC)",
+			Destination: &format,
+			Value:       "UDZO",
+			Action: func(*cli.Context, string) error {
+				switch strings.ToUpper(format) {
+				case "UDRO", "UDZO", "UDBZ", "UDCO":
+					return nil
+				default:
+					return fmt.Errorf("unsupported format %q (supported: UDRO, UDZO, UDBZ, UDCO)", format)
+				}
+			},
 		},
 	}, cmd.CreateSubTaskFlags()...),
 	HelpName:           "",
