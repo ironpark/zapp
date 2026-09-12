@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // ErrCodesignFailed is returned when the codesign command fails.
@@ -106,10 +107,21 @@ func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option
 	cmd := exec.CommandContext(ctx, "codesign", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%w: %v (output: %s)", ErrCodesignFailed, err, output)
+		return fmt.Errorf("%w: %v (output: %s)%s", ErrCodesignFailed, err, output, hint(string(output)))
 	}
 
 	return nil
+}
+
+// hint expands codesign error codes that give no indication of their cause.
+func hint(output string) string {
+	if strings.Contains(output, "errSecInternalComponent") {
+		return "\nhint: codesign could not reach the signing key. This usually means the keychain is locked" +
+			" or unreachable from a non-GUI session (SSH, CI). Try:\n" +
+			"  security unlock-keychain ~/Library/Keychains/login.keychain-db\n" +
+			"  security set-key-partition-list -S apple-tool:,apple:,codesign: -s ~/Library/Keychains/login.keychain-db"
+	}
+	return ""
 }
 
 func buildArgs(options *Options) []string {
