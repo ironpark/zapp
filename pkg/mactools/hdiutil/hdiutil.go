@@ -3,8 +3,9 @@ package hdiutil
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
+
+	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 // Format represents the supported DMG formats
@@ -93,10 +94,6 @@ func Detach(ctx context.Context, target string) error {
 
 // Helper function to run hdiutil commands
 func runCommand(ctx context.Context, operation string, args ...string) error {
-	cmd := exec.CommandContext(ctx, "hdiutil", append([]string{operation}, args...)...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("hdiutil %s failed: %w, output: %s", operation, err, string(output))
-	}
-	return nil
+	_, err := macexec.Run(ctx, "hdiutil", append([]string{operation}, args...)...)
+	return err
 }

@@ -1,9 +1,10 @@
 package otool
 
 import (
-	"fmt"
-	"os/exec"
+	"context"
 	"strings"
+
+	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 // systemPrefixes are library locations provided by macOS itself. Libraries
@@ -29,12 +30,12 @@ func IsSystemLib(name string) bool {
 // GetDependencies returns the install names of the dynamic libraries file links
 // against. The install name of file itself (LC_ID_DYLIB), which otool -L prints
 // as the first entry for a dylib, is not included.
-func GetDependencies(file string) ([]string, error) {
-	output, err := run("-L", file)
+func GetDependencies(ctx context.Context, file string) ([]string, error) {
+	output, err := macexec.Run(ctx, "otool", "-L", file)
 	if err != nil {
 		return nil, err
 	}
-	id, err := GetID(file)
+	id, err := GetID(ctx, file)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +44,8 @@ func GetDependencies(file string) ([]string, error) {
 
 // GetID returns the install name (LC_ID_DYLIB) of file, or an empty string when
 // file is not a dylib.
-func GetID(file string) (string, error) {
-	output, err := run("-D", file)
+func GetID(ctx context.Context, file string) (string, error) {
+	output, err := macexec.Run(ctx, "otool", "-D", file)
 	if err != nil {
 		return "", err
 	}
@@ -60,21 +61,12 @@ func GetID(file string) (string, error) {
 }
 
 // GetRPaths returns the LC_RPATH entries of file, in load command order.
-func GetRPaths(file string) ([]string, error) {
-	output, err := run("-l", file)
+func GetRPaths(ctx context.Context, file string) ([]string, error) {
+	output, err := macexec.Run(ctx, "otool", "-l", file)
 	if err != nil {
 		return nil, err
 	}
 	return parseRPaths(output), nil
-}
-
-func run(args ...string) (string, error) {
-	cmd := exec.Command("otool", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("otool %s failed: %w (output: %s)", strings.Join(args, " "), err, output)
-	}
-	return string(output), nil
 }
 
 func parseOtoolOutput(output, id string) []string {

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 // ErrCodesignFailed is returned when the codesign command fails.
@@ -103,11 +104,8 @@ func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option
 		opt(options)
 	}
 
-	args := buildArgs(options)
-	cmd := exec.CommandContext(ctx, "codesign", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w: %v (output: %s)%s", ErrCodesignFailed, err, output, hint(string(output)))
+	if _, err := macexec.Run(ctx, "codesign", buildArgs(options)...); err != nil {
+		return fmt.Errorf("%w: %v%s", ErrCodesignFailed, err, hint(macexec.Output(err)))
 	}
 
 	return nil

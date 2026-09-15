@@ -1,11 +1,13 @@
 package pkg
 
 import (
+	"context"
 	"fmt"
-	"github.com/ironpark/zapp/pkg/fsutil"
 	"os"
-	"os/exec"
 	"path/filepath"
+
+	"github.com/ironpark/zapp/pkg/fsutil"
+	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 type Config struct {
@@ -17,8 +19,8 @@ type Config struct {
 	LicensePaths    map[string]string
 }
 
-func CreatePKG(config Config) error {
-	// 언어 코드 유효성 검사
+func CreatePKG(ctx context.Context, config Config) error {
+	// Validate the language codes.
 	for lang := range config.LicensePaths {
 		if !isValidLanguageCode(lang) {
 			return fmt.Errorf("invalid language code: %s", lang)
@@ -32,15 +34,14 @@ func CreatePKG(config Config) error {
 	defer os.RemoveAll(tempDir)
 
 	componentPkgPath := filepath.Join(tempDir, "component.pkg")
-	cmd := exec.Command("pkgbuild",
+	_, err = macexec.Run(ctx, "pkgbuild",
 		"--root", filepath.Dir(config.AppPath),
 		"--install-location", config.InstallLocation,
 		"--identifier", config.Identifier,
 		"--version", config.Version,
 		componentPkgPath)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("pkgbuild failed: %v\nOutput: %s", err, output)
+	if err != nil {
+		return fmt.Errorf("pkgbuild failed: %w", err)
 	}
 
 	// Create resources directory with lproj folders
@@ -75,14 +76,13 @@ func CreatePKG(config Config) error {
 		return fmt.Errorf("failed to create distribution.xml: %v", err)
 	}
 
-	cmd = exec.Command("productbuild",
+	_, err = macexec.Run(ctx, "productbuild",
 		"--distribution", distributionPath,
 		"--package-path", tempDir,
 		"--resources", resourcesDir,
 		config.OutputPath)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("productbuild failed: %v\nOutput: %s", err, output)
+	if err != nil {
+		return fmt.Errorf("productbuild failed: %w", err)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package dep
 
 import (
+	"context"
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/pkg/fsutil"
@@ -68,7 +69,7 @@ var Command = &cli.Command{
 		logger.PrintValue("Frameworks Path", frameworksPath)
 		logger.Println("Getting dependencies")
 
-		dependencies, err := directDependencies(targetBundle)
+		dependencies, err := directDependencies(c.Context, targetBundle)
 		if err != nil {
 			return fmt.Errorf("failed to get dependencies: %v", err)
 		}
@@ -99,7 +100,7 @@ var Command = &cli.Command{
 		// the app fails to load on any machine that lacks it, and under the
 		// hardened runtime fails even on the build machine because the outside
 		// library carries a different Team ID.
-		bundled, err := bundleDependencies(targetBundle, frameworksPath, libPaths, dependencies)
+		bundled, err := bundleDependencies(c.Context, targetBundle, frameworksPath, libPaths, dependencies)
 		if err != nil {
 			return err
 		}
@@ -111,11 +112,11 @@ var Command = &cli.Command{
 		// resolve inside the bundle.
 		for _, dependency := range dependencies {
 			target := fmt.Sprintf("%s/%s", frameworksRPath, filepath.Base(dependency))
-			if err = install_name_tool.Change(dependency, target, targetBundle); err != nil {
+			if err = install_name_tool.Change(c.Context, dependency, target, targetBundle); err != nil {
 				return fmt.Errorf("failed to change install name: %v", err)
 			}
 		}
-		if err = ensureRPath(targetBundle, frameworksRPath); err != nil {
+		if err = ensureRPath(c.Context, targetBundle, frameworksRPath); err != nil {
 			return fmt.Errorf("failed to add rpath: %v", err)
 		}
 
@@ -167,8 +168,8 @@ type bundledDep struct {
 }
 
 // directDependencies returns the non-system libraries a binary links against.
-func directDependencies(file string) ([]string, error) {
-	dependencies, err := otool.GetDependencies(file)
+func directDependencies(ctx context.Context, file string) ([]string, error) {
+	dependencies, err := otool.GetDependencies(ctx, file)
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +181,9 @@ func directDependencies(file string) ([]string, error) {
 // bundleDependencies copies every non-system library transitively reachable
 // from targetBundle into frameworksPath, rewriting each copy so it refers to
 // its siblings inside the bundle.
-func bundleDependencies(targetBundle, frameworksPath string, libPaths, roots []string) ([]bundledDep, error) {
+func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string, libPaths, roots []string) ([]bundledDep, error) {
 	execDir := filepath.Dir(targetBundle)
-	rootRPaths, err := otool.GetRPaths(targetBundle)
+	rootRPaths, err := otool.GetRPaths(ctx, targetBundle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rpaths of %s: %v", targetBundle, err)
 	}
@@ -222,23 +223,23 @@ func bundleDependencies(targetBundle, frameworksPath string, libPaths, roots []s
 		if err = os.Chmod(dst, 0755); err != nil {
 			return nil, fmt.Errorf("failed to make %s writable: %v", dst, err)
 		}
-		if err = install_name_tool.ChangeId("@rpath/"+base, dst); err != nil {
+		if err = install_name_tool.ChangeId(ctx, "@rpath/"+base, dst); err != nil {
 			return nil, fmt.Errorf("failed to change install name id: %v", err)
 		}
 		bundled = append(bundled, bundledDep{name: dep.name, source: source})
 
-		subDeps, err := directDependencies(dst)
+		subDeps, err := directDependencies(ctx, dst)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dependencies of %s: %v", base, err)
 		}
-		subRPaths, err := otool.GetRPaths(dst)
+		subRPaths, err := otool.GetRPaths(ctx, dst)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read rpaths of %s: %v", base, err)
 		}
 		sourceDir := filepath.Dir(source)
 		for _, sub := range subDeps {
 			subBase := filepath.Base(sub)
-			if err = install_name_tool.Change(sub, "@loader_path/"+subBase, dst); err != nil {
+			if err = install_name_tool.Change(ctx, sub, "@loader_path/"+subBase, dst); err != nil {
 				return nil, fmt.Errorf("failed to change install name in %s: %v", base, err)
 			}
 			// Resolve relative to where this library actually came from, not
@@ -304,13 +305,13 @@ func expandPath(path, loaderDir, execDir string) string {
 
 // ensureRPath adds an LC_RPATH entry unless the binary already has it;
 // install_name_tool fails on duplicates.
-func ensureRPath(file, rpath string) error {
-	rpaths, err := otool.GetRPaths(file)
+func ensureRPath(ctx context.Context, file, rpath string) error {
+	rpaths, err := otool.GetRPaths(ctx, file)
 	if err != nil {
 		return err
 	}
 	if lo.Contains(rpaths, rpath) {
 		return nil
 	}
-	return install_name_tool.AddRPath(rpath, file)
+	return install_name_tool.AddRPath(ctx, rpath, file)
 }

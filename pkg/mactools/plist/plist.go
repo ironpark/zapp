@@ -44,47 +44,48 @@ func (a *AppInfo) Get(key string) (interface{}, error) {
 	return value, nil
 }
 
-func (a *AppInfo) Version() (string, error) {
-	value, err := a.Get("CFBundleShortVersionString")
+// GetString returns a string-valued key. Info.plist contents are attacker- or
+// build-tool-controlled, so a key holding a non-string value is reported as an
+// error rather than asserted.
+func (a *AppInfo) GetString(key string) (string, error) {
+	value, err := a.Get(key)
 	if err != nil {
-		value, err = a.Get("CFBundleVersion")
-		if err != nil {
-			return "", err
-		}
+		return "", err
 	}
-	return value.(string), nil
+	str, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("%s is not a string (got %T)", key, value)
+	}
+	return str, nil
+}
+
+func (a *AppInfo) Version() (string, error) {
+	value, err := a.GetString("CFBundleShortVersionString")
+	if err != nil {
+		return a.GetString("CFBundleVersion")
+	}
+	return value, nil
 }
 
 func (a *AppInfo) BundleID() (string, error) {
-	value, err := a.Get("CFBundleIdentifier")
-	if err != nil {
-		return "", err
-	}
-	return value.(string), nil
+	return a.GetString("CFBundleIdentifier")
 }
 
 func (a *AppInfo) BundleExecutable() (string, error) {
-	value, err := a.Get("CFBundleExecutable")
-	if err != nil {
-		return "", err
-	}
-	return value.(string), nil
+	return a.GetString("CFBundleExecutable")
 }
+
 func (a *AppInfo) BundleName() (string, error) {
-	value, err := a.Get("CFBundleName")
-	if err != nil {
-		return "", err
-	}
-	return value.(string), nil
+	return a.GetString("CFBundleName")
 }
 
 func (a *AppInfo) IconFilePath() (string, error) {
-	value, err := a.Get("CFBundleIconFile")
+	iconFile, err := a.GetString("CFBundleIconFile")
 	if err != nil {
 		return "", err
 	}
 	dir := filepath.Dir(a.path)
-	iconPath := filepath.Join(dir, "Resources", value.(string))
+	iconPath := filepath.Join(dir, "Resources", iconFile)
 	if !strings.HasSuffix(iconPath, ".icns") {
 		iconPath += ".icns"
 	}

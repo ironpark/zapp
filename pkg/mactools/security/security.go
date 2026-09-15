@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 type Identity struct {
@@ -19,8 +20,11 @@ type Identity struct {
 	DeveloperID   string
 }
 
+// SecureString renders the identity with the developer name fully masked and
+// all but the first few characters of the developer ID masked, so it is safe to
+// print in logs and CI output.
 func (i Identity) SecureString() string {
-	// 개발자 이름 마스킹
+	// Mask the developer name.
 	nameParts := strings.Fields(i.DeveloperName)
 	maskedName := make([]string, len(nameParts))
 	for j, part := range nameParts {
@@ -28,28 +32,35 @@ func (i Identity) SecureString() string {
 	}
 	securedName := strings.Join(maskedName, " ")
 
-	// 개발자 ID 마스킹 (마지막 5자리만 표시)
-	idLength := len(i.DeveloperID)
-	securedID := fmt.Sprintf("%s%s", i.DeveloperID[:5], strings.Repeat("*", idLength-5))
+	return fmt.Sprintf("%s: %s (%s)", i.Type, securedName, maskID(i.DeveloperID))
+}
 
-	return fmt.Sprintf("%s: %s (%s)", i.Type, securedName, securedID)
+// idPrefixLen is how many leading characters of a developer ID stay visible.
+const idPrefixLen = 5
+
+// maskID hides all but the leading characters of a developer ID. A description
+// that does not match descRegexp leaves DeveloperID empty, and identities can
+// carry IDs shorter than the prefix, so the length is never assumed.
+func maskID(id string) string {
+	if len(id) <= idPrefixLen {
+		return strings.Repeat("*", len(id))
+	}
+	return id[:idPrefixLen] + strings.Repeat("*", len(id)-idPrefixLen)
 }
 func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
 func FindIdentity(ctx context.Context, keychain string) ([]Identity, error) {
-	var cmd *exec.Cmd
-	if keychain == "" {
-		cmd = exec.CommandContext(ctx, "security", "find-identity", "-v")
-	} else {
-		cmd = exec.CommandContext(ctx, "security", "find-identity", "-v", "-k", keychain)
+	args := []string{"find-identity", "-v"}
+	if keychain != "" {
+		args = append(args, "-k", keychain)
 	}
-	output, err := cmd.Output()
+	output, err := macexec.Run(ctx, "security", args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command: %w", err)
+		return nil, err
 	}
-	return parseFindIdentityOutput(string(output))
+	return parseFindIdentityOutput(output)
 }
 
 var (

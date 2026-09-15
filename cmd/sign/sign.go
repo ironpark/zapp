@@ -2,13 +2,13 @@ package sign
 
 import (
 	"fmt"
-	"github.com/ironpark/zapp/cmd"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/pkg/mactools/codesign"
+	"github.com/ironpark/zapp/pkg/mactools/productsign"
 	"github.com/ironpark/zapp/pkg/mactools/security"
 	"github.com/urfave/cli/v2"
 )
@@ -71,7 +71,7 @@ var Command = &cli.Command{
 
 		if targetExt == ".pkg" {
 			logger.Println("Product sign (pkg)..")
-			err = signPKG(target, idt.String())
+			err = productsign.Sign(c.Context, target, idt.String())
 		} else {
 			logger.Println("Codesign (app/dmg)..")
 			err = codesign.CodeSign(c.Context, idt.Fingerprint, target)
@@ -121,28 +121,4 @@ var Command = &cli.Command{
 		},
 	},
 	SkipFlagParsing: false,
-}
-
-func signPKG(path, identity string) error {
-	tempDir, err := os.MkdirTemp("", "pkg-signing-")
-	if err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	signedPath := filepath.Join(tempDir, "signed.pkg")
-
-	cmd := exec.Command("productsign", "--sign", identity, path, signedPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to sign pkg: %w, output: %s", err, string(output))
-	}
-
-	// Replace the original file with the signed one
-	err = os.Rename(signedPath, path)
-	if err != nil {
-		return fmt.Errorf("failed to replace original pkg with signed one: %w", err)
-	}
-
-	return nil
 }

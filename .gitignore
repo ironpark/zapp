@@ -5,6 +5,6 @@
 /assets/test
 
 dist/
-cmd/init
+cmd/_init
 .secret
 .env

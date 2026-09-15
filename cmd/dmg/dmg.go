@@ -53,7 +53,7 @@ var Command = &cli.Command{
 			if err != nil {
 				return fmt.Errorf("error creating temporary directory: %v", err)
 			}
-			defer os.RemoveAll(tempDir)
+			defer os.RemoveAll(tempDirForIcon)
 			icon = filepath.Join(tempDirForIcon, "icon.icns")
 			err = createIconSet(appDir, icon, !c.Bool("use-original-icon"))
 			if err != nil {
@@ -95,7 +95,7 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
 		logger.Println("Creating DMG file...")
-		err = dmg.CreateDMG(defaultConfig, tempDir)
+		err = dmg.CreateDMG(c.Context, defaultConfig, tempDir)
 		if err != nil {
 			return err
 		}
@@ -196,7 +196,7 @@ var Command = &cli.Command{
 			},
 		},
 		&cli.BoolFlag{
-			Name:    "use-original-icon ",
+			Name:    "use-original-icon",
 			Aliases: []string{"uoi"},
 			Usage:   "Use the original icon file without modifications.",
 		},

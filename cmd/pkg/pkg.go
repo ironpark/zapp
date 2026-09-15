@@ -72,7 +72,7 @@ var Command = &cli.Command{
 		if len(keys) == 0 {
 			logger.Println("EULA files not found.")
 		}
-		err = pkg.CreatePKG(config)
+		err = pkg.CreatePKG(c.Context, config)
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}
