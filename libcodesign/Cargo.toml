@@ -1,0 +1,26 @@
+[package]
+name = "zapp-rcodesign"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+apple-codesign = "=0.29.0"
+# Ensure the archive includes compression code even when pkg-config finds host libraries.
+bzip2-sys = { version = "0.1", features = ["static"] }
+lzma-sys = { version = "0.1", features = ["static"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+debug = 0
+
+[dev-dependencies]
+chrono = "0.4"
+pem = "3"
+tempfile = "3"
+x509-certificate = "0.24"

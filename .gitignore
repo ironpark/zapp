@@ -9,3 +9,8 @@ dist/
 .env
 *.test
 *.prof
+
+/libcodesign/target/
+/libcodesign/lib/
+/release-assets/
+/libcodesign/THIRD_PARTY_LICENSES.html

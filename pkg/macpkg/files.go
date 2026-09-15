@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"unicode/utf8"
 )
 
@@ -90,9 +89,9 @@ func collect(ctx context.Context, root, only string, ownership Ownership) ([]fil
 		if err != nil {
 			return err
 		}
-		s, ok := info.Sys().(*syscall.Stat_t)
-		if !ok {
-			return fmt.Errorf("unsupported file metadata for %s", p)
+		s, err := payloadMetadata(p, info, ownership)
+		if err != nil {
+			return err
 		}
 		e := fileEntry{name: rel, source: p, info: info, mode: uint32(s.Mode), mtime: uint32(info.ModTime().Unix())}
 		if info.ModTime().Unix() < 0 || info.ModTime().Unix() > 1<<32-1 {

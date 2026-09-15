@@ -1,108 +1,118 @@
 # Signing and notarizing
 
-zapp signs through one of two toolchains. They agree on almost nothing except
-the result, so which one runs decides what you have to supply.
+The operating system chooses the backend at build time.
 
-| | Apple's tools | rcodesign |
-| --- | --- | --- |
-| Runs on | macOS only | macOS, Linux, Windows |
-| Signing certificate | a keychain identity, by name | a file: PKCS#12 or PEM |
-| Installer packages | `productsign`, a separate tool | the same `sign` command |
-| Notary credentials | keychain profile, or Apple ID and password and team ID | App Store Connect API key |
-| Stapling | `xcrun stapler` | `rcodesign staple` |
+| Host | Backend | Signing credentials | Notarization credentials |
+| --- | --- | --- | --- |
+| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity | Keychain profile or Apple ID, password, team ID |
+| Linux arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
+| Windows arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 
-## Which one runs
+macOS always uses `codesign`, `productsign`, `notarytool`, and `stapler`.
+Passing `--p12-file`, `--pem-file`, or `--api-key-file` on macOS returns an
+error explaining which Apple credentials to use. Import signing certificates
+into Keychain first. The macOS binary does not link or import rcodesign.
 
-zapp uses Apple's tools on macOS, and rcodesign anywhere else.
+Windows and Linux release builds include the Rust signing implementation in
+the zapp executable. No separate rcodesign executable or Rust installation is
+required at runtime. System libraries (such as glibc on Linux) are still used;
+"static" refers to the Rust binding, not to every operating-system dependency.
 
-Naming a certificate file selects rcodesign whatever the platform, because
-Apple's `codesign` cannot read one. That is how a macOS machine with no usable
-keychain signs — a CI runner, or an SSH session where the keychain will not
-unlock.
-
-Away from macOS with no certificate file, zapp says so rather than failing
-obscurely later:
-
-```
-signing away from macOS needs a certificate file, because there is no keychain
-to take an identity from: pass --p12-file or --pem-file (running on linux)
-```
-
-## Signing with Apple's tools
+## macOS
 
 ```sh
 zapp sign --target MyApp.dmg
 zapp sign --target MyApp.dmg --identity "Developer ID Application: Me (TEAMID)"
+zapp notarize --target MyApp.dmg --profile my-profile --staple
 ```
 
 With no `--identity`, zapp picks the first keychain identity matching
 `Developer ID Application`, or `Developer ID Installer` for a `.pkg`.
 
-## Signing with rcodesign
+## Windows and Linux
 
-Install it first; zapp looks for `rcodesign` on `PATH`.
-
-```sh
-cargo install apple-codesign
-# or take a release binary from
-# https://github.com/indygreg/apple-platform-rs/releases
-```
-
-Export your Developer ID certificate and key as a PKCS#12 bundle, then:
+Export your Developer ID certificate and private key as a PKCS#12 bundle:
 
 ```sh
 zapp sign --target MyApp.dmg \
-  --p12-file developer-id.p12 --p12-password-file ~/.certificate-password
-```
-
-`--p12-password` takes the password inline instead, which puts it in the
-process list; prefer the file.
-
-The same flags work on the commands that sign what they produce:
-
-```sh
-zapp dmg --app MyApp.app --sign --p12-file developer-id.p12 --p12-password-file pw
-```
-
-## Notarizing
-
-Apple's tools take a keychain profile, or an Apple ID:
-
-```sh
-zapp notarize --target MyApp.dmg --profile my-profile --staple
-zapp notarize --target MyApp.dmg --apple-id me@example.com --password app-specific --team-id TEAMID
-```
-
-rcodesign talks to the App Store Connect API and so takes an API key:
-
-```sh
-rcodesign encode-app-store-connect-api-key -o key.json <issuer-id> <key-id> AuthKey.p8
+  --p12-file developer-id.p12 --p12-password-file certificate-password.txt
+zapp dmg --app MyApp.app --sign \
+  --p12-file developer-id.p12 --p12-password-file certificate-password.txt
 zapp notarize --target MyApp.dmg --api-key-file key.json --staple
 ```
 
-An `.app` bundle is archived before it is submitted either way, because the
-notary service takes an archive rather than a directory. The ticket is stapled
-to the bundle, not to the archive.
+`--pem-file` accepts a PEM bundle containing the certificate and private key.
+A password file takes precedence over `--p12-password`. With neither option,
+an empty PKCS#12 password is used; the library does not prompt on stdin.
+The password file's first line is used. Prefer it to putting a password in the
+shell's command line. Signing requires a private key; certificate-only PEM
+inputs are rejected instead of producing ad-hoc signatures.
 
-## How it is put together
+`key.json` uses the upstream apple-codesign/App Store Connect unified API key
+format. Existing key files created with `rcodesign encode-app-store-connect-api-key`
+remain usable. Signing uses the hardened runtime flag and Apple's timestamp
+service. Notarization waits for acceptance for up to 600 seconds before returning
+an error. Stapling an existing ticket does not require a signing certificate.
 
+An `.app` bundle is zipped before submission; its ticket is stapled to the
+original bundle. Calls into Rust are synchronous. Cancellation is checked before
+entry; an in-flight Rust operation completes before the Go call returns, so it
+cannot continue modifying the target after return.
+
+## Building
+
+macOS needs only Go and Apple's tools:
+
+```sh
+CGO_ENABLED=0 go build .
 ```
-pkg/signing/             the Backend interface, Select, and the archiving that
-                         notarization needs whichever backend runs
-pkg/signing/macos/       codesign, productsign, notarytool, and the keychain
-pkg/signing/rcodesign/   rcodesign
+
+Windows and Linux signing builds need Go, Python 3, Rust 1.98.0, and a C toolchain:
+
+| Build target | Rust target | C compiler |
+| --- | --- | --- |
+| `linux_amd64` | `x86_64-unknown-linux-gnu` | GCC for x86-64 Linux |
+| `linux_arm64` | `aarch64-unknown-linux-gnu` | GCC for arm64 Linux |
+| `windows_amd64` | `x86_64-pc-windows-gnullvm` | LLVM MinGW `x86_64-w64-mingw32-clang` |
+| `windows_arm64` | `aarch64-pc-windows-gnullvm` | LLVM MinGW `aarch64-w64-mingw32-clang` |
+
+Run on the target host, with the compiler on `PATH`:
+
+```sh
+python scripts/build-native.py linux_amd64 --test
+# or windows_amd64, linux_arm64, windows_arm64
 ```
 
-The backends know nothing of the package above them: each takes the options it
-actually needs, and `Select` translates the credentials a command gathered into
-whichever backend is going to run. That keeps the dependency one-way and means
-neither backend carries fields the other uses.
+The script builds the pinned Rust sources with `cargo --locked`, copies the
+static archive into `libcodesign/lib/<os>_<arch>/`, runs tests if requested,
+and links zapp into `dist/<os>_<arch>/`. Set `CC` for cross compilation and omit
+`--test` unless the host can execute target binaries.
 
-## What is verified
+A Windows/Linux `CGO_ENABLED=0` build can run commands that do not need signing;
+signing and notarization return `ErrUnavailable`. A CGO build requires the static
+archive to be built first. Unsupported operating systems/architectures do not
+fall back to an external rcodesign executable.
 
-The rcodesign path was exercised against rcodesign 0.29.0 with a self-signed
-certificate: `zapp sign` produced an app bundle that Apple's own
-`codesign --verify --deep` accepts, with the hardened runtime flag set.
+`.github/workflows/signing.yaml` builds and tests all four targets on native
+runners and checks the Apple-only macOS build. The release workflow consumes
+those archives alongside GoReleaser's macOS archives. Each Windows/Linux archive
+includes dependency license notices and has a SHA-256 checksum file.
 
-Notarization against either service needs an Apple account and has not been
-exercised here; only the command construction is covered by tests.
+Windows DMG creation writes the icon into the image, but cannot attach Finder
+metadata to the host `.dmg` file or import macOS extended attributes from source
+files. Windows PKG creation uses Windows file IDs to preserve hard links and
+rejects `PreserveOwnership`, since Windows does not supply Unix uid/gid values.
+
+## Implementation and validation
+
+- `pkg/signing/select_darwin.go`: Apple-only backend selection.
+- `pkg/signing/rcodesign`: Go/C binding, credential validation and errors.
+- `libcodesign`: Rust static library using apple-codesign 0.29.0 directly.
+- Rust tests sign amd64 and arm64 Mach-O fixtures with an ephemeral certificate,
+  verify their signatures and hardened runtime flags, and check FFI error ownership.
+  These tests disable network timestamping.
+- Native Go tests exercise the C ABI with an empty `PATH` and check cancellation
+  before entry. They do not require an external rcodesign executable.
+
+Live Apple notarization and timestamping require network/service access and
+appropriate credentials and are not exercised by these offline tests.

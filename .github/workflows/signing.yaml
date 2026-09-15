@@ -1,0 +1,90 @@
+name: signing
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['pkg/signing/**', 'libcodesign/**', 'scripts/*native.py', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: linux_amd64
+          - runner: ubuntu-22.04-arm
+            target: linux_arm64
+          - runner: windows-2025
+            target: windows_amd64
+            llvm_host: x86_64
+          - runner: windows-11-arm
+            target: windows_arm64
+            llvm_host: aarch64
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_BUILD_JOBS: '2'
+      ZAPP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install Rust
+        shell: bash
+        run: rustup toolchain install 1.98.0 --profile minimal --no-self-update && rustup default 1.98.0
+      - name: Install LLVM MinGW
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = 'llvm-mingw-20260908-ucrt-${{ matrix.llvm_host }}'
+          Invoke-WebRequest "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/$name.zip" -OutFile "$env:RUNNER_TEMP/llvm-mingw.zip"
+          Expand-Archive "$env:RUNNER_TEMP/llvm-mingw.zip" "$env:RUNNER_TEMP/llvm-mingw"
+          "$env:RUNNER_TEMP/llvm-mingw/$name/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            libcodesign/target
+          key: rust-1.98-${{ matrix.target }}-${{ hashFiles('libcodesign/Cargo.lock') }}
+      - name: Build and test static binding and CLI
+        run: python scripts/build-native.py ${{ matrix.target }} --test
+      - name: Generate license notices
+        shell: bash
+        run: |
+          cargo install cargo-about --locked --version 0.8.4
+          cd libcodesign
+          cargo about generate about.hbs -o THIRD_PARTY_LICENSES.html
+      - name: Package binary
+        run: python scripts/package-native.py ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.target }}
+          path: release-assets/*
+          if-no-files-found: error
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Verify Apple-only build
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go test -count=1 ./pkg/signing/... ./cmd/sign
+          go build -o "$RUNNER_TEMP/zapp" .
+          if go list -deps . | grep -q '^github.com/ironpark/zapp/pkg/signing/rcodesign$'; then
+            echo 'macOS binary must not include rcodesign'
+            exit 1
+          fi

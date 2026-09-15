@@ -1,0 +1,11 @@
+This build statically links apple-codesign 0.29.0 (rcodesign), Copyright Gregory Szorc
+and contributors, licensed under MPL-2.0. Its unmodified source is available at:
+https://static.crates.io/crates/apple-codesign/apple-codesign-0.29.0.crate
+https://github.com/indygreg/apple-platform-rs
+
+The binding source and locked dependency versions are in libcodesign in:
+https://github.com/ironpark/zapp
+
+THIRD_PARTY_LICENSES.html contains the Rust dependencies' license notices.
+Cargo.lock records exact versions and checksums; cargo vendor --locked obtains
+these dependency sources from their published crates.io source archives.

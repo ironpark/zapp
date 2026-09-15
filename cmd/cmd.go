@@ -70,8 +70,7 @@ func requireFlag[T any](requiredFlag, flagName string) func(context.Context, *cl
 
 // CertificateFlags name a signing certificate by file. Away from macOS there is
 // no keychain to take an identity from, so these are how a certificate is
-// supplied; on macOS they select rcodesign over Apple's tools, which is how a
-// build machine with no usable keychain signs.
+// supplied. macOS always uses Apple's tools and a keychain identity.
 func CertificateFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{

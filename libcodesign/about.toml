@@ -1,0 +1,4 @@
+accepted = [
+    "Apache-2.0", "MIT", "MPL-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC",
+    "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "OpenSSL", "CC0-1.0", "BSL-1.0", "BlueOak-1.0.0", "OpenSSL-standalone", "SSLeay-standalone",
+]

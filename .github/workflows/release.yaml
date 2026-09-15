@@ -14,7 +14,10 @@ permissions:
   # issues: write
 
 jobs:
+  signing:
+    uses: ./.github/workflows/signing.yaml
   goreleaser:
+    needs: signing
     runs-on: macos-14
     steps:
       - name: Checkout
@@ -25,8 +28,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
-      # More assembly might be required: Docker logins, GPG, etc.
-      # It all depends on your needs.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: release-assets
+          merge-multiple: true
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -34,7 +40,7 @@ jobs:
           distribution: goreleaser
           # 'latest', 'nightly', or a semver
           version: "~> v2"
-          args: release --clean
+          args: ${{ github.event_name == 'pull_request' && 'release --snapshot --clean' || 'release --clean' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution

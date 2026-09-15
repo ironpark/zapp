@@ -1,0 +1,4 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Zapp Rust dependency licenses</title>
+<h1>Rust dependency licenses</h1>
+{{#each licenses}}<h2>{{name}}</h2><p>{{#each used_by}}{{crate.name}} {{crate.version}}; {{/each}}</p><pre>{{text}}</pre>{{/each}}
+</html>

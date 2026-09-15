@@ -1,23 +1,16 @@
-// Package rcodesign wraps rcodesign, the signing tool from
-// https://github.com/indygreg/apple-platform-rs. It signs, notarizes and
-// staples Apple artifacts without Apple's tools or a keychain, which is what
-// makes it usable away from macOS.
+// Package rcodesign binds the statically linked apple-codesign Rust library.
 package rcodesign
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
-
-	"github.com/ironpark/zapp/internal/macexec"
 )
 
-// Tool is the executable name. It is looked up on PATH.
 const Tool = "rcodesign"
 
-// ErrNotInstalled is returned when rcodesign is not on PATH.
-var ErrNotInstalled = errors.New("rcodesign is not installed")
+// ErrUnavailable means this build does not contain the Rust static library.
+var ErrUnavailable = errors.New("rcodesign static binding is unavailable in this build")
 
 // errNoCertificate is returned when no signing certificate was named. rcodesign
 // would sign ad-hoc instead, which is rarely what a release build wants.
@@ -27,45 +20,18 @@ var errNoCertificate = errors.New("no signing certificate was given; pass --p12-
 // so the certificate is named by file, and it reaches the notary service
 // directly, so it authenticates with an App Store Connect API key.
 type Options struct {
-	P12File         string // PKCS#12 bundle holding the certificate and key
-	P12Password     string // the bundle's password, if any
-	P12PasswordFile string // a file holding that password, preferred over P12Password
-	PEMFile         string // a PEM bundle, as an alternative to PKCS#12
+	P12File         string `json:"p12_file"`          // PKCS#12 bundle holding the certificate and key
+	P12Password     string `json:"p12_password"`      // the bundle's password, if any
+	P12PasswordFile string `json:"p12_password_file"` // a file holding that password, preferred over P12Password
+	PEMFile         string `json:"pem_file"`          // a PEM bundle, as an alternative to PKCS#12
 
-	APIKeyFile string // JSON from rcodesign encode-app-store-connect-api-key
+	APIKeyFile string `json:"api_key_file"` // JSON from rcodesign encode-app-store-connect-api-key
 }
 
 // Configured reports whether a certificate was named at all. Without one
 // rcodesign signs ad-hoc, which is rarely what a release build wants.
 func (c Options) Configured() bool {
 	return c.P12File != "" || c.PEMFile != ""
-}
-
-// args renders the credentials as command line arguments.
-func (c Options) args() []string {
-	var out []string
-	if c.P12File != "" {
-		out = append(out, "--p12-file", c.P12File)
-		switch {
-		case c.P12PasswordFile != "":
-			out = append(out, "--p12-password-file", c.P12PasswordFile)
-		case c.P12Password != "":
-			out = append(out, "--p12-password", c.P12Password)
-		}
-	}
-	if c.PEMFile != "" {
-		out = append(out, "--pem-file", c.PEMFile)
-	}
-	return out
-}
-
-// Available reports whether rcodesign can be run.
-func Available() error {
-	if _, err := exec.LookPath(Tool); err != nil {
-		return fmt.Errorf("%w: install it from https://github.com/indygreg/apple-platform-rs "+
-			"or with `cargo install apple-codesign`: %v", ErrNotInstalled, err)
-	}
-	return nil
 }
 
 // Backend signs with rcodesign.
@@ -100,14 +66,7 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 		return errNoCertificate
 	}
 
-	args := append([]string{"sign"}, b.opts.args()...)
-	// Opt into the hardened runtime, which notarization requires.
-	args = append(args, "--code-signature-flags", "runtime")
-	// With no output path rcodesign rewrites the input, which is what the
-	// callers want.
-	args = append(args, path)
-
-	if _, err := macexec.Run(ctx, Tool, args...); err != nil {
+	if err := invoke(ctx, "sign", path, b.opts); err != nil {
 		return fmt.Errorf("rcodesign could not sign %s: %w", path, err)
 	}
 	return nil
@@ -120,8 +79,7 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 		return errors.New("notarizing with rcodesign needs an App Store Connect API key file; " +
 			"create one with `rcodesign encode-app-store-connect-api-key`")
 	}
-	if _, err := macexec.Run(ctx, Tool, "notary-submit",
-		"--api-key-file", b.opts.APIKeyFile, "--wait", path); err != nil {
+	if err := invoke(ctx, "submit", path, b.opts); err != nil {
 		return fmt.Errorf("rcodesign could not notarize %s: %w", path, err)
 	}
 	return nil
@@ -129,7 +87,7 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 
 // Staple attaches an already issued notarization ticket.
 func (b *Backend) Staple(ctx context.Context, path string) error {
-	if _, err := macexec.Run(ctx, Tool, "staple", path); err != nil {
+	if err := invoke(ctx, "staple", path, b.opts); err != nil {
 		return fmt.Errorf("rcodesign could not staple %s: %w", path, err)
 	}
 	return nil
