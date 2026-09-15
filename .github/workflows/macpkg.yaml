@@ -2,9 +2,9 @@ name: macpkg
 
 on:
   pull_request:
-    paths: ['pkg/macpkg/**', 'pkg/mactools/installer/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
   push:
-    paths: ['pkg/macpkg/**', 'pkg/mactools/installer/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
   workflow_dispatch:
     inputs:
       large:
@@ -29,7 +29,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Test package generation
-        run: go test -count=1 ./pkg/macpkg ./pkg/mactools/installer
+        run: go test -count=1 ./pkg/macpkg
       - name: Export Linux packages
         if: runner.os == 'Linux'
         run: |

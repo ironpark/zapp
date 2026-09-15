@@ -5,6 +5,27 @@ or Linux. No CGO, Apple command-line tools, or third-party packaging library is
 used at runtime. `zapp pkg` uses this package; signing and notarization continue
 through zapp's existing signing backends.
 
+## Single-application installers
+
+`BuildApp` wraps the two build steps below for the common case of shipping one
+`.app` bundle, staging the license resources itself.
+
+```go
+err := macpkg.BuildApp(ctx, macpkg.AppConfig{
+    AppPath:    "./dist/MyApp.app",
+    OutputPath: "./MyApp.pkg",
+    Identifier: "com.example.myapp",
+    Version:    "1.2.3",
+    License:    "./eula.txt",                             // Fallback for every locale.
+    Licenses:   map[string]string{"ko": "./eula.ko.txt"}, // Wins in a matching locale.
+})
+```
+
+`InstallLocation` defaults to `/Applications`, `Title` to the app name without
+its `.app` suffix, and `Organization` to `Identifier`. `Licenses` keys are ISO
+639-1 language codes. `ScriptsDir`, `MinOSVersion`, `PayloadMode`, and
+`Ownership` pass through to the component described below.
+
 ## Component and product packages
 
 ```go
@@ -120,7 +141,7 @@ plists, and automatic bundle relocation are not implemented here.
 ## Verification
 
 ```sh
-CGO_ENABLED=0 go test ./pkg/macpkg ./pkg/mactools/installer
+CGO_ENABLED=0 go test ./pkg/macpkg
 ```
 
 On macOS, normal tests also use `pkgutil --expand-full`, `lsbom`, `pkgbuild`,

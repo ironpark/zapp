@@ -6,7 +6,7 @@ import (
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/pkg/appbundle"
-	"github.com/ironpark/zapp/pkg/mactools/installer"
+	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
@@ -31,13 +31,12 @@ var Command = &cli.Command{
 		_, _ = logger.Printf("Start Creating PKG file for %s\n", appName)
 		appName = strings.TrimSuffix(appName, ".app")
 
-		config := installer.Config{
-			AppPath:         appDir,
-			OutputPath:      c.String("out"),
-			Version:         c.String("version"),
-			Identifier:      c.String("identifier"),
-			InstallLocation: "/Applications",
-			LicensePaths:    make(map[string]string),
+		config := macpkg.AppConfig{
+			AppPath:    appDir,
+			OutputPath: c.String("out"),
+			Version:    c.String("version"),
+			Identifier: c.String("identifier"),
+			Licenses:   make(map[string]string),
 		}
 
 		if config.OutputPath == "" {
@@ -62,16 +61,21 @@ var Command = &cli.Command{
 		logger.PrintValue("Identifier", config.Identifier)
 
 		for _, eula := range c.StringSlice("eula") {
-			parts := strings.SplitN(eula, ":", 2)
-			if len(parts) != 2 {
+			lang, path, localized := strings.Cut(eula, ":")
+			if !localized {
+				// A bare path is the license used for every locale.
+				config.License = lang
+				continue
+			}
+			if path == "" {
 				return fmt.Errorf("invalid eula arg format: %s", eula)
 			}
-			config.LicensePaths[parts[0]] = parts[1]
+			config.Licenses[lang] = path
 		}
-		if len(config.LicensePaths) == 0 {
+		if config.License == "" && len(config.Licenses) == 0 {
 			_, _ = logger.Println("EULA files not found.")
 		}
-		err = installer.CreatePKG(ctx, config)
+		err = macpkg.BuildApp(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}
@@ -126,7 +130,7 @@ var Command = &cli.Command{
 		},
 		&cli.StringSliceFlag{
 			Name:    "license",
-			Usage:   "Path to the license (EULA) file (format: lang:path, e.g., en:en_eula.txt,ko:ko_eula.txt)",
+			Usage:   "Path to the license (EULA) file, optionally per language (e.g., eula.txt or en:en_eula.txt,ko:ko_eula.txt)",
 			Aliases: []string{"eula"},
 		},
 	}, cmd.CreateSubTaskFlags()...),
