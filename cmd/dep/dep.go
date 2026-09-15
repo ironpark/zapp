@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/internal/fsutil"
-	"github.com/ironpark/zapp/pkg/mactools/install_name_tool"
+	"github.com/ironpark/zapp/pkg/mactools/installnametool"
 	"github.com/ironpark/zapp/pkg/mactools/otool"
 	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/samber/lo"
@@ -112,7 +112,7 @@ var Command = &cli.Command{
 		// resolve inside the bundle.
 		for _, dependency := range dependencies {
 			target := fmt.Sprintf("%s/%s", frameworksRPath, filepath.Base(dependency))
-			if err = install_name_tool.Change(c.Context, dependency, target, targetBundle); err != nil {
+			if err = installnametool.Change(c.Context, dependency, target, targetBundle); err != nil {
 				return fmt.Errorf("failed to change install name: %v", err)
 			}
 		}
@@ -223,7 +223,7 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 		if err = os.Chmod(dst, 0755); err != nil {
 			return nil, fmt.Errorf("failed to make %s writable: %v", dst, err)
 		}
-		if err = install_name_tool.ChangeId(ctx, "@rpath/"+base, dst); err != nil {
+		if err = installnametool.ChangeId(ctx, "@rpath/"+base, dst); err != nil {
 			return nil, fmt.Errorf("failed to change install name id: %v", err)
 		}
 		bundled = append(bundled, bundledDep{name: dep.name, source: source})
@@ -239,7 +239,7 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 		sourceDir := filepath.Dir(source)
 		for _, sub := range subDeps {
 			subBase := filepath.Base(sub)
-			if err = install_name_tool.Change(ctx, sub, "@loader_path/"+subBase, dst); err != nil {
+			if err = installnametool.Change(ctx, sub, "@loader_path/"+subBase, dst); err != nil {
 				return nil, fmt.Errorf("failed to change install name in %s: %v", base, err)
 			}
 			// Resolve relative to where this library actually came from, not
@@ -298,5 +298,5 @@ func ensureRPath(ctx context.Context, file, rpath string) error {
 	if lo.Contains(rpaths, rpath) {
 		return nil
 	}
-	return install_name_tool.AddRPath(ctx, rpath, file)
+	return installnametool.AddRPath(ctx, rpath, file)
 }

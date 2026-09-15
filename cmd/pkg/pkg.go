@@ -3,7 +3,7 @@ package pkg
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
-	"github.com/ironpark/zapp/pkg/mactools/pkg"
+	"github.com/ironpark/zapp/pkg/mactools/installer"
 	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
@@ -31,7 +31,7 @@ var Command = &cli.Command{
 		logger.Printf("Start Creating PKG file for %s\n", appName)
 		appName = strings.TrimSuffix(appName, ".app")
 
-		config := pkg.Config{
+		config := installer.Config{
 			AppPath:         appDir,
 			OutputPath:      c.String("out"),
 			Version:         c.String("version"),
@@ -72,7 +72,7 @@ var Command = &cli.Command{
 		if len(keys) == 0 {
 			logger.Println("EULA files not found.")
 		}
-		err = pkg.CreatePKG(c.Context, config)
+		err = installer.CreatePKG(c.Context, config)
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}

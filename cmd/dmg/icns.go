@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/nfnt/resize"
-	"howett.net/plist"
 	"yrh.dev/icns"
 )
 
@@ -19,25 +19,11 @@ func getAppIconPath(appPath string) (string, error) {
 	if !strings.HasSuffix(appPath, ".app") {
 		return "", fmt.Errorf("not an app: %s", appPath)
 	}
-	plistPath := filepath.Join(appPath, "Contents", "Info.plist")
-	data, err := os.ReadFile(plistPath)
+	info, err := plist.GetAppInfo(appPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read plist file: %v", err)
+		return "", err
 	}
-
-	var plistData map[string]interface{}
-	_, err = plist.Unmarshal(data, &plistData)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse plist: %v", err)
-	}
-	if plistData["CFBundleIconFile"] == nil {
-		return "", fmt.Errorf("icon file not found in plist")
-	}
-	appIcon := filepath.Join(appPath, "Contents", "Resources", plistData["CFBundleIconFile"].(string))
-	if filepath.Ext(appIcon) == "" {
-		appIcon += ".icns"
-	}
-	return appIcon, nil
+	return info.IconFilePath()
 }
 
 func createIconSet(iconPath string, output string, withDiskBg bool) error {
@@ -61,6 +47,9 @@ func createIconSet(iconPath string, output string, withDiskBg bool) error {
 		}
 	case ".png":
 		iconImage, err = readPng(iconPath)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported icon file: %s", iconPath)
 	}

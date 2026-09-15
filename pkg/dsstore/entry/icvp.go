@@ -3,7 +3,7 @@ package entry
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/ironpark/zapp/pkg/mactools/alias"
+	"github.com/ironpark/zapp/pkg/alias"
 	"unicode/utf16"
 
 	"howett.net/plist"

@@ -8,7 +8,6 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/urfave/cli/v2 v2.27.5
 	golang.org/x/text v0.19.0
-	gopkg.in/yaml.v3 v3.0.1
 	howett.net/plist v1.0.1
 	yrh.dev/icns v0.0.0-20210608051050-de3ea6a57b33
 )

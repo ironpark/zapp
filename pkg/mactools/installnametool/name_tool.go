@@ -1,4 +1,4 @@
-package install_name_tool
+package installnametool
 
 import (
 	"context"
