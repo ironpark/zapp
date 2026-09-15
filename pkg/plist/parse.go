@@ -42,9 +42,9 @@ func ParseDict(data []byte) (map[string]any, error) {
 	return dict, nil
 }
 
-// MarshalXML renders a value as an XML property list. Property lists are
-// rewritten as XML regardless of the format they were read in, matching what
-// plutil and PlistBuddy produce by default.
+// MarshalXML renders a value as an XML property list, the format plutil and
+// PlistBuddy produce by default. Document.Save picks the marshaller that
+// matches the file it read, rather than always choosing this one.
 func MarshalXML(value any) ([]byte, error) {
 	return marshalXML(value)
 }

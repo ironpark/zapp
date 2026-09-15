@@ -12,7 +12,13 @@ import (
 	"github.com/ironpark/zapp/pkg/plist"
 )
 
-func findPlistPath(path string) (string, error) {
+// FindPlistPath resolves what a user named on a command line to the property
+// list it means: the Info.plist inside an .app bundle, or a .plist file given
+// directly.
+func FindPlistPath(path string) (string, error) {
+	// A shell completing a bundle name leaves a trailing separator, which would
+	// otherwise hide the .app extension from filepath.Ext.
+	path = filepath.Clean(path)
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return "", fmt.Errorf("error accessing %s: %w", path, err)
@@ -27,8 +33,8 @@ func findPlistPath(path string) (string, error) {
 		}
 		return "", fmt.Errorf("%s is not an .app bundle containing Contents/Info.plist", path)
 	}
-	if filepath.Base(path) != "Info.plist" {
-		return "", fmt.Errorf("%s is neither an .app bundle nor an Info.plist", path)
+	if filepath.Ext(path) != ".plist" {
+		return "", fmt.Errorf("%s is neither an .app bundle nor a .plist file", path)
 	}
 	return path, nil
 }
@@ -102,7 +108,7 @@ func (a *Info) IconFilePath() (string, error) {
 // Open locates and reads the Info.plist of an .app bundle, or reads an
 // Info.plist given directly.
 func Open(path string) (*Info, error) {
-	plistPath, err := findPlistPath(path)
+	plistPath, err := FindPlistPath(path)
 	if err != nil {
 		return nil, err
 	}

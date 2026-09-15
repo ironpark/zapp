@@ -3,33 +3,10 @@ package plist
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
+	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/urfave/cli/v3"
 )
-
-func findPlistPath(path string) (string, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return "", fmt.Errorf("error accessing path: %v", err)
-	}
-
-	if fileInfo.IsDir() {
-		if filepath.Ext(path) == ".app" {
-			plistPath := filepath.Join(path, "Contents", "Info.plist")
-			if _, err := os.Stat(plistPath); err == nil {
-				return plistPath, nil
-			}
-		}
-		return "", fmt.Errorf("not a valid .app directory or Info.plist not found")
-	} else {
-		if filepath.Ext(path) == ".plist" {
-			return path, nil
-		}
-		return "", fmt.Errorf("not a .plist file")
-	}
-}
 
 var Command = &cli.Command{
 	Name:        "plist",
@@ -43,7 +20,7 @@ var Command = &cli.Command{
 		}
 
 		path := c.Args().First()
-		plistPath, err := findPlistPath(path)
+		plistPath, err := appbundle.FindPlistPath(path)
 		if err != nil {
 			return err
 		}
@@ -54,5 +31,7 @@ var Command = &cli.Command{
 	Commands: []*cli.Command{
 		getCommand,
 		setCommand,
+		deleteCommand,
+		bumpCommand,
 	},
 }

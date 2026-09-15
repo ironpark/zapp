@@ -3,7 +3,8 @@ package macho
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/ironpark/zapp/internal/fsutil"
 )
 
 // SetID sets the install name a dylib publishes, the equivalent of
@@ -228,24 +229,7 @@ func (s slice) writeCommands(buf []byte, cmds []command) error {
 
 // writeBack replaces path's contents atomically.
 func writeBack(path string, buf []byte, mode os.FileMode) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".zapp-macho-*")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	defer func() { _ = os.Remove(name) }()
-
-	if _, err := tmp.Write(buf); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(name, mode); err != nil {
-		return err
-	}
-	return os.Rename(name, path)
+	return fsutil.WriteFileAtomic(path, buf, mode)
 }
 
 // headerLimit is the file offset the load commands may not grow past: the

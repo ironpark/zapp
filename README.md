@@ -18,7 +18,7 @@
 - [x] Create PKG files
 - [x] Code signing
 - [x] Notarization / Stapling
-- [ ] Modify plist (version)
+- [x] Modify plist (version)
 - [x] Auto binary dependencies bundling
 - [ ] Support GitHub Actions
 
@@ -173,6 +173,50 @@ zapp pkg --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt --app="path/to/targ
 ```bash
 zapp pkg --app="path/to/target.app" --sign --notarize --profile "profile" --staple
 ```
+
+### 📝 Editing Info.plist
+
+`zapp plist` reads and edits a `.plist` file, or the `Info.plist` inside a `.app`
+bundle. The file is rewritten in the format it was read in, so a binary
+`Info.plist` stays binary and the enclosing bundle's signature is not disturbed.
+
+```bash
+zapp plist get "path/to/target.app" CFBundleVersion
+zapp plist set "path/to/target.app" CFBundleVersion 1.2.3
+zapp plist delete "path/to/target.app" LSUIElement
+```
+
+A key keeps the type it already has, so a boolean stays a boolean:
+
+```bash
+# writes <false/>, not the string "false", which macOS would read as true
+zapp plist set "path/to/target.app" LSUIElement false
+```
+
+A key that does not exist yet becomes a boolean for `true` or `false`, an
+integer for a whole number, and a string otherwise, so a version like `1.0`
+stays a string.
+
+Nested values are addressed with a dotted path. A key that itself contains dots,
+as entitlements keys do, is matched before the name is read as a path:
+
+```bash
+zapp plist get "path/to/target.app" NSAppTransportSecurity.NSAllowsArbitraryLoads
+zapp plist get "entitlements.plist" com.apple.security.app-sandbox
+```
+
+#### Raising a version
+
+```bash
+zapp plist bump "path/to/target.app"                 # 1.4.2 -> 1.4.3
+zapp plist bump "path/to/target.app" --minor         # 1.4.2 -> 1.5.0
+zapp plist bump "path/to/target.app" --major         # 1.4.2 -> 2.0.0
+zapp plist bump "path/to/target.app" --key CFBundleShortVersionString
+```
+
+Without a flag the last component is raised, which is what a build number
+wants. `--major`, `--minor` and `--patch` raise that component and reset the
+ones after it.
 
 ### Full Example
 The following is a complete example showing how to use `zapp` to dependency bundling, codesign, packaging, notarize, and staple `MyApp.app`:
