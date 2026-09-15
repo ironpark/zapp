@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ironpark/zapp/internal/fsutil"
-	"github.com/ironpark/zapp/pkg/customicon"
 	"github.com/ironpark/zapp/pkg/dsstore"
 	"github.com/ironpark/zapp/pkg/mactools/hdiutil"
 )
@@ -131,7 +130,7 @@ func setFileIcon(dmgPath, iconPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read icon %s: %w", iconPath, err)
 	}
-	if err := customicon.Apply(dmgPath, icns); err != nil {
+	if err := applyCustomIcon(dmgPath, icns); err != nil {
 		return fmt.Errorf("failed to set icon on %s: %w", dmgPath, err)
 	}
 	return nil
@@ -163,10 +162,10 @@ func setDMGIcon(mountPoint, iconPath string) error {
 	if err := fsutil.CopyFile(iconPath, iconFile); err != nil {
 		return fmt.Errorf("failed to copy icon to mount point: %w", err)
 	}
-	if err := customicon.SetCreator(iconFile, "icnC"); err != nil {
+	if err := setCreatorCode(iconFile, "icnC"); err != nil {
 		return fmt.Errorf("failed to set creator code on volume icon: %w", err)
 	}
-	if err := customicon.Mark(mountPoint); err != nil {
+	if err := markCustomIcon(mountPoint); err != nil {
 		return fmt.Errorf("failed to mark volume as having a custom icon: %w", err)
 	}
 	return nil

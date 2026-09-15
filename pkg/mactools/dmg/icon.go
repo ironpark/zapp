@@ -1,11 +1,12 @@
-// Package customicon gives a file or folder a custom Finder icon.
+package dmg
+
+// Custom Finder icons.
 //
 // The Finder reads an icon from a classic Resource Manager resource fork, which
 // on modern filesystems is stored in the com.apple.ResourceFork extended
 // attribute, and only looks for it when the kHasCustomIcon flag is set in the
 // com.apple.FinderInfo attribute. Both are written here directly, replacing a
 // round trip through sips, DeRez, Rez and SetFile.
-package customicon
 
 import (
 	"encoding/binary"
@@ -37,10 +38,10 @@ const (
 	iconResourceType = "icns"
 )
 
-// Apply stores icns as path's custom icon and marks path as having one. It is
-// the equivalent of Rez-ing an 'icns' resource onto the file and running
-// SetFile -a C.
-func Apply(path string, icns []byte) error {
+// applyCustomIcon stores icns as path's custom icon and marks path as having
+// one. It is the equivalent of Rez-ing an 'icns' resource onto the file and
+// running SetFile -a C.
+func applyCustomIcon(path string, icns []byte) error {
 	if len(icns) == 0 {
 		return errors.New("icon data is empty")
 	}
@@ -51,13 +52,13 @@ func Apply(path string, icns []byte) error {
 	if err := unix.Setxattr(path, resourceForkAttr, fork, 0); err != nil {
 		return fmt.Errorf("failed to write resource fork of %s: %w", path, err)
 	}
-	return Mark(path)
+	return markCustomIcon(path)
 }
 
-// Mark sets the kHasCustomIcon Finder flag on path. A volume root keeps its
-// icon in a .VolumeIcon.icns file rather than a resource fork, so it needs only
-// this flag.
-func Mark(path string) error {
+// markCustomIcon sets the kHasCustomIcon Finder flag on path. A volume root
+// keeps its icon in a .VolumeIcon.icns file rather than a resource fork, so it
+// needs only this flag.
+func markCustomIcon(path string) error {
 	info, err := finderInfo(path)
 	if err != nil {
 		return err
@@ -73,9 +74,9 @@ func Mark(path string) error {
 	return nil
 }
 
-// SetCreator sets the four character creator code in path's Finder info, the
-// equivalent of SetFile -c.
-func SetCreator(path, code string) error {
+// setCreatorCode sets the four character creator code in path's Finder info,
+// the equivalent of SetFile -c.
+func setCreatorCode(path, code string) error {
 	if len(code) != 4 {
 		return fmt.Errorf("creator code must be 4 characters, got %q", code)
 	}

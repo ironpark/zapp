@@ -1,4 +1,4 @@
-package customicon
+package dmg
 
 import (
 	"encoding/binary"
@@ -103,8 +103,8 @@ func TestBuildResourceForkAgainstDeRez(t *testing.T) {
 	if err := os.WriteFile(path, []byte("payload"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Apply(path, sampleICNS); err != nil {
-		t.Fatalf("Apply() error: %v", err)
+	if err := applyCustomIcon(path, sampleICNS); err != nil {
+		t.Fatalf("applyCustomIcon() error: %v", err)
 	}
 
 	out, err := exec.Command("DeRez", "-only", "icns", path).CombinedOutput()
@@ -128,8 +128,8 @@ func TestApplySetsForkAndFlag(t *testing.T) {
 	if err := os.WriteFile(path, []byte("payload"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Apply(path, sampleICNS); err != nil {
-		t.Fatalf("Apply() error: %v", err)
+	if err := applyCustomIcon(path, sampleICNS); err != nil {
+		t.Fatalf("applyCustomIcon() error: %v", err)
 	}
 
 	fork := readAttr(t, path, resourceForkAttr)
@@ -167,15 +167,15 @@ func TestApplyRejectsEmptyIcon(t *testing.T) {
 	if err := os.WriteFile(path, nil, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Apply(path, nil); err == nil {
-		t.Error("Apply() accepted empty icon data")
+	if err := applyCustomIcon(path, nil); err == nil {
+		t.Error("applyCustomIcon() accepted empty icon data")
 	}
 }
 
 func TestMarkOnDirectoryAndIdempotence(t *testing.T) {
 	dir := t.TempDir()
-	if err := Mark(dir); err != nil {
-		t.Fatalf("Mark() on a directory error: %v", err)
+	if err := markCustomIcon(dir); err != nil {
+		t.Fatalf("markCustomIcon() on a directory error: %v", err)
 	}
 	info := readAttr(t, dir, finderInfoAttr)
 	if flags := binary.BigEndian.Uint16(info[finderFlagsOffset:]); flags&hasCustomIcon == 0 {
@@ -183,12 +183,12 @@ func TestMarkOnDirectoryAndIdempotence(t *testing.T) {
 	}
 
 	// Marking twice must not corrupt anything.
-	if err := Mark(dir); err != nil {
-		t.Fatalf("second Mark() error: %v", err)
+	if err := markCustomIcon(dir); err != nil {
+		t.Fatalf("second markCustomIcon() error: %v", err)
 	}
 	again := readAttr(t, dir, finderInfoAttr)
 	if string(again) != string(info) {
-		t.Error("second Mark() changed the finder info")
+		t.Error("second markCustomIcon() changed the finder info")
 	}
 }
 
@@ -197,11 +197,11 @@ func TestSetCreatorPreservesFlags(t *testing.T) {
 	if err := os.WriteFile(path, sampleICNS, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Mark(path); err != nil {
+	if err := markCustomIcon(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetCreator(path, "icnC"); err != nil {
-		t.Fatalf("SetCreator() error: %v", err)
+	if err := setCreatorCode(path, "icnC"); err != nil {
+		t.Fatalf("setCreatorCode() error: %v", err)
 	}
 
 	info := readAttr(t, path, finderInfoAttr)
@@ -219,8 +219,8 @@ func TestSetCreatorRejectsBadCode(t *testing.T) {
 	if err := os.WriteFile(path, nil, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetCreator(path, "abc"); err == nil {
-		t.Error("SetCreator() accepted a 3-character code")
+	if err := setCreatorCode(path, "abc"); err == nil {
+		t.Error("setCreatorCode() accepted a 3-character code")
 	}
 }
 
