@@ -7,8 +7,7 @@ import (
 	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/internal/fsutil"
 	"github.com/ironpark/zapp/pkg/appbundle"
-	"github.com/ironpark/zapp/pkg/mactools/installnametool"
-	"github.com/ironpark/zapp/pkg/mactools/otool"
+	"github.com/ironpark/zapp/pkg/macho"
 	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
@@ -69,7 +68,7 @@ var Command = &cli.Command{
 		logger.PrintValue("Frameworks Path", frameworksPath)
 		logger.Println("Getting dependencies")
 
-		dependencies, err := directDependencies(ctx, targetBundle)
+		dependencies, err := directDependencies(targetBundle)
 		if err != nil {
 			return fmt.Errorf("failed to get dependencies: %v", err)
 		}
@@ -100,7 +99,7 @@ var Command = &cli.Command{
 		// the app fails to load on any machine that lacks it, and under the
 		// hardened runtime fails even on the build machine because the outside
 		// library carries a different Team ID.
-		bundled, err := bundleDependencies(ctx, targetBundle, frameworksPath, libPaths, dependencies)
+		bundled, err := bundleDependencies(targetBundle, frameworksPath, libPaths, dependencies)
 		if err != nil {
 			return err
 		}
@@ -112,11 +111,11 @@ var Command = &cli.Command{
 		// resolve inside the bundle.
 		for _, dependency := range dependencies {
 			target := fmt.Sprintf("%s/%s", frameworksRPath, filepath.Base(dependency))
-			if err = installnametool.Change(ctx, dependency, target, targetBundle); err != nil {
+			if err = macho.ChangeDependency(targetBundle, dependency, target); err != nil {
 				return fmt.Errorf("failed to change install name: %v", err)
 			}
 		}
-		if err = ensureRPath(ctx, targetBundle, frameworksRPath); err != nil {
+		if err = macho.AddRPath(targetBundle, frameworksRPath); err != nil {
 			return fmt.Errorf("failed to add rpath: %v", err)
 		}
 
@@ -168,27 +167,32 @@ type bundledDep struct {
 }
 
 // directDependencies returns the non-system libraries a binary links against.
-func directDependencies(ctx context.Context, file string) ([]string, error) {
-	dependencies, err := otool.GetDependencies(ctx, file)
+func directDependencies(file string) ([]string, error) {
+	info, err := macho.Read(file)
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(dependencies, otool.IsSystemLib), nil
+	return nonSystem(info), nil
+}
+
+// nonSystem drops the libraries macOS itself provides.
+func nonSystem(info *macho.Info) []string {
+	return slices.DeleteFunc(info.Dependencies, macho.IsSystemLibrary)
 }
 
 // bundleDependencies copies every non-system library transitively reachable
 // from targetBundle into frameworksPath, rewriting each copy so it refers to
 // its siblings inside the bundle.
-func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string, libPaths, roots []string) ([]bundledDep, error) {
+func bundleDependencies(targetBundle, frameworksPath string, libPaths, roots []string) ([]bundledDep, error) {
 	execDir := filepath.Dir(targetBundle)
-	rootRPaths, err := otool.GetRPaths(ctx, targetBundle)
+	rootInfo, err := macho.Read(targetBundle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read rpaths of %s: %v", targetBundle, err)
+		return nil, fmt.Errorf("failed to read %s: %w", targetBundle, err)
 	}
 
 	queue := make([]pendingDep, 0, len(roots))
 	for _, name := range roots {
-		queue = append(queue, pendingDep{name: name, loaderDir: execDir, rpaths: rootRPaths})
+		queue = append(queue, pendingDep{name: name, loaderDir: execDir, rpaths: rootInfo.RPaths})
 	}
 
 	var bundled []bundledDep
@@ -222,28 +226,25 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 		if err = os.Chmod(dst, 0755); err != nil {
 			return nil, fmt.Errorf("failed to make %s writable: %v", dst, err)
 		}
-		if err = installnametool.ChangeId(ctx, "@rpath/"+base, dst); err != nil {
+		if err = macho.SetID(dst, "@rpath/"+base); err != nil {
 			return nil, fmt.Errorf("failed to change install name id: %v", err)
 		}
 		bundled = append(bundled, bundledDep{name: dep.name, source: source})
 
-		subDeps, err := directDependencies(ctx, dst)
+		subInfo, err := macho.Read(dst)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get dependencies of %s: %v", base, err)
+			return nil, fmt.Errorf("failed to read %s: %w", base, err)
 		}
-		subRPaths, err := otool.GetRPaths(ctx, dst)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read rpaths of %s: %v", base, err)
-		}
+		subDeps := nonSystem(subInfo)
 		sourceDir := filepath.Dir(source)
 		for _, sub := range subDeps {
 			subBase := filepath.Base(sub)
-			if err = installnametool.Change(ctx, sub, "@loader_path/"+subBase, dst); err != nil {
+			if err = macho.ChangeDependency(dst, sub, "@loader_path/"+subBase); err != nil {
 				return nil, fmt.Errorf("failed to change install name in %s: %v", base, err)
 			}
 			// Resolve relative to where this library actually came from, not
 			// where its copy now lives.
-			queue = append(queue, pendingDep{name: sub, loaderDir: sourceDir, rpaths: subRPaths})
+			queue = append(queue, pendingDep{name: sub, loaderDir: sourceDir, rpaths: subInfo.RPaths})
 		}
 	}
 	return bundled, nil
@@ -286,17 +287,4 @@ func expandPath(path, loaderDir, execDir string) string {
 		}
 	}
 	return path
-}
-
-// ensureRPath adds an LC_RPATH entry unless the binary already has it;
-// install_name_tool fails on duplicates.
-func ensureRPath(ctx context.Context, file, rpath string) error {
-	rpaths, err := otool.GetRPaths(ctx, file)
-	if err != nil {
-		return err
-	}
-	if slices.Contains(rpaths, rpath) {
-		return nil
-	}
-	return installnametool.AddRPath(ctx, rpath, file)
 }
