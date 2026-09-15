@@ -56,7 +56,7 @@ func CreatePKG(ctx context.Context, config Config) error {
 			return fmt.Errorf("failed to create lproj directory for %s: %v", lang, err)
 		}
 		destPath := filepath.Join(lprojDir, "license.txt")
-		if err := fsutil.CopyFileAnyway(sourcePath, destPath); err != nil {
+		if err := fsutil.CopyFile(sourcePath, destPath); err != nil {
 			return fmt.Errorf("failed to copy license file for %s: %v", lang, err)
 		}
 	}

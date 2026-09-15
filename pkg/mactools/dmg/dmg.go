@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ironpark/zapp/internal/fsutil"
 	"github.com/ironpark/zapp/pkg/dsstore"
 	"github.com/ironpark/zapp/pkg/mactools/hdiutil"
 	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
@@ -131,7 +132,7 @@ func setFileIcon(ctx context.Context, dmgPath, iconPath string) error {
 	defer os.RemoveAll(tempDir) // Ensure cleanup of temp directory
 
 	tempIconPath := filepath.Join(tempDir, "icon.icns")
-	err = copyFile(iconPath, tempIconPath)
+	err = fsutil.CopyFile(iconPath, tempIconPath)
 	if err != nil {
 		return fmt.Errorf("failed to copy icon: %w", err)
 	}
@@ -178,7 +179,7 @@ func tmpMount(ctx context.Context, dmgPath string, process func(dmgFilePath stri
 func setDMGIcon(ctx context.Context, mountPoint, iconPath string) error {
 	// Copy the icon to the mount point
 	iconFile := filepath.Join(mountPoint, ".VolumeIcon.icns")
-	if err := copyFile(iconPath, iconFile); err != nil {
+	if err := fsutil.CopyFile(iconPath, iconFile); err != nil {
 		return fmt.Errorf("failed to copy icon to mount point: %w", err)
 	}
 
@@ -204,13 +205,13 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 		case File:
 			// Copy the file to the source directory
 			destPath := filepath.Join(sourceDir, filepath.Base(item.Path))
-			if err := copyFile(item.Path, destPath); err != nil {
+			if err := fsutil.CopyFile(item.Path, destPath); err != nil {
 				return fmt.Errorf("failed to copy file %s to %s: %s", item.Path, destPath, err)
 			}
 		case Dir:
 			// Copy the file to the source directory
 			destPath := filepath.Join(sourceDir, filepath.Base(item.Path))
-			if err := copyDir(item.Path, destPath); err != nil {
+			if err := fsutil.CopyDir(item.Path, destPath); err != nil {
 				return fmt.Errorf("failed to copy dir %s to %s: %s", item.Path, destPath, err)
 			}
 		case Link:
@@ -222,97 +223,15 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 		}
 	}
 
-	// 배경 이미지 복사
+	// Copy the background image.
 	if config.Background != "" {
 		backgroundDir := filepath.Join(sourceDir, ".background")
 		if err := os.MkdirAll(backgroundDir, 0755); err != nil {
 			return fmt.Errorf("failed to create .background directory: %w", err)
 		}
-		if err := copyFile(config.Background, filepath.Join(backgroundDir, "background.png")); err != nil {
+		if err := fsutil.CopyFile(config.Background, filepath.Join(backgroundDir, "background.png")); err != nil {
 			return fmt.Errorf("failed to copy background: %s", err)
 		}
 	}
 	return nil
-}
-
-func isDir(path string) (bool, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-
-	// handle symbol link
-	if fi.Mode()&os.ModeSymlink != 0 {
-		realPath, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			return false, err
-		}
-		fi, err = os.Stat(realPath)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	return fi.IsDir(), nil
-}
-
-// copyDir copies a directory from src to dst recursively.
-func copyDir(src, dst string) error {
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	if err = os.MkdirAll(dst, srcInfo.Mode()); err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		entryPath := srcPath
-		is_dir, err := isDir(entryPath)
-		if err != nil {
-			continue
-		}
-
-		if is_dir {
-			if err = copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			if err = copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// copyFile copies a file from src to dst.
-func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstDir := filepath.Dir(dst)
-	if err := os.MkdirAll(dstDir, 0755); err != nil {
-		return err
-	}
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-	_, err = io.Copy(dstFile, srcFile)
-	return err
 }

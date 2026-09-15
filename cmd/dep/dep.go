@@ -211,10 +211,10 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 		dst := filepath.Join(frameworksPath, base)
 		// Re-running on an already bundled app resolves a dependency to the
 		// copy itself; copying it over itself would truncate it.
-		if same, err := sameFile(source, dst); err != nil {
+		if same, err := fsutil.SameFile(source, dst); err != nil {
 			return nil, err
 		} else if !same {
-			if err = fsutil.CopyFileAnyway(source, dst); err != nil {
+			if err = fsutil.CopyFile(source, dst); err != nil {
 				return nil, fmt.Errorf("failed to copy dependency: %v", err)
 			}
 		}
@@ -274,21 +274,6 @@ func resolveDep(dep pendingDep, execDir string, libPaths []string) (string, erro
 		}
 	}
 	return "", fmt.Errorf("dependency not found: %s (tried: %s)", dep.name, strings.Join(candidates, ", "))
-}
-
-func sameFile(a, b string) (bool, error) {
-	aInfo, err := os.Stat(a)
-	if err != nil {
-		return false, err
-	}
-	bInfo, err := os.Stat(b)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return os.SameFile(aInfo, bInfo), nil
 }
 
 func expandPath(path, loaderDir, execDir string) string {

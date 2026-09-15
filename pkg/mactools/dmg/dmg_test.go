@@ -70,8 +70,8 @@ func fakeBackground(t *testing.T, path string) string {
 	return path
 }
 
-// mountedNames attaches the image and lists the entries at its root.
-func mountedNames(t *testing.T, dmgPath string) map[string]bool {
+// mountApp attaches the image and returns its mount point.
+func attach(t *testing.T, dmgPath string) string {
 	t.Helper()
 	mountPoint := filepath.Join(t.TempDir(), "mount")
 	ctx := context.Background()
@@ -83,7 +83,13 @@ func mountedNames(t *testing.T, dmgPath string) map[string]bool {
 			t.Errorf("failed to detach %s: %v", mountPoint, err)
 		}
 	})
-	entries, err := os.ReadDir(mountPoint)
+	return mountPoint
+}
+
+// mountedNames attaches the image and lists the entries at its root.
+func mountedNames(t *testing.T, dmgPath string) map[string]bool {
+	t.Helper()
+	entries, err := os.ReadDir(attach(t, dmgPath))
 	if err != nil {
 		t.Fatalf("failed to read mount point: %v", err)
 	}
@@ -221,5 +227,38 @@ func TestCreateDMGDefaultFileName(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(work, "SyncMaster.dmg")); err != nil {
 		t.Errorf("expected SyncMaster.dmg to be created: %v", err)
+	}
+}
+
+// The app's executable must stay executable inside the image; a copy that drops
+// the exec bit produces a bundle macOS refuses to launch.
+func TestCreateDMGPreservesExecutableBit(t *testing.T) {
+	requireTools(t, "hdiutil")
+
+	fixtures := t.TempDir()
+	app := fakeAppBundle(t, fixtures, "SyncMaster.app")
+	out := filepath.Join(t.TempDir(), "SyncMaster.dmg")
+
+	err := CreateDMG(context.Background(), Config{
+		FileName:         out,
+		Title:            "SyncMaster",
+		LabelSize:        14,
+		ContentsIconSize: 128,
+		WindowWidth:      640,
+		WindowHeight:     480,
+		LogWriter:        &bytes.Buffer{},
+		Contents:         []Item{{X: 128, Y: 240, Type: Dir, Path: app}},
+	}, filepath.Join(t.TempDir(), "src"))
+	if err != nil {
+		t.Fatalf("CreateDMG() error: %v", err)
+	}
+
+	mountPoint := attach(t, out)
+	info, err := os.Stat(filepath.Join(mountPoint, "SyncMaster.app", "Contents", "MacOS", "App"))
+	if err != nil {
+		t.Fatalf("executable missing from image: %v", err)
+	}
+	if info.Mode().Perm()&0111 == 0 {
+		t.Errorf("executable mode inside image = %v, want the exec bit set", info.Mode().Perm())
 	}
 }
