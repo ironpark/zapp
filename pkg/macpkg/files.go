@@ -50,6 +50,9 @@ func collect(ctx context.Context, root, only string, ownership Ownership) ([]fil
 	if ownership > PreserveOwnership {
 		return nil, fmt.Errorf("invalid ownership mode")
 	}
+	if ownership == PreserveOwnership && !ownershipSupported {
+		return nil, fmt.Errorf("preserving Unix ownership is not supported on this platform")
+	}
 	if only != "" && (!validArchivePath(only) || strings.Contains(only, "/")) {
 		return nil, fmt.Errorf("RootEntry must be an immediate child name")
 	}
@@ -89,11 +92,11 @@ func collect(ctx context.Context, root, only string, ownership Ownership) ([]fil
 		if err != nil {
 			return err
 		}
-		s, err := payloadMetadata(p, info, ownership)
+		s, err := payloadMetadata(p, info)
 		if err != nil {
 			return err
 		}
-		e := fileEntry{name: rel, source: p, info: info, mode: uint32(s.Mode), mtime: uint32(info.ModTime().Unix())}
+		e := fileEntry{name: rel, source: p, info: info, mode: s.Mode, mtime: uint32(info.ModTime().Unix())}
 		if info.ModTime().Unix() < 0 || info.ModTime().Unix() > 1<<32-1 {
 			return fmt.Errorf("mtime out of range: %s", p)
 		}
@@ -120,7 +123,7 @@ func collect(ctx context.Context, root, only string, ownership Ownership) ([]fil
 		default:
 			return fmt.Errorf("unsupported special file: %s", p)
 		}
-		key := inodeKey{uint64(s.Dev), s.Ino}
+		key := inodeKey{s.Dev, s.Ino}
 		if e.regular() {
 			e.ino = inodes[key]
 		}

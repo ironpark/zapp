@@ -1,6 +1,8 @@
 package dmg
 
 import (
+	"errors"
+
 	"golang.org/x/sys/unix"
 
 	"github.com/ironpark/zapp/pkg/macfs"
@@ -8,6 +10,11 @@ import (
 
 // errNoAttr is what the kernel reports for an attribute that is not set.
 var errNoAttr = unix.ENOATTR
+
+// absentAttr reports whether err means the attribute is simply not there.
+func absentAttr(err error) bool {
+	return errors.Is(err, errNoAttr) || errors.Is(err, unix.ENOTSUP)
+}
 
 func applyImageIcon(path string, icns []byte) error { return applyCustomIcon(path, icns) }
 

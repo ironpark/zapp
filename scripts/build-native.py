@@ -3,17 +3,25 @@
 import argparse
 import datetime
 import os
+import sys
 from pathlib import Path
 import shutil
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import goreleaser_config as gr
+
+ROOT = gr.ROOT
 TARGETS = {
     "linux_amd64": "x86_64-unknown-linux-gnu",
     "linux_arm64": "aarch64-unknown-linux-gnu",
     "windows_amd64": "x86_64-pc-windows-gnullvm",
     "windows_arm64": "aarch64-pc-windows-gnullvm",
 }
+
+
+def binary_name(goos):
+    return "zapp.exe" if goos == "windows" else "zapp"
 
 
 def main():
@@ -33,23 +41,23 @@ def main():
         env.setdefault("AR", "llvm-ar")
     env["CARGO_TARGET_" + target.upper().replace("-", "_") + "_LINKER"] = cc
     subprocess.run(["rustup", "target", "add", target], check=True)
-    cargo = ["cargo", "build", "--locked", "--release", "--manifest-path", "libcodesign/Cargo.toml", "--target", target]
-    subprocess.run(cargo, env=env, check=True)
+    cargo_args = ["--locked", "--release", "--manifest-path", "libcodesign/Cargo.toml", "--target", target]
+    subprocess.run(["cargo", "build", *cargo_args], env=env, check=True)
     libdir = ROOT / "libcodesign/lib" / args.target
     libdir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "libcodesign/target" / target / "release/libzapp_rcodesign.a", libdir)
     if args.test:
-        cargo[1] = "test"
-        subprocess.run(cargo, env=env, check=True)
+        # Only the test run pulls the crate's dev-dependencies in.
+        subprocess.run(["cargo", "test", *cargo_args], env=env, check=True)
         subprocess.run(["go", "test", "-count=1", "./pkg/signing/..."], env=env, check=True)
         if env["GOOS"] == "windows":
             subprocess.run(["go", "test", "-count=1", "-run", "^TestWindowsPayloadMetadata$", "./pkg/macpkg"], env=env, check=True)
-    output = ROOT / "dist" / args.target / ("zapp.exe" if env["GOOS"] == "windows" else "zapp")
+    output = ROOT / "dist" / args.target / binary_name(env["GOOS"])
     output.parent.mkdir(parents=True, exist_ok=True)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     version = os.environ.get("ZAPP_VERSION", "dev")
     date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    ldflags = f"-s -w -X github.com/ironpark/zapp/cmd/info.Version={version} -X github.com/ironpark/zapp/cmd/info.Commit={commit} -X github.com/ironpark/zapp/cmd/info.BuildDate={date}"
+    ldflags = gr.ldflags(version, commit, date)
     subprocess.run(["go", "build", "-trimpath", "-ldflags", ldflags, "-o", str(output), "."], env=env, check=True)
     if env["GOOS"] == "windows":
         imports = subprocess.check_output(["llvm-readobj", "--coff-imports", str(output)], text=True).lower()

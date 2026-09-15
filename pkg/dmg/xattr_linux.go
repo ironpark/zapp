@@ -17,6 +17,11 @@ const linuxAttrPrefix = "user."
 // spells it ENODATA where macOS spells it ENOATTR.
 var errNoAttr = unix.ENODATA
 
+// absentAttr reports whether err means the attribute is simply not there.
+func absentAttr(err error) bool {
+	return errors.Is(err, errNoAttr) || errors.Is(err, unix.ENOTSUP)
+}
+
 func applyImageIcon(path string, icns []byte) error {
 	err := applyCustomIcon(path, icns)
 	// The volume's full icon is already inside the DMG. Linux may not be

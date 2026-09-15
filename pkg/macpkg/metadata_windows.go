@@ -1,19 +1,27 @@
 package macpkg
 
 import (
-	"fmt"
-	"golang.org/x/sys/windows"
 	"io/fs"
+
+	"golang.org/x/sys/windows"
 )
 
-type windowsPayloadMetadata struct {
-	Mode, Uid, Gid uint32
-	Dev, Ino       uint64
-}
+// ownershipSupported reports whether the host can report Unix uid/gid. Windows
+// has no such notion, so collect rejects PreserveOwnership up front.
+const ownershipSupported = false
 
-func payloadMetadata(path string, info fs.FileInfo, ownership Ownership) (*windowsPayloadMetadata, error) {
-	if ownership == PreserveOwnership {
-		return nil, fmt.Errorf("preserving Unix ownership is not supported on Windows: %s", path)
+func payloadMetadata(path string, info fs.FileInfo) (*payloadStat, error) {
+	mode := uint32(info.Mode().Perm()) | 0100000
+	switch {
+	case info.IsDir():
+		mode = 0040755
+	case info.Mode()&fs.ModeSymlink != 0:
+		mode = 0120777
+	}
+	// Dev and Ino identify hard links, which only regular files share. Opening
+	// a handle is expensive on Windows, so skip it for everything else.
+	if !info.Mode().IsRegular() {
+		return &payloadStat{Mode: mode}, nil
 	}
 	name, err := windows.UTF16PtrFromString(path)
 	if err != nil {
@@ -30,12 +38,9 @@ func payloadMetadata(path string, info fs.FileInfo, ownership Ownership) (*windo
 	if err := windows.GetFileInformationByHandle(handle, &data); err != nil {
 		return nil, err
 	}
-	mode := uint32(info.Mode().Perm()) | 0100000
-	if info.IsDir() {
-		mode = 0040755
-	}
-	if info.Mode()&fs.ModeSymlink != 0 {
-		mode = 0120777
-	}
-	return &windowsPayloadMetadata{Mode: mode, Dev: uint64(data.VolumeSerialNumber), Ino: uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow)}, nil
+	return &payloadStat{
+		Mode: mode,
+		Dev:  uint64(data.VolumeSerialNumber),
+		Ino:  uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow),
+	}, nil
 }

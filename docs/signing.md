@@ -85,8 +85,9 @@ python scripts/build-native.py linux_amd64 --test
 
 The script builds the pinned Rust sources with `cargo --locked`, copies the
 static archive into `libcodesign/lib/<os>_<arch>/`, runs tests if requested,
-and links zapp into `dist/<os>_<arch>/`. Set `CC` for cross compilation and omit
-`--test` unless the host can execute target binaries.
+and links zapp into `dist/<os>_<arch>/`, stamping the version with the same
+ldflags GoReleaser uses. Set `CC` for cross compilation and omit `--test`
+unless the host can execute target binaries.
 
 A Windows/Linux `CGO_ENABLED=0` build can run commands that do not need signing;
 signing and notarization return `ErrUnavailable`. A CGO build requires the static
@@ -95,8 +96,18 @@ fall back to an external rcodesign executable.
 
 `.github/workflows/signing.yaml` builds and tests all four targets on native
 runners and checks the Apple-only macOS build. The release workflow consumes
-those archives alongside GoReleaser's macOS archives. Each Windows/Linux archive
-includes dependency license notices and has a SHA-256 checksum file.
+those archives alongside GoReleaser's macOS archives, and every archive appears
+in the release's single checksums file.
+
+Windows and Linux binaries link the Rust library through cgo, so they are built
+on their own runners rather than by GoReleaser, whose OSS distribution cannot
+adopt a binary it did not build itself (`builder: prebuilt` is Pro-only).
+`scripts/package-native.py` assembles those archives, but takes their contents,
+format and name from `.goreleaser.yaml` via `scripts/goreleaser_config.py`, so
+the two halves of a release cannot drift apart; editing the archive layout in
+`.goreleaser.yaml` is enough, and changing its `name_template` fails packaging
+with an explicit message. Each Windows/Linux archive additionally carries the
+Rust dependency license notices, which the macOS archive has no need of.
 
 Windows DMG creation writes the icon into the image, but cannot attach Finder
 metadata to the host `.dmg` file or import macOS extended attributes from source

@@ -4,12 +4,13 @@ package signing
 
 import (
 	"fmt"
+
 	"github.com/ironpark/zapp/pkg/signing/rcodesign"
 )
 
 // Select uses the statically linked Rust backend away from macOS.
 func Select(c Credentials) (Backend, error) {
-	if c.Identity != "" || c.Profile != "" || c.AppleID != "" || c.Password != "" || c.TeamID != "" {
+	if c.namesKeychainIdentity() {
 		return nil, fmt.Errorf("keychain and Apple ID credentials are macOS-only; use --p12-file or --pem-file and --api-key-file")
 	}
 	if err := rcodesign.Available(); err != nil {

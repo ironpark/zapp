@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
-"""Package one native zapp build, notices, and a SHA-256 checksum."""
-import hashlib
-from pathlib import Path
+"""Package one native zapp build into the archive GoReleaser would have made.
+
+The layout -- contents, format and name -- comes from .goreleaser.yaml, so the
+native half of a release cannot drift from the macOS half. Checksums are not
+written here: .goreleaser.yaml lists these archives under checksum.extra_files,
+so they land in the release's one checksums file.
+"""
 import sys
 import tarfile
 import zipfile
+from pathlib import Path
 
-root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import goreleaser_config as gr
+
+root = gr.ROOT
 goos, arch = sys.argv[1].split("_")
 if goos not in ("windows", "linux") or arch not in ("amd64", "arm64"):
     raise SystemExit("expected linux/windows_amd64/arm64")
-label = "x86_64" if arch == "amd64" else arch
-name = f"zapp_{goos.title()}_{label}"
+
+notices = root / "libcodesign/THIRD_PARTY_LICENSES.html"
+if not notices.is_file():
+    raise SystemExit("generate THIRD_PARTY_LICENSES.html with cargo-about before packaging")
+
 output = root / "release-assets"
 output.mkdir(exist_ok=True)
-files = [(root / "dist" / sys.argv[1] / ("zapp.exe" if goos == "windows" else "zapp"), "zapp.exe" if goos == "windows" else "zapp")]
-for pattern in ("LICENSE*", "README*", "internal/thirdparty/text/LICENSE", "internal/thirdparty/text/PATENTS", "internal/thirdparty/text/README.md", "libcodesign/NOTICE", "libcodesign/Cargo.lock", "libcodesign/THIRD_PARTY_LICENSES.html"):
+binary = "zapp.exe" if goos == "windows" else "zapp"
+files = [(root / "dist" / sys.argv[1] / binary, binary)]
+# The Rust notices are native-only: the macOS build does not link the library,
+# so its archive has nothing to attribute and GoReleaser does not carry these.
+patterns = gr.archive_files() + ["libcodesign/NOTICE", "libcodesign/Cargo.lock", str(notices.relative_to(root))]
+for pattern in patterns:
     files.extend((p, str(p.relative_to(root))) for p in root.glob(pattern) if p.is_file())
-if not (root / "libcodesign/THIRD_PARTY_LICENSES.html").is_file():
-    raise SystemExit("generate THIRD_PARTY_LICENSES.html with cargo-about before packaging")
-if goos == "windows":
+
+name = gr.archive_name("zapp", goos, arch)
+if gr.archive_format(goos) == "zip":
     archive = output / (name + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
         for src, dest in files:
@@ -29,4 +44,4 @@ else:
     with tarfile.open(archive, "w:gz") as z:
         for src, dest in files:
             z.add(src, arcname=dest)
-(output / (archive.name + ".sha256")).write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n")
+print(archive)

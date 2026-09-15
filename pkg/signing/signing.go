@@ -44,6 +44,20 @@ type Credentials struct {
 	APIKeyFile string
 }
 
+// namesCertificateFile reports whether c carries credentials only rcodesign
+// understands: a certificate held in a file rather than a keychain.
+func (c Credentials) namesCertificateFile() bool {
+	return c.P12File != "" || c.PEMFile != "" || c.P12Password != "" ||
+		c.P12PasswordFile != "" || c.APIKeyFile != ""
+}
+
+// namesKeychainIdentity reports whether c carries credentials only Apple's
+// tools understand: a keychain identity, or an Apple ID for notarytool.
+func (c Credentials) namesKeychainIdentity() bool {
+	return c.Identity != "" || c.Profile != "" || c.AppleID != "" ||
+		c.Password != "" || c.TeamID != ""
+}
+
 // Backend signs, notarizes and staples through one toolchain. A backend is
 // built with the credentials it needs, so the methods take only what varies per
 // call.

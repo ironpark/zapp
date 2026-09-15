@@ -31,14 +31,7 @@ struct Request {
     options: Options,
 }
 
-fn execute(request: Request) -> Result<(), Box<dyn std::error::Error>> {
-    execute_with_timestamp(request, true)
-}
-
-fn execute_with_timestamp(
-    request: Request,
-    timestamp: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn execute(request: Request, timestamp: bool) -> Result<(), Box<dyn std::error::Error>> {
     if request.path.is_empty() {
         return Err("a target path is required".into());
     }
@@ -74,19 +67,16 @@ fn execute_with_timestamp(
             }
             let certs = source.resolve_certificates(false)?;
             // Reject certificate-only PEM inputs instead of silently producing ad-hoc signatures.
-            certs.private_key()?;
+            let key = certs.private_key()?;
             let mut settings = SigningSettings::default();
             certs.load_into_signing_settings(&mut settings)?;
-            if settings.signing_key().is_none() {
-                return Err("no signing key and certificate pair found".into());
-            }
             if timestamp {
                 settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
             }
             settings.set_team_id_from_signing_certificate();
             settings.set_code_signature_flags(SettingsScope::Main, CodeSignatureFlags::RUNTIME);
             UnifiedSigner::new(settings).sign_path_in_place(path)?;
-            certs.private_key()?.finish()?;
+            key.finish()?;
         }
         "submit" => {
             if opts.api_key_file.is_empty() {
@@ -110,7 +100,10 @@ pub unsafe extern "C" fn zapp_rcodesign_run(request: *const c_char) -> *mut c_ch
             if request.is_null() {
                 return Err("null signing request".into());
             }
-            execute(serde_json::from_str(CStr::from_ptr(request).to_str()?)?)
+            execute(
+                serde_json::from_str(CStr::from_ptr(request).to_str()?)?,
+                true,
+            )
         },
     ));
     let error = match result {
@@ -183,7 +176,7 @@ mod tests {
         ] {
             let path = dir.path().join(name);
             std::fs::write(&path, builder.write_macho().unwrap()).unwrap();
-            execute_with_timestamp(
+            execute(
                 Request {
                     operation: "sign".into(),
                     path: path.to_str().unwrap().into(),

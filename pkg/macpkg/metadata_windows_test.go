@@ -1,6 +1,7 @@
 package macpkg
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,11 +21,11 @@ func TestWindowsPayloadMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := payloadMetadata(path, info, RootWheel)
+	a, err := payloadMetadata(path, info)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := payloadMetadata(link, info, RootWheel)
+	b, err := payloadMetadata(link, info)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +35,8 @@ func TestWindowsPayloadMetadata(t *testing.T) {
 	if a.Mode&0170000 != 0100000 || a.Uid != 0 || a.Gid != 0 {
 		t.Fatalf("invalid Unix metadata: %+v", a)
 	}
-	if _, err := payloadMetadata(path, info, PreserveOwnership); err == nil {
+	// Windows has no Unix ownership, and collect rejects it before the walk.
+	if _, err := collect(context.Background(), dir, "", PreserveOwnership); err == nil {
 		t.Fatal("accepted Unix ownership preservation")
 	}
 }

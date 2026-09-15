@@ -24,8 +24,16 @@ release:
   extra_files:
     - glob: release-assets/*
 
+# The Windows and Linux archives are built on their own runners (they link a
+# Rust static library through cgo) and assembled by scripts/package-native.py,
+# which takes their contents, format and name from the archives block below.
+# Listing them here puts them in the same checksums file as everything else.
+checksum:
+  extra_files:
+    - glob: release-assets/*
+
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     files:
       - LICENSE*
       - README*
@@ -44,7 +52,7 @@ archives:
     # use zip for windows archives
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 brews:
   - name: zapp

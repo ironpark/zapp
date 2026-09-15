@@ -1,25 +1,15 @@
-//go:build darwin || linux
-
 package dmg
 
-import (
-	"errors"
-	"fmt"
-
-	"golang.org/x/sys/unix"
-)
+import "fmt"
 
 // Imported Finder metadata is part of the content tree, independently of the
 // filesystem selected for the output. Do not follow framework symlinks.
 func sourceMetadata(path string, node *imageNode) error {
-	absent := func(err error) bool {
-		return errors.Is(err, errNoAttr) || errors.Is(err, unix.ENOTSUP)
-	}
-	if _, err := getSourceXattr(path, finderInfoAttr, node.FinderInfo[:]); err != nil && !absent(err) {
+	if _, err := getSourceXattr(path, finderInfoAttr, node.FinderInfo[:]); err != nil && !absentAttr(err) {
 		return fmt.Errorf("read FinderInfo of %s: %w", path, err)
 	}
 	size, err := getSourceXattr(path, resourceForkAttr, nil)
-	if absent(err) {
+	if absentAttr(err) {
 		return nil
 	}
 	if err != nil {

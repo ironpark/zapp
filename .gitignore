@@ -14,3 +14,4 @@ dist/
 /libcodesign/lib/
 /release-assets/
 /libcodesign/THIRD_PARTY_LICENSES.html
+__pycache__/

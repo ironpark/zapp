@@ -29,7 +29,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       CARGO_BUILD_JOBS: '2'
-      ZAPP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+      # build-native.py falls back to 'dev' when this is unset.
+      ZAPP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -38,6 +39,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - name: Install build script dependencies
+        run: pip install pyyaml
       - name: Install Rust
         shell: bash
         run: rustup toolchain install 1.98.0 --profile minimal --no-self-update && rustup default 1.98.0
@@ -54,8 +57,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin
             libcodesign/target
           key: rust-1.98-${{ matrix.target }}-${{ hashFiles('libcodesign/Cargo.lock') }}
+          # A lockfile change should still start from the previous build's
+          # artifacts rather than recompiling the whole dependency tree.
+          restore-keys: rust-1.98-${{ matrix.target }}-
       - name: Build and test static binding and CLI
         run: python scripts/build-native.py ${{ matrix.target }} --test
       - name: Generate license notices
