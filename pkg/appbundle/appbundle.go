@@ -15,7 +15,7 @@ import (
 func findPlistPath(path string) (string, error) {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return "", fmt.Errorf("error accessing path: %v", err)
+		return "", fmt.Errorf("error accessing %s: %w", path, err)
 	}
 
 	if fileInfo.IsDir() {
@@ -25,10 +25,10 @@ func findPlistPath(path string) (string, error) {
 				return plistPath, nil
 			}
 		}
-		return "", fmt.Errorf("not a valid .app directory or Info.plist not found")
+		return "", fmt.Errorf("%s is not an .app bundle containing Contents/Info.plist", path)
 	}
 	if filepath.Base(path) != "Info.plist" {
-		return "", fmt.Errorf("not a .plist file")
+		return "", fmt.Errorf("%s is neither an .app bundle nor an Info.plist", path)
 	}
 	return path, nil
 }
@@ -42,7 +42,7 @@ type Info struct {
 func (a *Info) Get(key string) (any, error) {
 	value, ok := a.data[key]
 	if !ok {
-		return nil, fmt.Errorf("key not found")
+		return nil, fmt.Errorf("%s has no %s key", a.path, key)
 	}
 	return value, nil
 }
@@ -92,9 +92,9 @@ func (a *Info) IconFilePath() (string, error) {
 	if !strings.HasSuffix(iconPath, ".icns") {
 		iconPath += ".icns"
 	}
-	_, err = os.Stat(iconPath)
-	if errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("icon file not found")
+	if _, err := os.Stat(iconPath); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("%s names %q as its icon, but %s does not exist",
+			a.path, iconFile, iconPath)
 	}
 	return iconPath, nil
 }
@@ -109,11 +109,11 @@ func Open(path string) (*Info, error) {
 
 	data, err := os.ReadFile(plistPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read plist file: %v", err)
+		return nil, fmt.Errorf("failed to read %s: %w", plistPath, err)
 	}
 	plistData, err := plist.ParseDict(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse plist: %v", err)
+		return nil, fmt.Errorf("failed to parse %s: %w", plistPath, err)
 	}
 	return &Info{
 		path: plistPath,

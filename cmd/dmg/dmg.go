@@ -41,7 +41,7 @@ var Command = &cli.Command{
 		// Create a temporary working directory
 		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
 		if err != nil {
-			return fmt.Errorf("error creating temporary directory: %v", err)
+			return fmt.Errorf("error creating temporary directory: %w", err)
 		}
 		defer os.RemoveAll(tempDir)
 
@@ -52,13 +52,14 @@ var Command = &cli.Command{
 			logger.Println("Create dmg disk file icon using app icon")
 			tempDirForIcon, err := os.MkdirTemp("", "*-zapp-dmg-icon")
 			if err != nil {
-				return fmt.Errorf("error creating temporary directory: %v", err)
+				return fmt.Errorf("error creating temporary directory: %w", err)
 			}
 			defer os.RemoveAll(tempDirForIcon)
 			icon = filepath.Join(tempDirForIcon, "icon.icns")
-			err = createIconSet(appDir, icon, !c.Bool("use-original-icon"))
-			if err != nil {
-				return err
+			if err = createIconSet(appDir, icon, !c.Bool("use-original-icon")); err != nil {
+				return fmt.Errorf("could not derive a disk icon from %s: %w\n"+
+					"       pass --icon with an .icns or .png to supply one",
+					filepath.Base(appDir), err)
 			}
 		}
 		if out == "" {
