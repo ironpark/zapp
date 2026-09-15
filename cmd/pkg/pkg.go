@@ -7,7 +7,6 @@ import (
 	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installer"
-	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
@@ -69,8 +68,7 @@ var Command = &cli.Command{
 			}
 			config.LicensePaths[parts[0]] = parts[1]
 		}
-		keys := lo.Keys(config.LicensePaths)
-		if len(keys) == 0 {
+		if len(config.LicensePaths) == 0 {
 			logger.Println("EULA files not found.")
 		}
 		err = installer.CreatePKG(ctx, config)

@@ -6,12 +6,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
+	"slices"
 	"sort"
 	"unicode/utf16"
 
 	"github.com/ironpark/zapp/pkg/dsstore/entry"
 
-	"github.com/samber/lo"
 	"golang.org/x/text/unicode/norm"
 
 	_ "embed"
@@ -49,8 +49,17 @@ func NewDSStore() *DSStore {
 		Entries: make([]entry.Entry, 0),
 	}
 }
+
+// findEntry returns the first entry satisfying match.
+func (ds *DSStore) findEntry(match func(entry.Entry) bool) (entry.Entry, bool) {
+	if i := slices.IndexFunc(ds.Entries, match); i >= 0 {
+		return ds.Entries[i], true
+	}
+	return nil, false
+}
+
 func (ds *DSStore) getIconViewPreferences() *entry.IconViewPreferencesEntry {
-	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+	e, ok := ds.findEntry(func(e entry.Entry) bool {
 		return e.EntryType() == entry.TypeIconViewPreferences
 	})
 	if ok {
@@ -87,7 +96,7 @@ func (ds *DSStore) SetBgToDefault() {
 }
 
 func (ds *DSStore) SetWindow(width, height, x, y int) {
-	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+	e, ok := ds.findEntry(func(e entry.Entry) bool {
 		return e.EntryType() == entry.TypeWorkspaceSettings
 	})
 	if ok {
@@ -102,7 +111,7 @@ func (ds *DSStore) SetWindow(width, height, x, y int) {
 }
 
 func (ds *DSStore) SetIconPos(name string, x, y uint32) {
-	e, ok := lo.Find(ds.Entries, func(e entry.Entry) bool {
+	e, ok := ds.findEntry(func(e entry.Entry) bool {
 		return e.Filename() == name && e.EntryType() == entry.TypeIconLocation
 	})
 	if ok {

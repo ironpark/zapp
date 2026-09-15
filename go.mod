@@ -4,7 +4,6 @@ go 1.26.0
 
 require (
 	github.com/fatih/color v1.19.0
-	github.com/samber/lo v1.53.0
 	github.com/urfave/cli/v3 v3.12.0
 	golang.org/x/text v0.42.0
 )

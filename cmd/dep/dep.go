@@ -9,10 +9,10 @@ import (
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installnametool"
 	"github.com/ironpark/zapp/pkg/mactools/otool"
-	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -173,9 +173,7 @@ func directDependencies(ctx context.Context, file string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lo.Filter(dependencies, func(s string, _ int) bool {
-		return !otool.IsSystemLib(s)
-	}), nil
+	return slices.DeleteFunc(dependencies, otool.IsSystemLib), nil
 }
 
 // bundleDependencies copies every non-system library transitively reachable
@@ -188,9 +186,10 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 		return nil, fmt.Errorf("failed to read rpaths of %s: %v", targetBundle, err)
 	}
 
-	queue := lo.Map(roots, func(name string, _ int) pendingDep {
-		return pendingDep{name: name, loaderDir: execDir, rpaths: rootRPaths}
-	})
+	queue := make([]pendingDep, 0, len(roots))
+	for _, name := range roots {
+		queue = append(queue, pendingDep{name: name, loaderDir: execDir, rpaths: rootRPaths})
+	}
 
 	var bundled []bundledDep
 	done := map[string]bool{}
@@ -254,9 +253,10 @@ func bundleDependencies(ctx context.Context, targetBundle, frameworksPath string
 // directories given with --libs.
 func resolveDep(dep pendingDep, execDir string, libPaths []string) (string, error) {
 	base := filepath.Base(dep.name)
-	candidates := lo.Map(libPaths, func(libPath string, _ int) string {
-		return filepath.Join(libPath, base)
-	})
+	candidates := make([]string, 0, len(libPaths)+len(dep.rpaths)+1)
+	for _, libPath := range libPaths {
+		candidates = append(candidates, filepath.Join(libPath, base))
+	}
 
 	switch {
 	case strings.HasPrefix(dep.name, "@rpath/"):
@@ -295,7 +295,7 @@ func ensureRPath(ctx context.Context, file, rpath string) error {
 	if err != nil {
 		return err
 	}
-	if lo.Contains(rpaths, rpath) {
+	if slices.Contains(rpaths, rpath) {
 		return nil
 	}
 	return installnametool.AddRPath(ctx, rpath, file)
