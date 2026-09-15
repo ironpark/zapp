@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PayloadMode selects the legacy or macOS 12 segmented CPIO representation.
@@ -31,7 +32,9 @@ const (
 
 // ComponentConfig describes one installable payload and its optional scripts.
 type ComponentConfig struct {
-	Root string // Contents become relative to InstallLocation; empty for scripts-only.
+	// Created overrides recorded timestamps when nonzero.
+	Created time.Time
+	Root    string // Contents become relative to InstallLocation; empty for scripts-only.
 	// RootEntry optionally includes just this immediate child of Root. It is useful
 	// for packaging one app without staging or including its siblings.
 	RootEntry       string
@@ -47,6 +50,8 @@ type ComponentConfig struct {
 
 // ProductConfig combines components and installer UI resources into a product.
 type ProductConfig struct {
+	// Created overrides recorded timestamps when nonzero.
+	Created         time.Time
 	OutputPath      string
 	Packages        []string // Flat component package paths, with unique base names and IDs.
 	ResourcesDir    string

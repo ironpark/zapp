@@ -3,11 +3,12 @@ package sign
 import (
 	"context"
 	"fmt"
+	"github.com/ironpark/zapp"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/urfave/cli/v3"
 )
@@ -83,26 +84,9 @@ func Credentials(c *cli.Command) signing.Credentials {
 // Run signs target. It is exported so other commands can sign what they just
 // produced without re-entering the CLI parser.
 func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signing.Credentials) error {
-	backend, err := signing.Select(creds)
+	pl, err := (&zapp.Project{Sign: &zapp.SignConfig{Identity: creds.Identity, P12File: creds.P12File, PEMFile: creds.PEMFile, P12Password: creds.P12Password, P12PasswordFile: creds.P12PasswordFile}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err
 	}
-
-	_, _ = logger.Println("Start signing")
-	logger.PrintValue("Target", target)
-	logger.PrintValue("Toolchain", backend.Name())
-
-	// Apple's tools pick a certificate out of the keychain and rcodesign was
-	// handed one by path; either way, say which before using it.
-	credential, err := backend.Describe(ctx, target)
-	if err != nil {
-		return err
-	}
-	logger.PrintValue("Certificate", credential)
-
-	if err := backend.Sign(ctx, target); err != nil {
-		return err
-	}
-	_, _ = logger.Success("%s signed successfully!", target)
-	return nil
+	return pl.Sign(ctx, target)
 }

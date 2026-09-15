@@ -52,7 +52,7 @@ contents:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.WindowWidth != 800 || cfg.WindowHeight != 460 || cfg.ContentsIconSize != 96 || cfg.LabelSize != 14 || cfg.FileName != "release.dmg" || cfg.Title != "Override" {
+	if cfg.WindowWidth != 800 || cfg.WindowHeight != 460 || cfg.ContentsIconSize != 96 || cfg.LabelSize != 14 || cfg.FileName != filepath.Join(mustCwd(t), "release.dmg") || cfg.Title != "Override" {
 		t.Fatalf("bad merged config: %+v", cfg)
 	}
 	if len(cfg.Contents) != 2 || cfg.Contents[1].X != 0 || cfg.Contents[1].Name != "사용 안내.txt" || cfg.Contents[0].Path != "/Applications" {
@@ -142,4 +142,13 @@ contents:
 	if cfg.Contents[2].Path != "relative-target" || cfg.Contents[2].X != 0 || cfg.Contents[2].Y != 0 {
 		t.Fatalf("link target or origin changed: %+v", cfg.Contents[2])
 	}
+}
+
+func mustCwd(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

@@ -7,12 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // AppConfig describes an installer that places a single .app bundle into
 // InstallLocation. It is a convenience layer over BuildComponent and
 // BuildProduct for the common case of shipping one application.
 type AppConfig struct {
+	// Created overrides recorded timestamps when nonzero.
+	Created    time.Time
 	AppPath    string // Path to the .app bundle to install.
 	OutputPath string
 	Identifier string
@@ -77,6 +80,7 @@ func BuildApp(ctx context.Context, c AppConfig) error {
 
 	component := filepath.Join(work, "component.pkg")
 	err = BuildComponent(ctx, ComponentConfig{
+		Created:         c.Created,
 		Root:            filepath.Dir(appPath),
 		RootEntry:       filepath.Base(appPath),
 		OutputPath:      component,
@@ -102,6 +106,7 @@ func BuildApp(ctx context.Context, c AppConfig) error {
 		distribution.LicenseFile = licenseName
 	}
 	err = BuildProduct(ctx, ProductConfig{
+		Created:      c.Created,
 		Packages:     []string{component},
 		ResourcesDir: resources,
 		OutputPath:   c.OutputPath,

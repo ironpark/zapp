@@ -9,7 +9,7 @@ the filesystem with [`udif`](../udif) compression. Import HFS+ from
 `github.com/ironpark/zapp/pkg/macfs/hfsplus`; its API is otherwise unchanged.
 
 ```sh
-CGO_ENABLED=0 go test ./pkg/macfs/... ./pkg/dmg ./pkg/udif ./cmd/dmg
+CGO_ENABLED=0 go test ./pkg/macfs/... ./pkg/dmg ./pkg/udif ./cmd/zapp/internal/cli/dmg
 ```
 
 Tests run format checks on every platform. On macOS they also use `hdiutil`,

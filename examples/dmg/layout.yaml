@@ -1,3 +1,5 @@
+# Legacy flat format: deprecated; see ../zapp.yaml for the project format.
+# Output remains relative to cwd.
 version: 1
 title: MyApp
 out: MyApp.dmg

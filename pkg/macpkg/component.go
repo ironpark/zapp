@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ironpark/zapp/pkg/plist"
 )
@@ -106,6 +107,17 @@ func BuildComponent(ctx context.Context, c ComponentConfig) error {
 		scripts, err = collect(ctx, c.ScriptsDir, "", c.Ownership)
 		if err != nil {
 			return err
+		}
+	}
+	if !c.Created.IsZero() {
+		if c.Created.Unix() < 0 || c.Created.Unix() > 1<<32-1 {
+			return fmt.Errorf("created timestamp out of range")
+		}
+		for i := range entries {
+			entries[i].mtime = uint32(c.Created.Unix())
+		}
+		for i := range scripts {
+			scripts[i].mtime = uint32(c.Created.Unix())
 		}
 	}
 	large := c.PayloadMode == Large
@@ -228,6 +240,11 @@ func BuildComponent(ctx context.Context, c ComponentConfig) error {
 			return err
 		}
 		archive = append(archive, archiveEntry{name: "PackageInfo", r: bytes.NewReader(append([]byte(xml.Header), x...))})
+		if !c.Created.IsZero() {
+			for i := range archive {
+				archive[i].mtime = c.Created.UTC().Format(time.RFC3339)
+			}
+		}
 		return writeXAR(ctx, out, work, archive)
 	})
 }

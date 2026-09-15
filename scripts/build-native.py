@@ -58,7 +58,7 @@ def main():
     version = os.environ.get("ZAPP_VERSION", "dev")
     date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     ldflags = gr.ldflags(version, commit, date)
-    subprocess.run(["go", "build", "-trimpath", "-ldflags", ldflags, "-o", str(output), "."], env=env, check=True)
+    subprocess.run(["go", "build", "-trimpath", "-ldflags", ldflags, "-o", str(output), "./cmd/zapp"], env=env, check=True)
     if env["GOOS"] == "windows":
         imports = subprocess.check_output(["llvm-readobj", "--coff-imports", str(output)], text=True).lower()
         for dependency in ("libunwind.dll", "libc++.dll", "libwinpthread-1.dll", "rcodesign.dll"):

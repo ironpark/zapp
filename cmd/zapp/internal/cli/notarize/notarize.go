@@ -3,7 +3,8 @@ package notarize
 import (
 	"context"
 	"fmt"
-	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,24 +91,9 @@ func Credentials(c *cli.Command) signing.Credentials {
 // exported so other commands can notarize what they just produced without
 // re-entering the CLI parser.
 func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signing.Credentials, staple bool) error {
-	backend, err := signing.Select(creds)
+	pl, err := (&zapp.Project{Notarize: &zapp.NotarizeConfig{Profile: creds.Profile, AppleID: creds.AppleID, TeamID: creds.TeamID, Password: creds.Password, APIKeyFile: creds.APIKeyFile, Staple: staple}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err
 	}
-
-	_, _ = logger.Println("Start notarization")
-	logger.PrintValue("Target", target)
-	logger.PrintValue("Toolchain", backend.Name())
-	if creds.Profile != "" {
-		logger.PrintValue("Profile", creds.Profile)
-	}
-	if creds.APIKeyFile != "" {
-		logger.PrintValue("API key", creds.APIKeyFile)
-	}
-
-	if err := signing.Notarize(ctx, backend, target, staple); err != nil {
-		return err
-	}
-	_, _ = logger.Success("Notarization completed successfully!")
-	return nil
+	return pl.Notarize(ctx, target)
 }

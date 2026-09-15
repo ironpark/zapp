@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ironpark/zapp/pkg/icns"
 	"github.com/urfave/cli/v3"
 )
 
@@ -139,7 +140,11 @@ func TestPNGIconAndOutputExtension(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			img, err := readIcnsFromBytes(data)
+			family, err := icns.Decode(bytes.NewReader(data))
+			if err != nil {
+				t.Fatal(err)
+			}
+			img, err := family.HighestResolution()
 			if err != nil {
 				t.Fatalf("DMG icon is not valid ICNS: %v", err)
 			}

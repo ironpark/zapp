@@ -1,0 +1,74 @@
+# zapp project schema v1. Copy this to .zapp.yaml at your project root.
+# All paths are relative to this file. CLI and ZAPP_* path overrides use cwd.
+version: 1
+app: ../dist/MyApp.app
+out: ../dist
+
+# Presence enables each build step. Remove dep if your app needs no bundling.
+dep:
+  libs: [/opt/homebrew/lib]
+
+# Uncomment to sign and notarize automatically after packaging.
+# Credentials are examples of environment references, never embedded secrets.
+# sign:
+#   identity: ${env:ZAPP_IDENTITY}
+#   # Cross-platform certificate alternatives: p12File or pemFile.
+#   # p12File: ${env:ZAPP_P12_FILE}
+#   # Set ZAPP_P12_PASSWORD at runtime; p12Password is forbidden here.
+# notarize:
+#   profile: ${env:ZAPP_PROFILE}
+#   # Alternatively: appleId + teamId and runtime ZAPP_PASSWORD,
+#   # or apiKeyFile: ${env:ASC_API_KEY}
+#   staple: true
+
+dmg:
+  title: ${app.name}
+  out: ../dist/${app.name}-${app.version}.dmg
+  fs: hfsplus
+  format: udzo
+  window: {width: 720, height: 460}
+  iconSize: 96
+  labelSize: 14
+  # icon: assets/icon.png
+  # background: assets/background.png
+  # Omit contents for an automatically positioned app + /Applications layout.
+  contents:
+    ${app}: {x: 180, y: 200}
+    /Applications: {link: true, x: 540, y: 200}
+    ../README.md: {name: Read Me.md, x: 360, y: 350}
+
+# Short form: identifier and version default from the app's Info.plist.
+pkg:
+  type: product
+  installLocation: /Applications
+  # scripts: installer/scripts
+  # minOS: '12.0'
+  # license: installer/license.txt
+  # Or localized licenses:
+  # license: {default: installer/license.txt, ko: installer/license-ko.txt}
+
+# Full form: REPLACE the pkg section above; do not mix short and full fields.
+# pkg:
+#   type: product          # component requires exactly one component
+#   out: ../dist/Suite.pkg
+#   components:
+#     - id: com.example.myapp
+#       root: ../dist
+#       entry: MyApp.app    # Immediate child of root, not a path from this file
+#       version: ${app.version}
+#       installLocation: /Applications
+#     - id: com.example.tools
+#       root: installer/tools
+#       version: '1.0'
+#       installLocation: /usr/local/bin
+#       scripts: installer/tool-scripts
+#       minOS: '12.0'
+#   distribution:
+#     title: MyApp Suite
+#     organization: com.example
+#     minOS: '12.0'
+#     resources: installer/resources
+#     license: installer/license.txt # Relative to this project file
+#     choices:
+#       - {id: app, title: MyApp, packages: [com.example.myapp], selected: true, visible: true}
+#       - {id: tools, title: Command line tools, description: Optional utilities, packages: [com.example.tools], selected: false, visible: true}

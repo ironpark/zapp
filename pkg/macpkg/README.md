@@ -170,3 +170,11 @@ large-file tests are available by manual workflow dispatch.
 Format references: [Apple XAR source](https://github.com/apple-oss-distributions/xar)
 and the installed `pkgbuild(1)`, `productbuild(1)`, and `lsbom(1)` manuals. BOM and
 large-payload layouts are checked against locally generated Apple fixtures.
+
+## Project CLI and orchestration
+
+Install with `go install github.com/ironpark/zapp/cmd/zapp@latest`. Run `zapp init --app dist/MyApp.app`, inspect with `zapp config show`, then `zapp build pkg` (or `zapp pkg`). Both commands discover `.zapp.yaml`; `--config` selects a file and `--no-config` disables discovery. CLI flags override `ZAPP_*` environment values, which override the project file.
+
+The project `pkg` short form maps directly to `AppConfig`: `identifier`, `version`, `installLocation`, `scripts`, `minOS`, `license`, and `out`. A string license is the default; a map supplies `default` and language keys. Identifier and version default from the app's Info.plist. Full form maps `components` to `ComponentConfig` and `distribution` to `ProductConfig`/`Distribution`, including choices by package identifier. Short and full forms cannot be mixed. `type: component` emits one component; the default `product` emits an installer product.
+
+See [examples/zapp.yaml](../../examples/zapp.yaml) for both forms. Root library consumers can `zapp.Load(...).Resolve(...)` and use `Plan.BuildPKG` or `Plan.Build`. `WithClock` is passed to the engine configs' optional `Created` timestamp; leaving it zero preserves existing timestamp behavior. Signing and notarization remain orchestration operations, separate from this unsigned packaging engine.

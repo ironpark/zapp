@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['pkg/signing/**', 'libcodesign/**', 'scripts/*native.py', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
+    paths: ['*.go', 'pkg/signing/**', 'libcodesign/**', 'scripts/*native.py', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
 
 permissions:
   contents: read
@@ -102,9 +102,9 @@ jobs:
         env:
           CGO_ENABLED: '0'
         run: |
-          go test -count=1 ./pkg/signing/... ./cmd/sign
-          go build -o "$RUNNER_TEMP/zapp" .
-          if go list -deps . | grep -q '^github.com/ironpark/zapp/pkg/signing/rcodesign$'; then
+          go test -count=1 ./pkg/signing/... ./cmd/zapp/internal/cli/sign
+          go build -o "$RUNNER_TEMP/zapp" ./cmd/zapp
+          if go list -deps ./cmd/zapp | grep -q '^github.com/ironpark/zapp/pkg/signing/rcodesign$'; then
             echo 'macOS binary must not include rcodesign'
             exit 1
           fi

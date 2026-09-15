@@ -14,11 +14,12 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./cmd/zapp
+    env:
       - CGO_ENABLED=0
     goos:
       - darwin
-    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/info.BuildDate={{.Date}}'
+    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.BuildDate={{.Date}}'
 
 release:
   extra_files:

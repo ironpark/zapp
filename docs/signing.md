@@ -64,7 +64,7 @@ cannot continue modifying the target after return.
 macOS needs only Go and Apple's tools:
 
 ```sh
-CGO_ENABLED=0 go build .
+CGO_ENABLED=0 go build ./cmd/zapp
 ```
 
 Windows and Linux signing builds need Go, Python 3, Rust 1.98.0, and a C toolchain:

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type productPackage struct {
@@ -391,5 +392,10 @@ func BuildProduct(ctx context.Context, c ProductConfig) error {
 		}
 	}
 	archive = append(archive, archiveEntry{name: "Distribution", r: bytes.NewReader(data)})
+	if !c.Created.IsZero() {
+		for i := range archive {
+			archive[i].mtime = c.Created.UTC().Format(time.RFC3339)
+		}
+	}
 	return atomicBuild(ctx, c.OutputPath, func(out *os.File, work string) error { return writeXAR(ctx, out, work, archive) })
 }

@@ -1,4 +1,4 @@
-package dmg
+package zapp
 
 import (
 	"bytes"

@@ -1,4 +1,6 @@
 #!/bin/sh
+# Go source installation: go install github.com/ironpark/zapp/cmd/zapp@latest
+# After installation: zapp init --app dist/MyApp.app; zapp config show; zapp build
 # Install a published zapp release without requiring root.
 # Optional: ZAPP_VERSION=v1.0.0-beta ZAPP_INSTALL_DIR=/custom/bin
 set -eu

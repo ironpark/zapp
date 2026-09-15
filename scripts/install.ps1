@@ -1,3 +1,5 @@
+# Go source installation: go install github.com/ironpark/zapp/cmd/zapp@latest
+# After installation: zapp init --app dist/MyApp.app; zapp config show; zapp build
 # Install a published zapp release without requiring administrator access.
 # Optional: $env:ZAPP_VERSION = 'v1.0.0-beta'; $env:ZAPP_INSTALL_DIR = 'C:\Tools\zapp'
 & {

@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -6,23 +6,24 @@ import (
 	"net/mail"
 	"os"
 
-	"github.com/ironpark/zapp/cmd/dep"
-	"github.com/ironpark/zapp/cmd/dmg"
-	"github.com/ironpark/zapp/cmd/info"
-	"github.com/ironpark/zapp/cmd/notarize"
-	"github.com/ironpark/zapp/cmd/pkg"
-	"github.com/ironpark/zapp/cmd/plist"
-	"github.com/ironpark/zapp/cmd/sign"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/dep"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/dmg"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/info"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/notarize"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/pkg"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/plist"
+	"github.com/ironpark/zapp/cmd/zapp/internal/cli/sign"
 
 	"github.com/urfave/cli/v3"
 )
 
-func main() {
+func New() *cli.Command {
 	app := &cli.Command{
 		Name: "zapp",
 		Commands: []*cli.Command{
 			info.Command,
 			dmg.Command,
+			BuildCommand(), InitCommand(), ConfigCommand(),
 			pkg.Command,
 			sign.Command,
 			plist.Command,
@@ -41,7 +42,11 @@ func main() {
 		},
 	}
 
-	if err := app.Run(context.Background(), os.Args); err != nil {
+	return app
+}
+
+func Run() {
+	if err := New().Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

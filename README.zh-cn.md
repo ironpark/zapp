@@ -32,7 +32,7 @@ brew install zapp
 #### 🛠️ 从源代码构建
 
 ```bash
-go install github.com/ironpark/zapp@latest
+go install github.com/ironpark/zapp/cmd/zapp@latest
 ```
 
 ## 📖 使用方法
@@ -183,3 +183,47 @@ Zapp 根据 [MIT 许可证](LICENSE) 发布。
 ## 支持
 
 如果你遇到任何问题或有疑问，请在 [GitHub 问题跟踪器](https://github.com/ironpark/zapp/issues) 中提交问题。
+
+## 项目配置与库 API
+
+使用一个 `.zapp.yaml` 配置依赖打包、DMG/PKG 创建、签名和公证。
+
+```sh
+go install github.com/ironpark/zapp/cmd/zapp@latest
+zapp init --app dist/MyApp.app
+zapp config show
+zapp build                  # dep → sign(app) → dmg/pkg → sign → notarize → staple
+zapp build dmg pkg          # select packaging steps
+zapp dmg --title "MyApp"     # overrides project title
+zapp pkg --no-sign --no-notarize
+```
+
+```yaml
+version: 1
+app: dist/MyApp.app
+out: dist
+# dep: {libs: [/opt/homebrew/lib]}
+dmg: {}
+pkg: {}
+```
+
+`dmg`, `pkg`, and `dep` discover `.zapp.yaml` by walking up from the working directory. Use `--config path` to select a file or `--no-config` to ignore files. Precedence is **CLI flags > `ZAPP_*` environment > file > defaults**. Flag names become uppercase environment names with underscores, e.g. `ZAPP_APP`, `ZAPP_TITLE`, `ZAPP_OUT`, `ZAPP_WINDOW_WIDTH`, `ZAPP_LIBS` (comma-separated). File paths are relative to the configuration directory; CLI and environment paths are relative to the working directory. Shared `out` is a directory; `dmg.out` and `pkg.out` are filenames.
+
+`${env:NAME}`, `${app}`, `${app.name}`, and `${app.version}` work in string values and content keys. Unset environment references fail. `sign:` and `notarize:` enable their steps automatically; `--no-sign` and `--no-notarize` skip them. Existing `--sign --notarize --profile ... --staple` scripts continue to work. Password keys (`sign.p12Password`, `notarize.password`) are forbidden in files: supply `ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` or their CLI flags. `config show` omits passwords. `init` refuses to overwrite a file without `--force`.
+
+PKG short form supports `identifier`, `version`, `installLocation`, `scripts`, `minOS`, and `license` (a path or `{default: path, en: path, ...}`). Identifier/version default from Info.plist. Full form supports `components` and `distribution` with selectable `choices`; short and full fields cannot be mixed. `type: component` builds a single component without product UI. See the [annotated project example](examples/zapp.yaml) and [PKG engine documentation](pkg/macpkg/README.md).
+
+Legacy flat DMG files remain accepted by `zapp dmg --config examples/dmg/layout.yaml --out release.dmg`, with a deprecation warning. Their output remains relative to the working directory. Migrate by moving layout fields under `dmg:` and keeping shared `app` at the root.
+
+The module root is now importable; the executable moved to `cmd/zapp`:
+
+```go
+project, err := zapp.Load(".zapp.yaml")
+if err != nil { return err }
+project.DMG.Title = "MyApp"
+plan, err := project.Resolve(zapp.WithClock(time.Unix(1700000000, 0)))
+if err != nil { return err }
+artifacts, err := plan.Build(ctx, zapp.StepDMG, zapp.StepPKG)
+```
+
+Import `github.com/ironpark/zapp`. You can also construct `zapp.Project` directly. `Plan.BundleDeps`, `BuildDMG`, `BuildPKG`, `Sign`, and `Notarize` run individual operations. Logging is silent unless `WithLogger` is supplied. Failures wrap `*zapp.StepError` and support `errors.As` / `errors.Is`. `WithClock` fixes generated DMG metadata and PKG timestamps; reproducible images also require stable source files and source metadata.

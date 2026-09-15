@@ -45,7 +45,7 @@ func appearanceConfig(t *testing.T, filesystem FileSystem, format udif.Format) C
 		t.Fatal(err)
 	}
 	config := Config{FileName: filepath.Join(dir, "image.dmg"), Title: fmt.Sprintf("Zapp %s %08x", filesystem, crc32.ChecksumIEEE([]byte(dir))), FileSystem: filesystem, Format: format,
-		Background: bg, Icon: filepath.Join("..", "..", "cmd", "dmg", "iconfile.icns"), Created: time.Unix(1700000000, 0), LabelSize: 14, ContentsIconSize: 128, WindowWidth: 640, WindowHeight: 480,
+		Background: bg, Icon: filepath.Join("..", "..", "iconfile.icns"), Created: time.Unix(1700000000, 0), LabelSize: 14, ContentsIconSize: 128, WindowWidth: 640, WindowHeight: 480,
 		Contents: []Item{{X: 100, Y: 200, Type: Dir, Path: sampleApp(t, dir)}, {X: 400, Y: 200, Type: Link, Path: "/Applications"}}}
 	executable := filepath.Join(config.Contents[0].Path, "Contents/MacOS/Demo")
 	for name, value := range map[string][]byte{finderInfoAttr: importedFinderInfo[:], resourceForkAttr: importedResourceFork} {
