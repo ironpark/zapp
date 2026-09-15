@@ -1,3 +1,4 @@
+// Package fsutil holds small filesystem helpers shared across zapp.
 package fsutil
 
 import (

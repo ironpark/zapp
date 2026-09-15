@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironpark/zapp/pkg/mactools/dsstore"
+	"github.com/ironpark/zapp/pkg/dsstore"
 	"github.com/ironpark/zapp/pkg/mactools/hdiutil"
 	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )

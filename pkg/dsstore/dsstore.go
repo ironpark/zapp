@@ -9,7 +9,7 @@ import (
 	"sort"
 	"unicode/utf16"
 
-	"github.com/ironpark/zapp/pkg/mactools/dsstore/entry"
+	"github.com/ironpark/zapp/pkg/dsstore/entry"
 
 	"github.com/samber/lo"
 	"golang.org/x/text/unicode/norm"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/pkg/mactools/pkg"
-	"github.com/ironpark/zapp/pkg/mactools/plist"
+	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 	"os"

@@ -1,3 +1,5 @@
+// Package plist reads property lists, and the app bundle metadata recorded in
+// an Info.plist.
 package plist
 
 import (
