@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/ironpark/zapp/internal/fsutil"
+	"github.com/ironpark/zapp/pkg/customicon"
 	"github.com/ironpark/zapp/pkg/dsstore"
 	"github.com/ironpark/zapp/pkg/mactools/hdiutil"
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
 )
 
 // Config represents the configuration for the DMG file.
@@ -89,7 +89,7 @@ func CreateDMG(ctx context.Context, config Config, sourceDir string) error {
 	if config.Icon != "" || config.Background != "" {
 		err = tmpMount(ctx, config.FileName, func(dmgFilePath string, mountPoint string) error {
 			if config.Icon != "" {
-				if err := setDMGIcon(ctx, mountPoint, config.Icon); err != nil {
+				if err := setDMGIcon(mountPoint, config.Icon); err != nil {
 					return fmt.Errorf("failed to set DMG icon: %w", err)
 				}
 			}
@@ -118,41 +118,21 @@ func CreateDMG(ctx context.Context, config Config, sourceDir string) error {
 		return fmt.Errorf("failed to convert DMG: %w", err)
 	}
 	if config.Icon != "" {
-		setFileIcon(ctx, config.FileName, config.Icon)
+		if err := setFileIcon(config.FileName, config.Icon); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func setFileIcon(ctx context.Context, dmgPath, iconPath string) error {
-	// Create temporary mount point
-	tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
+// setFileIcon gives the disk image itself a custom Finder icon.
+func setFileIcon(dmgPath, iconPath string) error {
+	icns, err := os.ReadFile(iconPath)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary directory: %w", err)
+		return fmt.Errorf("failed to read icon %s: %w", iconPath, err)
 	}
-	defer os.RemoveAll(tempDir) // Ensure cleanup of temp directory
-
-	tempIconPath := filepath.Join(tempDir, "icon.icns")
-	err = fsutil.CopyFile(iconPath, tempIconPath)
-	if err != nil {
-		return fmt.Errorf("failed to copy icon: %w", err)
-	}
-
-	if _, err := macexec.Run(ctx, "sips", "-i", tempIconPath); err != nil {
-		return fmt.Errorf("failed to set icon: %w", err)
-	}
-	output, err := macexec.Run(ctx, "DeRez", "-only", "icns", tempIconPath)
-	if err != nil {
-		return fmt.Errorf("failed to DeRez icon: %w", err)
-	}
-	rsrcPath := filepath.Join(tempDir, "icns.rsrc")
-	if err := os.WriteFile(rsrcPath, []byte(output), 0644); err != nil {
-		return fmt.Errorf("failed to write icns.rsrc: %w", err)
-	}
-	if _, err := macexec.Run(ctx, "Rez", "-append", rsrcPath, "-o", dmgPath); err != nil {
-		return fmt.Errorf("failed to append icns.rsrc: %w", err)
-	}
-	if _, err := macexec.Run(ctx, "SetFile", "-a", "C", dmgPath); err != nil {
-		return fmt.Errorf("failed to set icon: %w", err)
+	if err := customicon.Apply(dmgPath, icns); err != nil {
+		return fmt.Errorf("failed to set icon on %s: %w", dmgPath, err)
 	}
 	return nil
 }
@@ -176,23 +156,19 @@ func tmpMount(ctx context.Context, dmgPath string, process func(dmgFilePath stri
 	return process(dmgPath, mountPoint)
 }
 
-func setDMGIcon(ctx context.Context, mountPoint, iconPath string) error {
-	// Copy the icon to the mount point
+// setDMGIcon gives the mounted volume a custom icon. A volume takes its icon
+// from a .VolumeIcon.icns file at its root rather than from a resource fork.
+func setDMGIcon(mountPoint, iconPath string) error {
 	iconFile := filepath.Join(mountPoint, ".VolumeIcon.icns")
 	if err := fsutil.CopyFile(iconPath, iconFile); err != nil {
 		return fmt.Errorf("failed to copy icon to mount point: %w", err)
 	}
-
-	// Set the icon
-	if _, err := macexec.Run(ctx, "SetFile", "-c", "icnC", iconFile); err != nil {
-		return fmt.Errorf("failed to set icon: %w", err)
+	if err := customicon.SetCreator(iconFile, "icnC"); err != nil {
+		return fmt.Errorf("failed to set creator code on volume icon: %w", err)
 	}
-
-	// Tell the volume that it has a special file attribute
-	if _, err := macexec.Run(ctx, "SetFile", "-a", "C", mountPoint); err != nil {
-		return fmt.Errorf("failed to set icon: %w", err)
+	if err := customicon.Mark(mountPoint); err != nil {
+		return fmt.Errorf("failed to mark volume as having a custom icon: %w", err)
 	}
-
 	return nil
 }
 
