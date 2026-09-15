@@ -86,9 +86,10 @@ func (ds *DSStore) SetBgColor(r, g, b float64) {
 	ds.getIconViewPreferences().SetBgColor(r, g, b)
 }
 
-func (ds *DSStore) SetBackgroundImage(path string) {
-	ivp := ds.getIconViewPreferences()
-	ivp.SetBgImage(path)
+// SetBackgroundImage points the Finder window at a background image. volumeName
+// names the volume path lives on; the alias record encoding the path stores it.
+func (ds *DSStore) SetBackgroundImage(path, volumeName string) error {
+	return ds.getIconViewPreferences().SetBgImage(path, volumeName)
 }
 
 func (ds *DSStore) SetBgToDefault() {

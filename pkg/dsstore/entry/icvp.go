@@ -70,9 +70,11 @@ func (i *IconViewPreferencesEntry) SetBgColor(r, g, b float64) {
 	i.BackgroundImageAlias = nil
 }
 
-func (i *IconViewPreferencesEntry) SetBgImage(imagePath string) (err error) {
+// SetBgImage points the view at a background image. volumeName names the volume
+// imagePath lives on, which the alias record records alongside the path.
+func (i *IconViewPreferencesEntry) SetBgImage(imagePath, volumeName string) (err error) {
 	i.BackgroundType = 2
-	i.BackgroundImageAlias, err = alias.Create(imagePath)
+	i.BackgroundImageAlias, err = alias.Create(imagePath, volumeName)
 	return err
 }
 

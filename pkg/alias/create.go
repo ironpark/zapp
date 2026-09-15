@@ -46,7 +46,11 @@ func utf16be(str string) []byte {
 	return b
 }
 
-func Create(targetPath string) ([]byte, error) {
+// Create encodes an alias record pointing at targetPath. volumeName is the name
+// of the volume targetPath lives on, as the Finder displays it. The caller
+// supplies it because a mounted volume's label is not derivable from its mount
+// point, and the callers that build an alias know the name already.
+func Create(targetPath, volumeName string) ([]byte, error) {
 	info := Info{Version: 2, Extra: []Extra{}}
 
 	parentPath := filepath.Dir(targetPath)
@@ -86,10 +90,6 @@ func Create(targetPath string) ([]byte, error) {
 	info.Parent.ID = uint32(parentSys.Ino)
 	info.Parent.Name = filepath.Base(parentPath)
 
-	volumeName, err := GetVolumeName(volumePath)
-	if err != nil {
-		return nil, err
-	}
 	info.Volume.Name = volumeName
 	info.Volume.Created = volumeStat.ModTime()
 	info.Volume.Signature = "H+"

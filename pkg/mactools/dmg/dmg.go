@@ -93,7 +93,12 @@ func CreateDMG(ctx context.Context, config Config, sourceDir string) error {
 				}
 			}
 			if config.Background != "" {
-				store.SetBackgroundImage(filepath.Join(mountPoint, ".background", "background.png"))
+				// config.Title is the volume name handed to hdiutil, so it is
+				// the name the alias record has to carry.
+				bg := filepath.Join(mountPoint, ".background", "background.png")
+				if err := store.SetBackgroundImage(bg, config.Title); err != nil {
+					return fmt.Errorf("failed to build the background image alias: %w", err)
+				}
 				if err := store.Write(filepath.Join(mountPoint, ".DS_Store")); err != nil {
 					return fmt.Errorf("failed to write .DS_Store: %w", err)
 				}

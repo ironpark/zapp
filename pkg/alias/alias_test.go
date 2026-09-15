@@ -41,7 +41,7 @@ func TestCreateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := Create(target)
+	record, err := Create(target, "Test Volume")
 	if err != nil {
 		t.Fatalf("Create() error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestCreateDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := Create(target)
+	record, err := Create(target, "Test Volume")
 	if err != nil {
 		t.Fatalf("Create() error: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestCreateDirectory(t *testing.T) {
 }
 
 func TestCreateMissingTarget(t *testing.T) {
-	if _, err := Create(filepath.Join(t.TempDir(), "nope")); err == nil {
+	if _, err := Create(filepath.Join(t.TempDir(), "nope"), "Test Volume"); err == nil {
 		t.Error("Create() on a missing path returned no error")
 	}
 }
@@ -140,12 +140,27 @@ func TestEncodeRejectsInvalidInfo(t *testing.T) {
 	}
 }
 
-func TestGetVolumeName(t *testing.T) {
-	name, err := GetVolumeName("/")
-	if err != nil {
-		t.Fatalf("GetVolumeName(/) error: %v", err)
+func TestCreateRecordsTheGivenVolumeName(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.txt")
+	if err := os.WriteFile(target, []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
 	}
-	if name == "" {
-		t.Error("GetVolumeName(/) returned an empty name")
+
+	const volume = "SyncMaster"
+	record, err := Create(target, volume)
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+	// The volume name is stored twice: a Pascal string in the base record, and
+	// UTF-16 in extra 15.
+	if got := int(record[10]); got != len(volume) {
+		t.Errorf("volume name length byte = %d, want %d", got, len(volume))
+	}
+	if got := string(record[11 : 11+len(volume)]); got != volume {
+		t.Errorf("volume name = %q, want %q", got, volume)
+	}
+	if got, want := extras(t, record)[15], utf16be(volume); !bytes.Equal(got[2:], want) {
+		t.Errorf("extra 15 (volume name UTF-16) = %x, want %x", got[2:], want)
 	}
 }
