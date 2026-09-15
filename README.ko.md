@@ -89,8 +89,8 @@ zapp dep --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 앱 번들에서 아이콘을 자동으로 추출하고, 디스크 아이콘을 합성하고, 앱의 드래그 앤 드롭 설치를 위한 인터페이스를 제공하여 DMG 생성 프로세스를 크게 간소화합니다.
 
 DMG는 외부 도구나 볼륨 마운트 없이 순수 Go로 생성하며 Linux와 macOS에서 사용할 수 있습니다.
-기본 파일시스템은 HFS+입니다. `--filesystem apfs`로 APFS를 선택하거나,
-`--filesystem apfs-case-sensitive`로 대소문자를 구분할 수 있습니다.
+기본 파일시스템은 HFS+입니다. `--fs apfs`로 APFS를 선택하거나,
+`--fs apfs-case-sensitive`로 대소문자를 구분할 수 있습니다.
 APFS 이미지를 열려면 macOS 10.13 이상이 필요합니다.
 
 원본 파일의 FinderInfo와 리소스 포크를 보존합니다. Linux에서는
@@ -98,8 +98,8 @@ APFS 이미지를 열려면 macOS 10.13 이상이 필요합니다.
 Linux 확장 속성의 크기·지원 제한으로 저장할 수 없는 경우 호스트 `.dmg` 파일 자체의 아이콘만 생략합니다.
 
 ```bash
-zapp dmg --app="MyApp.app" --filesystem apfs
-zapp dmg --app="MyApp.app" --filesystem apfs-case-sensitive --format ulfo
+zapp dmg --app="MyApp.app" --fs apfs
+zapp dmg --app="MyApp.app" --fs apfs-case-sensitive --format ulfo
 ```
 
 압축은 `--format udzo`(기본값, zlib)와 `--format ulfo`(LZFSE)를 모두 지원합니다.
@@ -116,6 +116,10 @@ zapp dmg --title="My App" \
   --bg="path/to/background.png" \ 
   --out="MyApp.dmg"
 ```
+
+`--icon`은 ICNS와 PNG를 지원합니다. PNG는 비율과 투명도를 유지해 ICNS로 변환합니다.
+`--out MyApp`처럼 확장자를 생략하면 `MyApp.dmg`를 생성하고, 서명·공증에도 같은 경로를 사용합니다.
+
 #### 서명 & 공증 & 스테플링과 함께 사용
 > [!TIP]
 >

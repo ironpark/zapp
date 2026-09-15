@@ -48,28 +48,42 @@ var Command = &cli.Command{
 	Description: "",
 	ArgsUsage:   " <path of app-bundle>",
 	Action: func(ctx context.Context, c *cli.Command) error {
+		// Keep generated paths local: a temporary icon must not become a flag's value.
+		icon := c.String("icon")
+		out := c.String("out")
+		title := c.String("title")
 		logger := cmd.NewAppLogger(c.Root())
 		_, _ = logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
 
-		if icon == "" {
-			_, _ = logger.Println("Icon file not provided")
-			_, _ = logger.Println("Create dmg disk file icon using app icon")
+		if icon == "" || strings.EqualFold(filepath.Ext(icon), ".png") {
+			source := icon
+			withDiskBackground := false
+			if source == "" {
+				source = appDir
+				withDiskBackground = !c.Bool("use-original-icon")
+				_, _ = logger.Println("Create dmg disk file icon using app icon")
+			}
 			tempDirForIcon, err := os.MkdirTemp("", "*-zapp-dmg-icon")
 			if err != nil {
 				return fmt.Errorf("error creating temporary directory: %w", err)
 			}
 			defer func() { _ = os.RemoveAll(tempDirForIcon) }()
 			icon = filepath.Join(tempDirForIcon, "icon.icns")
-			if err = createIconSet(appDir, icon, !c.Bool("use-original-icon")); err != nil {
+			if err = createIconSet(source, icon, withDiskBackground); err != nil {
+				if c.String("icon") != "" {
+					return fmt.Errorf("could not convert PNG icon %s: %w", source, err)
+				}
 				return fmt.Errorf("could not derive a disk icon from %s: %w\n"+
 					"       pass --icon with an .icns or .png to supply one",
-					filepath.Base(appDir), err)
+					filepath.Base(source), err)
 			}
 		}
 		if out == "" {
 			out = filepath.Base(appDir)
 			out = strings.TrimSuffix(out, filepath.Ext(out))
-			out = out + ".dmg"
+		}
+		if !strings.HasSuffix(out, ".dmg") {
+			out += ".dmg"
 		}
 		if title == "" {
 			title = filepath.Base(appDir)
@@ -123,7 +137,7 @@ var Command = &cli.Command{
 	},
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{
-			Name:        "filesystem",
+			Name:        "fs",
 			Usage:       "Volume filesystem: hfsplus, apfs, or apfs-case-sensitive (APFS needs macOS 10.13 or later)",
 			Value:       "hfsplus",
 			Destination: &filesystem,

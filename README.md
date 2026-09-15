@@ -96,8 +96,8 @@ assembled whole rather than created and then mounted to be decorated, so no
 volume is ever mounted during a build. Signing and notarization use the existing
 backends.
 
-HFS+ remains the default filesystem. Use `--filesystem apfs` for APFS, or
-`--filesystem apfs-case-sensitive` to distinguish names such as `App` and `app`.
+HFS+ remains the default filesystem. Use `--fs apfs` for APFS, or
+`--fs apfs-case-sensitive` to distinguish names such as `App` and `app`.
 Both APFS modes require macOS 10.13 or later to open and can be generated on
 Linux or macOS. They create a single unencrypted volume; snapshots and existing
 image editing are not supported.
@@ -108,8 +108,8 @@ contains its icon; attaching an icon to the host `.dmg` file is skipped when
 Linux cannot store it because of extended-attribute size or support limits.
 
 ```bash
-zapp dmg --app="MyApp.app" --filesystem apfs
-zapp dmg --app="MyApp.app" --filesystem apfs-case-sensitive --format ulfo
+zapp dmg --app="MyApp.app" --fs apfs
+zapp dmg --app="MyApp.app" --fs apfs-case-sensitive --format ulfo
 ```
 
 Pass `--format ulfo` to compress with LZFSE instead of zlib, which produces a
@@ -128,6 +128,11 @@ zapp dmg --title="My App" \
   --bg="path/to/background.png" \ 
   --out="MyApp.dmg"
 ```
+
+`--icon` accepts ICNS or PNG. PNG artwork is converted to ICNS with its aspect
+ratio and transparency preserved. Omitting the extension in `--out MyApp`
+creates `MyApp.dmg`; signing and notarization use that same path.
+
 #### with sign & notarize & staple
 > [!TIP]
 >

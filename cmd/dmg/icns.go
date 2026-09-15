@@ -30,7 +30,7 @@ func createIconSet(iconPath string, output string, withDiskBg bool) error {
 	var iconImage image.Image
 	var err error
 	// is app bundle
-	switch filepath.Ext(iconPath) {
+	switch strings.ToLower(filepath.Ext(iconPath)) {
 	case ".icns":
 		iconImage, err = readIcns(iconPath)
 		if err != nil {
@@ -66,7 +66,7 @@ func createIconSet(iconPath string, output string, withDiskBg bool) error {
 
 func mixDraw(diskImage image.Image, iconImage image.Image) draw.Image {
 	diskImage = imageutil.Resize(diskImage, 512, 512)
-	iconImage = imageutil.Resize(iconImage, 256, 256)
+	iconImage = fitIcon(iconImage, 256)
 	// Create result image (same size as disk image)
 	result := image.NewRGBA(diskImage.Bounds())
 
@@ -87,13 +87,13 @@ func readPng(filename string) (image.Image, error) {
 	// Read the disk image
 	diskImg, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open disk image: %w", err)
+		return nil, fmt.Errorf("failed to open PNG icon: %w", err)
 	}
 	defer func() { _ = diskImg.Close() }()
 	// Decode the disk image
 	img, err := png.Decode(diskImg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode disk image: %w", err)
+		return nil, fmt.Errorf("failed to decode PNG icon: %w", err)
 	}
 	return img, nil
 }
@@ -140,7 +140,7 @@ func createIcns(img image.Image, icnsPath string) error {
 		{"is32", 16}, {"il32", 32}, {"ic07", 128}, {"ic08", 256}, {"ic09", 512},
 		{"ic11", 32}, {"ic12", 64}, {"ic13", 256}, {"ic14", 512},
 	} {
-		resizedImg := imageutil.Resize(img, slot.size, slot.size)
+		resizedImg := fitIcon(img, slot.size)
 		if err := icnsImg.AddWithType(slot.typ, resizedImg); err != nil {
 			return fmt.Errorf("failed to add %s icon: %w", slot.typ, err)
 		}
@@ -150,4 +150,24 @@ func createIcns(img image.Image, icnsPath string) error {
 		return fmt.Errorf("failed to encode ICNS: %w", err)
 	}
 	return icnsFile.Close()
+}
+
+// fitIcon preserves the artwork's aspect ratio and centers it on transparent padding.
+func fitIcon(img image.Image, size int) *image.RGBA {
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	if width == height {
+		return imageutil.Resize(img, size, size)
+	}
+	if width > height {
+		height = max(1, int(float64(height)*float64(size)/float64(width)))
+		width = size
+	} else {
+		width = max(1, int(float64(width)*float64(size)/float64(height)))
+		height = size
+	}
+	scaled := imageutil.Resize(img, width, height)
+	result := image.NewRGBA(image.Rect(0, 0, size, size))
+	offset := image.Pt((size-width)/2, (size-height)/2)
+	draw.Draw(result, scaled.Bounds().Add(offset), scaled, scaled.Bounds().Min, draw.Src)
+	return result
 }
