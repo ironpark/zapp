@@ -221,11 +221,10 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 }
 
 // checkMountVisible confirms the attached volume is readable from this process.
-// hdiutil reports success once it has attached the image in its own view of the
-// filesystem, which is not necessarily this one: under Darling the tool runs
-// inside a container, and a mount it makes there may not propagate to the host.
-// The steps that follow write the window settings and the background image into
-// the volume, so an invisible mount would silently produce a bare disk image.
+// hdiutil reports success once it has attached the image, which does not by
+// itself mean the mount is usable from here. The steps that follow write the
+// window settings and the background image into the volume, so an unusable
+// mount would silently produce a bare disk image.
 func checkMountVisible(mountPoint string) error {
 	entries, err := os.ReadDir(mountPoint)
 	if err != nil {

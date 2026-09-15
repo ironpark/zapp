@@ -3,8 +3,8 @@ package dmg
 import "golang.org/x/sys/unix"
 
 // Linux keeps extended attributes written by unprivileged processes in the
-// "user." namespace, and Darling maps the macOS names into it. The names here
-// therefore carry the prefix that the same attribute lacks on macOS.
+// "user." namespace, so the names here carry a prefix the same attribute lacks
+// on macOS.
 const linuxAttrPrefix = "user."
 
 // errNoAttr is what the kernel reports for an attribute that is not set. Linux
