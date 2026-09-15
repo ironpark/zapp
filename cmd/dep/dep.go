@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/internal/fsutil"
+	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installnametool"
 	"github.com/ironpark/zapp/pkg/mactools/otool"
-	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -53,7 +53,7 @@ var Command = &cli.Command{
 		if !fileInfo.IsDir() {
 			return fmt.Errorf("app-bundle path must be a directory")
 		}
-		info, err := plist.GetAppInfo(appDir)
+		info, err := appbundle.Open(appDir)
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}

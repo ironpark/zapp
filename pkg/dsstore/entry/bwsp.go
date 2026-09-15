@@ -1,9 +1,9 @@
 package entry
 
 import (
-	"bytes"
 	"fmt"
-	"howett.net/plist"
+
+	"github.com/ironpark/zapp/pkg/plist"
 )
 
 type WorkspaceSettingsEntry struct {
@@ -21,8 +21,7 @@ type WorkspaceSettingsEntry struct {
 }
 
 func (w *WorkspaceSettingsEntry) Bytes() []byte {
-	buffer := &bytes.Buffer{}
-	_ = plist.NewBinaryEncoder(buffer).Encode(map[string]any{
+	data, err := plist.MarshalBinary(map[string]any{
 		"ContainerShowSidebar": true,
 		"ShowPathbar":          false,
 		"ShowSidebar":          true,
@@ -32,7 +31,10 @@ func (w *WorkspaceSettingsEntry) Bytes() []byte {
 		"SidebarWidth":         0,
 		"WindowBounds":         fmt.Sprintf("{{%d, %d}, {%d, %d}}", w.X, w.Y, w.Width, w.Height),
 	})
-	return plistWrap(buffer.Bytes())
+	if err != nil {
+		return nil
+	}
+	return plistWrap(data)
 }
 
 func (w *WorkspaceSettingsEntry) Filename() string {

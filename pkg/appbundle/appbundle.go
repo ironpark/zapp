@@ -1,6 +1,6 @@
-// Package plist reads property lists, and the app bundle metadata recorded in
-// an Info.plist.
-package plist
+// Package appbundle reads the metadata an .app bundle records in its
+// Info.plist.
+package appbundle
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"howett.net/plist"
+	"github.com/ironpark/zapp/pkg/plist"
 )
 
 func findPlistPath(path string) (string, error) {
@@ -33,12 +33,13 @@ func findPlistPath(path string) (string, error) {
 	return path, nil
 }
 
-type AppInfo struct {
+// Info is the Info.plist of an app bundle.
+type Info struct {
 	path string
 	data map[string]interface{}
 }
 
-func (a *AppInfo) Get(key string) (interface{}, error) {
+func (a *Info) Get(key string) (interface{}, error) {
 	value, ok := a.data[key]
 	if !ok {
 		return nil, fmt.Errorf("key not found")
@@ -49,7 +50,7 @@ func (a *AppInfo) Get(key string) (interface{}, error) {
 // GetString returns a string-valued key. Info.plist contents are attacker- or
 // build-tool-controlled, so a key holding a non-string value is reported as an
 // error rather than asserted.
-func (a *AppInfo) GetString(key string) (string, error) {
+func (a *Info) GetString(key string) (string, error) {
 	value, err := a.Get(key)
 	if err != nil {
 		return "", err
@@ -61,7 +62,7 @@ func (a *AppInfo) GetString(key string) (string, error) {
 	return str, nil
 }
 
-func (a *AppInfo) Version() (string, error) {
+func (a *Info) Version() (string, error) {
 	value, err := a.GetString("CFBundleShortVersionString")
 	if err != nil {
 		return a.GetString("CFBundleVersion")
@@ -69,19 +70,19 @@ func (a *AppInfo) Version() (string, error) {
 	return value, nil
 }
 
-func (a *AppInfo) BundleID() (string, error) {
+func (a *Info) BundleID() (string, error) {
 	return a.GetString("CFBundleIdentifier")
 }
 
-func (a *AppInfo) BundleExecutable() (string, error) {
+func (a *Info) BundleExecutable() (string, error) {
 	return a.GetString("CFBundleExecutable")
 }
 
-func (a *AppInfo) BundleName() (string, error) {
+func (a *Info) BundleName() (string, error) {
 	return a.GetString("CFBundleName")
 }
 
-func (a *AppInfo) IconFilePath() (string, error) {
+func (a *Info) IconFilePath() (string, error) {
 	iconFile, err := a.GetString("CFBundleIconFile")
 	if err != nil {
 		return "", err
@@ -98,7 +99,9 @@ func (a *AppInfo) IconFilePath() (string, error) {
 	return iconPath, nil
 }
 
-func GetAppInfo(path string) (*AppInfo, error) {
+// Open locates and reads the Info.plist of an .app bundle, or reads an
+// Info.plist given directly.
+func Open(path string) (*Info, error) {
 	plistPath, err := findPlistPath(path)
 	if err != nil {
 		return nil, err
@@ -108,12 +111,11 @@ func GetAppInfo(path string) (*AppInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read plist file: %v", err)
 	}
-	var plistData map[string]interface{}
-	_, err = plist.Unmarshal(data, &plistData)
+	plistData, err := plist.ParseDict(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse plist: %v", err)
 	}
-	return &AppInfo{
+	return &Info{
 		path: plistPath,
 		data: plistData,
 	}, nil

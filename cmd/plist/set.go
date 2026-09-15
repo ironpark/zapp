@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
-	"howett.net/plist"
+
+	"github.com/ironpark/zapp/pkg/plist"
 )
 
 var setCommand = &cli.Command{
@@ -31,15 +32,14 @@ var setCommand = &cli.Command{
 			return fmt.Errorf("failed to read plist file: %v", err)
 		}
 
-		var plistData map[string]interface{}
-		_, err = plist.Unmarshal(data, &plistData)
+		plistData, err := plist.ParseDict(data)
 		if err != nil {
 			return fmt.Errorf("failed to parse plist: %v", err)
 		}
 
 		plistData[key] = value
 
-		newData, err := plist.Marshal(plistData, plist.XMLFormat)
+		newData, err := plist.MarshalXML(plistData)
 		if err != nil {
 			return fmt.Errorf("failed to marshal plist: %v", err)
 		}

@@ -3,8 +3,8 @@ package pkg
 import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installer"
-	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -22,7 +22,7 @@ var Command = &cli.Command{
 	Description: "Creates a .pkg installer from the specified .app bundle",
 	Args:        true,
 	Action: func(c *cli.Context) error {
-		info, err := plist.GetAppInfo(appDir)
+		info, err := appbundle.Open(appDir)
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}

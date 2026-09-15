@@ -3,10 +3,10 @@ package entry
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/ironpark/zapp/pkg/alias"
 	"unicode/utf16"
 
-	"howett.net/plist"
+	"github.com/ironpark/zapp/pkg/alias"
+	"github.com/ironpark/zapp/pkg/plist"
 )
 
 type IconViewPreferencesEntry struct {
@@ -50,12 +50,11 @@ func (i *IconViewPreferencesEntry) Bytes() []byte {
 		base["backgroundImageAlias"] = i.BackgroundImageAlias
 	}
 
-	buffer := &bytes.Buffer{}
-	err := plist.NewBinaryEncoder(buffer).Encode(base)
+	data, err := plist.MarshalBinary(base)
 	if err != nil {
 		return nil
 	}
-	return plistWrap(buffer.Bytes())
+	return plistWrap(data)
 }
 
 func (i *IconViewPreferencesEntry) SetBgToDefault() {

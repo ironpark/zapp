@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ironpark/zapp/pkg/plist"
-	"github.com/nfnt/resize"
+	"github.com/ironpark/zapp/internal/imageutil"
+	"github.com/ironpark/zapp/pkg/appbundle"
 	"yrh.dev/icns"
 )
 
@@ -19,7 +19,7 @@ func getAppIconPath(appPath string) (string, error) {
 	if !strings.HasSuffix(appPath, ".app") {
 		return "", fmt.Errorf("not an app: %s", appPath)
 	}
-	info, err := plist.GetAppInfo(appPath)
+	info, err := appbundle.Open(appPath)
 	if err != nil {
 		return "", err
 	}
@@ -65,8 +65,8 @@ func createIconSet(iconPath string, output string, withDiskBg bool) error {
 }
 
 func mixDraw(diskImage image.Image, iconImage image.Image) draw.Image {
-	diskImage = resize.Resize(512, 512, diskImage, resize.Lanczos3)
-	iconImage = resize.Resize(256, 256, iconImage, resize.Lanczos3)
+	diskImage = imageutil.Resize(diskImage, 512, 512)
+	iconImage = imageutil.Resize(iconImage, 256, 256)
 	// Create result image (same size as disk image)
 	result := image.NewRGBA(diskImage.Bounds())
 
@@ -134,7 +134,7 @@ func createIcns(img image.Image, icnsPath string) error {
 	defer icnsFile.Close()
 	icnsImg := icns.NewICNS(icns.WithMinCompatibility(icns.MountainLion))
 	for _, size := range []int{32, 64, 128, 256, 512} {
-		resizedImg := resize.Resize(uint(size), uint(size), img, resize.Lanczos3)
+		resizedImg := imageutil.Resize(img, size, size)
 		icnsImg.Add(resizedImg)
 	}
 	// Encode the image as ICNS
