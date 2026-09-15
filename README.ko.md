@@ -21,6 +21,24 @@
 - [ ] GitHub Actions 지원
 
 ## ⚡️ 빠른 시작
+#### 스크립트로 설치
+
+**macOS / Linux**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/scripts/install.ps1 | iex"
+```
+
+SHA-256 체크섬 검증 후 최신 릴리스를 설치합니다. macOS/Linux는 `~/.local/bin`에 설치하며, 안내가 나오면 PATH에 추가하세요. Windows는 `%LOCALAPPDATA%\zapp\bin`에 설치하고 사용자 PATH에 추가합니다. 관리자 권한은 필요하지 않습니다.
+
+특정 버전은 환경 변수 `ZAPP_VERSION`에 릴리스 태그를, 설치 경로는 `ZAPP_INSTALL_DIR`에 절대 경로를 지정하세요.
+
 #### 🍺 Homebrew 사용
 ```bash
 brew tap ironpark/zapp

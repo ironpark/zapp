@@ -23,6 +23,24 @@
 - [ ] Support GitHub Actions
 
 ## ⚡️ Quick start
+#### Install with a script
+
+**macOS / Linux**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/scripts/install.ps1 | iex"
+```
+
+Installs the latest published release after SHA-256 verification. macOS/Linux: `~/.local/bin` (add it to your PATH if prompted). Windows: `%LOCALAPPDATA%\zapp\bin`, added to your user PATH. No administrator access is required.
+
+Set `ZAPP_VERSION` to a release tag to pin a version, or `ZAPP_INSTALL_DIR` to an absolute installation directory.
+
 #### 🍺 Using Homebrew
 ```bash
 brew tap ironpark/zapp
