@@ -70,15 +70,17 @@ jobs:
         env:
           LLVM_HOST: ${{ matrix.llvm_host }}
         run: |
+          # Cached binaries may exist without Cargo installation metadata.
+          # --force also replaces binaries built for a previous target.
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             # Match the signing build's MinGW toolchain instead of the host
             # MSVC target, whose ARM64 C headers are not configured here.
             target="${LLVM_HOST}-pc-windows-gnullvm"
             compiler="${LLVM_HOST}-w64-mingw32-clang"
-            CC="$compiler" AR=llvm-ar cargo install cargo-about --locked --version 0.8.4 \
+            CC="$compiler" AR=llvm-ar cargo install cargo-about --locked --version 0.8.4 --force \
               --target "$target" --config "target.$target.linker=\"$compiler\""
           else
-            cargo install cargo-about --locked --version 0.8.4
+            cargo install cargo-about --locked --version 0.8.4 --force
           fi
           cd libcodesign
           cargo about generate about.hbs -o THIRD_PARTY_LICENSES.html

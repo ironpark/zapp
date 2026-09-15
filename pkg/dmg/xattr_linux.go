@@ -23,11 +23,15 @@ func absentAttr(err error) bool {
 }
 
 func applyImageIcon(path string, icns []byte) error {
-	err := applyCustomIcon(path, icns)
+	return hostIconResult(applyCustomIcon(path, icns))
+}
+
+func hostIconResult(err error) error {
 	// The volume's full icon is already inside the DMG. Linux may not be
 	// able to attach that same icon to the host file: xattrs have a 64 KiB
-	// ceiling, and some filesystems do not support them at all.
-	if errors.Is(err, unix.E2BIG) || errors.Is(err, unix.ENOTSUP) {
+	// ceiling, filesystem-specific storage limits (ENOSPC), or no support.
+	// Only host icon metadata is optional; image data write errors still fail.
+	if errors.Is(err, unix.E2BIG) || errors.Is(err, unix.ENOTSUP) || errors.Is(err, unix.ENOSPC) {
 		return nil
 	}
 	return err
