@@ -17,7 +17,6 @@ import (
 
 	"github.com/ironpark/zapp/pkg/alias"
 	"github.com/ironpark/zapp/pkg/dsstore"
-	"github.com/ironpark/zapp/pkg/hfsplus"
 	"github.com/ironpark/zapp/pkg/udif"
 )
 
@@ -37,6 +36,9 @@ type Config struct {
 	// Format selects how the image is compressed. The zero value is zlib,
 	// which every version of macOS can read.
 	Format udif.Format
+
+	// FileSystem selects the volume format. The zero value is HFS+.
+	FileSystem FileSystem `json:"filesystem"`
 
 	// Created is the timestamp recorded throughout the image. It defaults to
 	// the current time; setting it makes a build reproducible.
@@ -73,6 +75,9 @@ func CreateDMG(ctx context.Context, config Config) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if !config.FileSystem.valid() {
+		return fmt.Errorf("unknown filesystem %q", config.FileSystem)
+	}
 	if config.Title == "" {
 		return fmt.Errorf("a volume title is required")
 	}
@@ -90,40 +95,21 @@ func CreateDMG(ctx context.Context, config Config) error {
 	if err != nil {
 		return err
 	}
-	// Numbering the tree first is what lets the window settings be written into
-	// the image: the alias record naming the background image has to carry the
-	// catalog node IDs the volume will report once it is mounted.
-	if err := hfsplus.AssignIDs(volume); err != nil {
-		return err
-	}
-	store, err := config.buildStore(volume)
+	image, err := config.planImage(ctx, volume)
 	if err != nil {
 		return err
 	}
-	setChild(volume.Root, storeName, hfsplus.Bytes(store))
-
-	if err := writeImage(ctx, config.FileName, *volume, config.Format); err != nil {
+	if err := writeImage(ctx, config.FileName, image, config.Format, config.FileSystem, config.Icon); err != nil {
 		return err
 	}
-	if config.Icon != "" {
-		// The image file itself carries an icon the way any other file does,
-		// through a resource fork on whatever filesystem it is sitting on.
-		if err := setFileIcon(config.FileName, config.Icon); err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
 // writeImage streams the volume through the compressor into the output file.
 // The image is planned first so its size is known, which lets the two stages
 // run against each other rather than through a copy of the whole volume on disk.
-func writeImage(ctx context.Context, output string, volume hfsplus.Volume, format udif.Format) error {
-	image, err := hfsplus.Plan(ctx, volume)
-	if err != nil {
-		return fmt.Errorf("failed to lay out the disk image: %w", err)
-	}
-
+func writeImage(ctx context.Context, output string, image plannedImage, format udif.Format, filesystem FileSystem, icon string) error {
 	temp, err := os.CreateTemp(filepath.Dir(output), ".dmg-*")
 	if err != nil {
 		return err
@@ -134,13 +120,27 @@ func writeImage(ctx context.Context, output string, volume hfsplus.Volume, forma
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	reader, writer := io.Pipe()
+	defer reader.Close()
+	written := make(chan error, 1)
 	go func() {
 		_, err := image.WriteTo(ctx, writer)
 		_ = writer.CloseWithError(err)
+		written <- err
 	}()
-	if _, err = udif.Write(ctx, temp, reader, image.Size(), format); err != nil {
+	if _, err = udif.WriteWithOptions(ctx, temp, reader, image.Size(), udif.Options{Format: format, DiskType: filesystem.diskType()}); err != nil {
 		_ = reader.CloseWithError(err)
 		return fmt.Errorf("failed to compress the disk image: %w", err)
+	}
+	if err := <-written; err != nil {
+		return fmt.Errorf("failed to write the disk image: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if icon != "" {
+		if err := setFileIcon(temp.Name(), icon); err != nil {
+			return err
+		}
 	}
 	// A temporary file is created private to its owner, but the image is
 	// something to hand out.
@@ -156,8 +156,8 @@ func writeImage(ctx context.Context, output string, volume hfsplus.Volume, forma
 
 // buildVolume turns the configured contents into the tree the image is written
 // from, including the hidden entries the Finder reads a window's look from.
-func (c Config) buildVolume() (*hfsplus.Volume, error) {
-	root := &hfsplus.Node{Mode: fs.ModeDir, ModTime: c.Created}
+func (c Config) buildVolume() (*volumeTree, error) {
+	root := &imageNode{Mode: fs.ModeDir | 0755, ModTime: c.Created}
 	for _, item := range c.Contents {
 		node, err := c.nodeFor(item)
 		if err != nil {
@@ -167,26 +167,26 @@ func (c Config) buildVolume() (*hfsplus.Volume, error) {
 	}
 
 	if c.Background != "" {
-		image, err := hfsplus.FromFile(c.Background)
+		image, err := imageFromFile(c.Background)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the background image: %w", err)
 		}
-		root.Children = append(root.Children, &hfsplus.Node{
-			Name: backgroundDir, Mode: fs.ModeDir, ModTime: c.Created,
-			Children: []*hfsplus.Node{{Name: backgroundName, ModTime: c.Created, Data: image}},
+		root.Children = append(root.Children, &imageNode{
+			Name: backgroundDir, Mode: fs.ModeDir | 0755, ModTime: c.Created,
+			Children: []*imageNode{{Name: backgroundName, Mode: 0644, ModTime: c.Created, Data: image}},
 		})
 	}
 
 	if c.Icon != "" {
-		icon, err := hfsplus.FromFile(c.Icon)
+		icon, err := imageFromFile(c.Icon)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the volume icon: %w", err)
 		}
 		// A volume takes its icon from a file at its root rather than from a
 		// resource fork, and the Finder only looks for that file when the root
 		// is flagged as having a custom icon.
-		root.Children = append(root.Children, &hfsplus.Node{
-			Name: volumeIconName, ModTime: c.Created, Data: icon,
+		root.Children = append(root.Children, &imageNode{
+			Name: volumeIconName, Mode: 0644, ModTime: c.Created, Data: icon,
 			FinderInfo: finderInfoFor(volumeIconCreator, false),
 		})
 		root.FinderInfo = finderInfoFor("", true)
@@ -194,19 +194,19 @@ func (c Config) buildVolume() (*hfsplus.Volume, error) {
 
 	// A placeholder, replaced once the tree has been numbered and the window
 	// settings can be encoded.
-	root.Children = append(root.Children, &hfsplus.Node{Name: storeName, ModTime: c.Created, Data: hfsplus.Bytes(nil)})
+	root.Children = append(root.Children, &imageNode{Name: storeName, Mode: 0644, ModTime: c.Created, Data: imageBytes(nil)})
 
-	return &hfsplus.Volume{Name: c.Title, Created: c.Created, Root: root}, nil
+	return &volumeTree{Name: c.Title, Created: c.Created, Root: root}, nil
 }
 
 // nodeFor turns one configured item into a tree node.
-func (c Config) nodeFor(item Item) (*hfsplus.Node, error) {
+func (c Config) nodeFor(item Item) (*imageNode, error) {
 	name := filepath.Base(item.Path)
 	switch item.Type {
 	case Link:
-		return &hfsplus.Node{Name: name, Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
+		return &imageNode{Name: name, Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
 	case File:
-		data, err := hfsplus.FromFile(item.Path)
+		data, err := imageFromFile(item.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +214,11 @@ func (c Config) nodeFor(item Item) (*hfsplus.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &hfsplus.Node{Name: name, Mode: info.Mode(), ModTime: info.ModTime(), Data: data}, nil
+		node := &imageNode{Name: name, Mode: info.Mode(), ModTime: info.ModTime(), Data: data}
+		if err := sourceMetadata(item.Path, node); err != nil {
+			return nil, err
+		}
+		return node, nil
 	case Dir:
 		return nodeFromDir(item.Path)
 	default:
@@ -225,7 +229,7 @@ func (c Config) nodeFor(item Item) (*hfsplus.Node, error) {
 // nodeFromDir reads a directory into a tree. Symbolic links are kept as links
 // rather than followed, which matters for an application bundle: a framework
 // inside one is a web of links whose shape its code signature covers.
-func nodeFromDir(dir string) (*hfsplus.Node, error) {
+func nodeFromDir(dir string) (*imageNode, error) {
 	info, err := os.Lstat(dir)
 	if err != nil {
 		return nil, err
@@ -233,7 +237,10 @@ func nodeFromDir(dir string) (*hfsplus.Node, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", dir)
 	}
-	node := &hfsplus.Node{Name: filepath.Base(dir), Mode: fs.ModeDir, ModTime: info.ModTime()}
+	node := &imageNode{Name: filepath.Base(dir), Mode: info.Mode(), ModTime: info.ModTime()}
+	if err := sourceMetadata(dir, node); err != nil {
+		return nil, err
+	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -251,7 +258,7 @@ func nodeFromDir(dir string) (*hfsplus.Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			node.Children = append(node.Children, &hfsplus.Node{
+			node.Children = append(node.Children, &imageNode{
 				Name: e.Name(), Mode: fs.ModeSymlink, ModTime: entryInfo.ModTime(), LinkTarget: target,
 			})
 		case mode.IsDir():
@@ -261,33 +268,28 @@ func nodeFromDir(dir string) (*hfsplus.Node, error) {
 			}
 			node.Children = append(node.Children, sub)
 		case mode.IsRegular():
-			data, err := hfsplus.FromFile(child)
+			data, err := imageFromFile(child)
 			if err != nil {
 				return nil, err
 			}
-			node.Children = append(node.Children, &hfsplus.Node{
+			node.Children = append(node.Children, &imageNode{
 				Name: e.Name(), Mode: mode, ModTime: entryInfo.ModTime(), Data: data,
 			})
 		default:
 			return nil, fmt.Errorf("%s is neither a file, a directory, nor a link", child)
 		}
+		if !entryInfo.IsDir() {
+			if err := sourceMetadata(child, node.Children[len(node.Children)-1]); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return node, nil
 }
 
-// setChild replaces the contents of a named entry at the root of the tree.
-func setChild(root *hfsplus.Node, name string, data hfsplus.Source) {
-	for _, child := range root.Children {
-		if child.Name == name {
-			child.Data = data
-			return
-		}
-	}
-}
-
 // buildStore encodes the window settings the Finder reads when the image is
 // opened: its size, how its icons are drawn, and where each one sits.
-func (c Config) buildStore(volume *hfsplus.Volume) ([]byte, error) {
+func (c Config) buildStore(volume *volumeTree) ([]byte, error) {
 	store := dsstore.NewDSStore()
 	store.SetIconSize(float64(c.ContentsIconSize))
 	store.SetWindow(c.WindowWidth, c.WindowHeight, 0, 0)
@@ -313,7 +315,7 @@ func (c Config) buildStore(volume *hfsplus.Volume) ([]byte, error) {
 // identifies the file by its catalog node ID, which on a mounted volume is what
 // stat reports as its inode; because the image is numbered before it is
 // written, those IDs are known here without ever mounting it.
-func (c Config) backgroundAlias(volume *hfsplus.Volume) ([]byte, error) {
+func (c Config) backgroundAlias(volume *volumeTree) ([]byte, error) {
 	parent := findChild(volume.Root, backgroundDir)
 	if parent == nil {
 		return nil, fmt.Errorf("the background directory is missing from the image")
@@ -322,17 +324,29 @@ func (c Config) backgroundAlias(volume *hfsplus.Volume) ([]byte, error) {
 	if image == nil {
 		return nil, fmt.Errorf("the background image is missing from the image")
 	}
-	return alias.Create(alias.Target{
+	if image.ID > 0xffffffff || parent.ID > 0xffffffff {
+		return nil, fmt.Errorf("background alias identifier exceeds 32 bits")
+	}
+	target := alias.Target{
 		Path:          path.Join("/", backgroundDir, backgroundName),
-		ID:            image.ID,
-		ParentID:      parent.ID,
+		ID:            uint32(image.ID),
+		ParentID:      uint32(parent.ID),
 		Created:       c.Created,
 		VolumeName:    volume.Name,
 		VolumeCreated: volume.Created,
-	})
+	}
+	if c.FileSystem != HFSPlus && c.FileSystem != "" {
+		// These legacy identity fields match FSNewAlias on a mounted APFS
+		// image, including its "network" classification. No network is used.
+		target.VolumeSignature = "BD"
+		target.VolumeFSID = 0x6375
+		target.VolumeAttributes = 0x00000e02
+		target.VolumeType = "network"
+	}
+	return alias.Create(target)
 }
 
-func findChild(parent *hfsplus.Node, name string) *hfsplus.Node {
+func findChild(parent *imageNode, name string) *imageNode {
 	for _, child := range parent.Children {
 		if child.Name == name {
 			return child
@@ -347,7 +361,7 @@ func setFileIcon(dmgPath, iconPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read icon %s: %w", iconPath, err)
 	}
-	if err := applyCustomIcon(dmgPath, icns); err != nil {
+	if err := applyImageIcon(dmgPath, icns); err != nil {
 		return fmt.Errorf("failed to set icon on %s: %w", dmgPath, err)
 	}
 	return nil

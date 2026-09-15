@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
 func utf16be(str string) []byte {
@@ -40,6 +41,12 @@ type Target struct {
 	// record stores.
 	VolumeName    string
 	VolumeCreated time.Time
+
+	// Optional filesystem identity. Defaults preserve the existing HFS+ record.
+	VolumeSignature  string
+	VolumeFSID       uint16
+	VolumeAttributes uint32
+	VolumeType       string
 }
 
 // Create encodes an alias record pointing at t.
@@ -63,16 +70,24 @@ func Create(t Target) ([]byte, error) {
 	if t.IsDir {
 		info.Target.Type = "directory"
 	}
-	info.Target.Filename = name
+	info.Target.Filename = legacyName(name, 63)
 	info.Target.Created = t.Created
 
 	info.Parent.ID = t.ParentID
 	info.Parent.Name = parentName
 
-	info.Volume.Name = t.VolumeName
+	info.Volume.Name = legacyName(t.VolumeName, 27)
 	info.Volume.Created = t.VolumeCreated
 	info.Volume.Signature = "H+"
+	if t.VolumeSignature != "" {
+		info.Volume.Signature = t.VolumeSignature
+	}
+	info.Volume.FSID = t.VolumeFSID
+	info.Volume.Attributes = t.VolumeAttributes
 	info.Volume.Type = "other"
+	if t.VolumeType != "" {
+		info.Volume.Type = t.VolumeType
+	}
 
 	// The record repeats the names and identifiers it already carries as a list
 	// of tagged extras, which is what modern readers actually look at.
@@ -88,6 +103,18 @@ func Create(t Target) ([]byte, error) {
 	add(19, []byte("/Volumes/"+strings.ReplaceAll(t.VolumeName, "/", ":")))
 
 	return Encode(info)
+}
+
+// Full names live in the Unicode extras. The legacy Pascal-string slots only
+// hold a short fallback and must not reject otherwise valid APFS volume names.
+func legacyName(name string, limit int) string {
+	if len(name) <= limit {
+		return name
+	}
+	for !utf8.RuneStart(name[limit]) {
+		limit--
+	}
+	return name[:limit]
 }
 
 // prefixedUTF16 encodes s as the length-prefixed UTF-16 the extras use, where

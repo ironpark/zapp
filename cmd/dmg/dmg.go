@@ -30,6 +30,7 @@ var (
 	labelSize                 int
 	contentsIconSize          int
 	format                    string
+	filesystem                string
 )
 
 // imageFormats are the names the --format flag accepts.
@@ -86,6 +87,7 @@ var Command = &cli.Command{
 			WindowHeight:     windowHeight,
 			Background:       background,
 			Format:           imageFormats[strings.ToLower(format)],
+			FileSystem:       dmg.FileSystem(strings.ToLower(filesystem)),
 			Contents: []dmg.Item{
 				{X: int(float64(windowWidth)/3*1 - float64(contentsIconSize)/2), Y: centerY, Type: dmg.Dir, Path: appDir},
 				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
@@ -101,6 +103,7 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
 		logger.PrintValue("Format", imageFormats[strings.ToLower(format)].String())
+		logger.PrintValue("FileSystem", defaultConfig.FileSystem.String())
 		_, _ = logger.Println("Creating DMG file...")
 		err := dmg.CreateDMG(ctx, defaultConfig)
 		if err != nil {
@@ -119,6 +122,20 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: append([]cli.Flag{
+		&cli.StringFlag{
+			Name:        "filesystem",
+			Usage:       "Volume filesystem: hfsplus, apfs, or apfs-case-sensitive (APFS needs macOS 10.13 or later)",
+			Value:       "hfsplus",
+			Destination: &filesystem,
+			Action: func(ctx context.Context, c *cli.Command, v string) error {
+				switch dmg.FileSystem(strings.ToLower(v)) {
+				case dmg.HFSPlus, dmg.APFS, dmg.APFSCaseSensitive:
+					return nil
+				default:
+					return fmt.Errorf("unknown filesystem %q: use hfsplus, apfs, or apfs-case-sensitive", v)
+				}
+			},
+		},
 		&cli.StringFlag{
 			Name:  "format",
 			Usage: "Compression of the disk image: udzo (zlib, read by every macOS) or ulfo (lzfse, smaller, needs macOS 10.11)",

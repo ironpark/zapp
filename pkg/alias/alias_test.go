@@ -3,6 +3,7 @@ package alias
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 	"testing"
 )
 
@@ -30,6 +31,23 @@ func extras(t *testing.T, record []byte) map[int16][]byte {
 		}
 	}
 	return found
+}
+
+func TestLongUnicodeNamesUseExtras(t *testing.T) {
+	name := strings.Repeat("한", 30)
+	r, err := Create(Target{Path: "/" + name, VolumeName: name, VolumeSignature: "BD", VolumeFSID: 0x6375, VolumeType: "network", VolumeAttributes: 0xe02})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ex := extras(t, r)
+	for _, kind := range []int16{14, 15} {
+		if !bytes.Equal(ex[kind][2:], utf16be(name)) {
+			t.Fatalf("truncated Unicode extra %d", kind)
+		}
+	}
+	if string(r[42:44]) != "BD" || binary.BigEndian.Uint16(r[138:]) != 0x6375 {
+		t.Fatal("filesystem identity was lost")
+	}
 }
 
 func TestCreateFile(t *testing.T) {

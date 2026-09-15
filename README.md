@@ -90,15 +90,32 @@ zapp dep --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 > Zapp can be used to create DMG files, a common format used for distributing macOS apps.
 It greatly simplifies the DMG creation process by automatically extracting icons from the app bundle, compositing disk icons, and providing an interface for drag-and-drop installation of the app.
 
-DMG generation is pure Go, built on the [hfsplus](pkg/hfsplus), [udif](pkg/udif)
+DMG generation is pure Go, built on the [macfs](pkg/macfs), [udif](pkg/udif)
 and [lzfse](pkg/lzfse) packages, with no `hdiutil` dependency. The image is
 assembled whole rather than created and then mounted to be decorated, so no
 volume is ever mounted during a build. Signing and notarization use the existing
 backends.
 
+HFS+ remains the default filesystem. Use `--filesystem apfs` for APFS, or
+`--filesystem apfs-case-sensitive` to distinguish names such as `App` and `app`.
+Both APFS modes require macOS 10.13 or later to open and can be generated on
+Linux or macOS. They create a single unencrypted volume; snapshots and existing
+image editing are not supported.
+
+FinderInfo and resource forks are preserved from input files. On Linux these
+attributes use the `user.com.apple.*` namespace. The mounted volume always
+contains its icon; attaching an icon to the host `.dmg` file is skipped when
+Linux cannot store it because of extended-attribute size or support limits.
+
+```bash
+zapp dmg --app="MyApp.app" --filesystem apfs
+zapp dmg --app="MyApp.app" --filesystem apfs-case-sensitive --format ulfo
+```
+
 Pass `--format ulfo` to compress with LZFSE instead of zlib, which produces a
 smaller image that only macOS 10.11 and later can read. The default, `udzo`, is
-read by every version of macOS.
+read by every version of macOS when used with HFS+. Selecting APFS still requires
+macOS 10.13 regardless of compression.
 
 ```bash
 zapp dmg --app="path/to/target.app"

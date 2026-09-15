@@ -67,6 +67,34 @@ func (f Format) String() string {
 // into a UDIF image in the given format. It returns the number of bytes
 // written.
 func Write(ctx context.Context, w io.Writer, src io.Reader, size int64, format Format) (int64, error) {
+	return WriteWithOptions(ctx, w, src, size, Options{Format: format})
+}
+
+// DiskType identifies the filesystem in a whole-disk block table.
+type DiskType string
+
+const (
+	AppleHFS  DiskType = "Apple_HFS"
+	AppleAPFS DiskType = "Apple_APFS"
+)
+
+// Options selects compression and the whole-disk filesystem description.
+// The zero value preserves Write's HFS+ / zlib behavior.
+type Options struct {
+	Format   Format
+	DiskType DiskType
+}
+
+// WriteWithOptions is Write with an explicit filesystem description. It does
+// not change the input image's partitioning or filesystem bytes.
+func WriteWithOptions(ctx context.Context, w io.Writer, src io.Reader, size int64, options Options) (int64, error) {
+	format := options.Format
+	if options.DiskType == "" {
+		options.DiskType = AppleHFS
+	}
+	if options.DiskType != AppleHFS && options.DiskType != AppleAPFS {
+		return 0, fmt.Errorf("unknown disk type %q", options.DiskType)
+	}
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -85,7 +113,7 @@ func Write(ctx context.Context, w io.Writer, src io.Reader, size int64, format F
 		return 0, err
 	}
 
-	xml, err := marshalTable(table)
+	xml, err := marshalTableForDisk(table, options.DiskType)
 	if err != nil {
 		return 0, err
 	}
@@ -129,7 +157,14 @@ type chunk struct {
 // needed to find each chunk again.
 func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64, format Format) (blockTable, int64, uint32, error) {
 	table := blockTable{sectorCount: sectors}
-	raw := make([]byte, chunkSectors*SectorSize)
+	sectorsPerChunk := int64(chunkSectors)
+	if format == ULFO {
+		// macOS's streaming LZFSE decoder can reject large final chunks even
+		// when its buffer decoder verifies them. Keep streams below its
+		// internal input window; this also bounds random-access decode work.
+		sectorsPerChunk = 1024
+	}
+	raw := make([]byte, sectorsPerChunk*SectorSize)
 	c := newCompressor(format)
 
 	uncompressed := crc32.NewIEEE()
@@ -140,7 +175,7 @@ func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64,
 		if err := ctx.Err(); err != nil {
 			return table, 0, 0, err
 		}
-		count := min(int64(chunkSectors), sectors-sector)
+		count := min(sectorsPerChunk, sectors-sector)
 		buf := raw[:count*SectorSize]
 		if _, err := io.ReadFull(src, buf); err != nil {
 			return table, 0, 0, fmt.Errorf("reading sector %d of %d: %w", sector, sectors, err)
@@ -257,7 +292,11 @@ func encodeBlockTable(t blockTable) []byte {
 // at. The format inherits its shape from a classic resource fork, so the table
 // appears as a single numbered resource.
 func marshalTable(t blockTable) ([]byte, error) {
-	const name = "whole disk (Apple_HFS : 0)"
+	return marshalTableForDisk(t, AppleHFS)
+}
+
+func marshalTableForDisk(t blockTable, diskType DiskType) ([]byte, error) {
+	name := fmt.Sprintf("whole disk (%s : 0)", diskType)
 	return plist.MarshalXML(map[string]any{
 		"resource-fork": map[string]any{
 			"blkx": []any{map[string]any{

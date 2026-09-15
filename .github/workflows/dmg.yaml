@@ -2,9 +2,9 @@ name: dmg
 
 on:
   pull_request:
-    paths: ['pkg/dmg/**', 'pkg/hfsplus/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
+    paths: ['pkg/dmg/**', 'pkg/macfs/**', 'cmd/dmg/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
   push:
-    paths: ['pkg/dmg/**', 'pkg/hfsplus/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
+    paths: ['pkg/dmg/**', 'pkg/macfs/**', 'cmd/dmg/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Test image generation
-        run: go test -count=1 ./pkg/dmg ./pkg/hfsplus ./pkg/udif ./pkg/lzfse ./pkg/alias ./pkg/dsstore
+        run: go test -count=1 ./pkg/dmg ./pkg/macfs/... ./cmd/dmg ./pkg/udif ./pkg/lzfse ./pkg/alias ./pkg/dsstore
       - name: Export a Linux-built image
         if: runner.os == 'Linux'
         run: |
@@ -40,20 +40,16 @@ jobs:
     needs: test
     runs-on: macos-14
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: linux-image
           path: images
-      - name: Mount a Linux-generated image with Apple tools
-        run: |
-          hdiutil verify images/cross-platform.dmg
-          hdiutil imageinfo images/cross-platform.dmg | grep -x 'Format: UDZO'
-          mkdir mnt
-          hdiutil attach images/cross-platform.dmg -mountpoint mnt -nobrowse -readonly
-          test "$(cat mnt/Demo.app/Contents/MacOS/Demo)" = '#!/bin/sh'
-          test "$(readlink mnt/Applications)" = '/Applications'
-          # A framework's links have to survive the trip, not become copies.
-          test "$(readlink mnt/Demo.app/Contents/Frameworks/X.framework/X)" = 'Versions/Current/X'
-          test -f mnt/.background/background.png
-          test -f mnt/.DS_Store
-          hdiutil detach mnt
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Verify Linux images and Finder metadata on macOS
+        env:
+          CGO_ENABLED: '0'
+          ZAPP_DMG_IMPORT_DIR: ${{ github.workspace }}/images
+        run: go test -count=1 -run '^TestImportedArtifacts$' ./pkg/dmg

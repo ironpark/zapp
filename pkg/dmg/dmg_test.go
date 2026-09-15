@@ -8,9 +8,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/ironpark/zapp/pkg/udif"
 )
 
 // sampleApp builds a bundle shaped like a real one, including the web of
@@ -203,11 +206,12 @@ func TestOutputIsReadable(t *testing.T) {
 func TestRejectsBadConfig(t *testing.T) {
 	dir := t.TempDir()
 	for name, config := range map[string]Config{
-		"no title":         {FileName: filepath.Join(dir, "a.dmg")},
-		"unknown type":     {Title: "T", FileName: filepath.Join(dir, "b.dmg"), Contents: []Item{{Type: "sideways", Path: "x"}}},
-		"missing file":     {Title: "T", FileName: filepath.Join(dir, "c.dmg"), Contents: []Item{{Type: File, Path: filepath.Join(dir, "gone")}}},
-		"missing dir":      {Title: "T", FileName: filepath.Join(dir, "d.dmg"), Contents: []Item{{Type: Dir, Path: filepath.Join(dir, "gone")}}},
-		"missing backdrop": {Title: "T", FileName: filepath.Join(dir, "e.dmg"), Background: filepath.Join(dir, "gone.png")},
+		"no title":           {FileName: filepath.Join(dir, "a.dmg")},
+		"unknown filesystem": {Title: "T", FileName: filepath.Join(dir, "invalid-fs.dmg"), FileSystem: "ntfs"},
+		"unknown type":       {Title: "T", FileName: filepath.Join(dir, "b.dmg"), Contents: []Item{{Type: "sideways", Path: "x"}}},
+		"missing file":       {Title: "T", FileName: filepath.Join(dir, "c.dmg"), Contents: []Item{{Type: File, Path: filepath.Join(dir, "gone")}}},
+		"missing dir":        {Title: "T", FileName: filepath.Join(dir, "d.dmg"), Contents: []Item{{Type: Dir, Path: filepath.Join(dir, "gone")}}},
+		"missing backdrop":   {Title: "T", FileName: filepath.Join(dir, "e.dmg"), Background: filepath.Join(dir, "gone.png")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := CreateDMG(context.Background(), config); err == nil {
@@ -244,21 +248,14 @@ func TestCrossPlatformArtifact(t *testing.T) {
 	if dir == "" {
 		t.Skip("set ZAPP_DMG_ARTIFACT_DIR to export a platform fixture")
 	}
-	source := t.TempDir()
-	app := sampleApp(t, source)
-	background := filepath.Join(source, "bg.png")
-	if err := os.WriteFile(background, []byte("background from "+runtime.GOOS), 0644); err != nil {
-		t.Fatal(err)
-	}
-	err := CreateDMG(context.Background(), Config{
-		FileName: filepath.Join(dir, "cross-platform.dmg"), Title: "Cross Platform",
-		Background: background, ContentsIconSize: 128, WindowWidth: 640, WindowHeight: 480,
-		Contents: []Item{
-			{X: 100, Y: 200, Type: Dir, Path: app},
-			{X: 400, Y: 200, Type: Link, Path: "/Applications"},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
+	for _, filesystem := range []FileSystem{HFSPlus, APFS, APFSCaseSensitive} {
+		for _, format := range []udif.Format{udif.UDZO, udif.ULFO} {
+			c := appearanceConfig(t, filesystem, format)
+			name := "cross-platform-" + filesystem.String() + "-" + strings.ToLower(format.String()) + ".dmg"
+			c.FileName = filepath.Join(dir, name)
+			if err := CreateDMG(context.Background(), c); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }

@@ -29,10 +29,12 @@ type Info struct {
 		Created  time.Time
 	}
 	Volume struct {
-		Name      string
-		Created   time.Time
-		Signature string
-		Type      string
+		Name       string
+		Created    time.Time
+		Signature  string
+		Type       string
+		FSID       uint16
+		Attributes uint32
 	}
 	Parent struct {
 		ID   uint32
@@ -122,8 +124,12 @@ func Encode(info Info) ([]byte, error) {
 	binary.BigEndian.PutUint16(buf[130:], 0xFFFF) // nlvlFrom
 	binary.BigEndian.PutUint16(buf[132:], 0xFFFF) // nlvlTo
 
-	binary.BigEndian.PutUint32(buf[134:], 0x00000D02) // volAttributes
-	binary.BigEndian.PutUint16(buf[138:], 0x0000)     // volFSId
+	attributes := info.Volume.Attributes
+	if attributes == 0 {
+		attributes = 0x00000D02
+	}
+	binary.BigEndian.PutUint32(buf[134:], attributes)
+	binary.BigEndian.PutUint16(buf[138:], info.Volume.FSID)
 
 	copy(buf[140:150], make([]byte, 10)) // Reserved space
 
