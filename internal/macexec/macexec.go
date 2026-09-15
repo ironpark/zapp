@@ -1,4 +1,4 @@
-// Package macexec runs the macOS command line tools the mactools packages wrap.
+// Package macexec runs the macOS command line tools the signing backends wrap.
 //
 // Every tool is invoked the same way: with a context so long-running work stays
 // cancellable, with stdout and stderr captured separately so parsers never see

@@ -50,41 +50,66 @@ func (f fork) encode() []byte {
 	return b
 }
 
-// Write lays out and writes the whole image, returning its size in bytes. The
-// tree is numbered first if it has not been numbered already.
-func Write(ctx context.Context, w io.Writer, v Volume) (int64, error) {
+// Image is a planned volume. Its size is settled, so a caller that has to know
+// how large the image will be before producing it, as a compressor writing a
+// container around it does, can ask before anything is written.
+type Image struct {
+	plan *layout
+}
+
+// Size is the length in bytes of the image WriteTo produces.
+func (i *Image) Size() int64 {
+	return int64(i.plan.totalBlocks) * int64(i.plan.blockSize)
+}
+
+// Plan works out where everything in v belongs without writing it. The tree is
+// numbered first if it has not been numbered already.
+func Plan(ctx context.Context, v Volume) (*Image, error) {
 	if err := ctx.Err(); err != nil {
-		return 0, err
+		return nil, err
 	}
 	if v.Name == "" {
-		return 0, fmt.Errorf("volume name is required")
+		return nil, fmt.Errorf("volume name is required")
 	}
 	if _, err := encodeName(v.Name); err != nil {
-		return 0, fmt.Errorf("volume name: %w", err)
+		return nil, fmt.Errorf("volume name: %w", err)
 	}
 	if v.BlockSize == 0 {
 		v.BlockSize = defaultBlockSize
 	}
 	if v.BlockSize < defaultBlockSize || v.BlockSize&(v.BlockSize-1) != 0 {
-		return 0, fmt.Errorf("block size must be a power of two of at least %d", defaultBlockSize)
+		return nil, fmt.Errorf("block size must be a power of two of at least %d", defaultBlockSize)
 	}
 	if v.FreeSpace < 0 {
-		return 0, fmt.Errorf("free space cannot be negative")
+		return nil, fmt.Errorf("free space cannot be negative")
 	}
 	if v.Root == nil || v.Root.ID == 0 {
 		if err := AssignIDs(&v); err != nil {
-			return 0, err
+			return nil, err
 		}
 	}
 	if v.Created.IsZero() {
 		v.Created = time.Now()
 	}
-
 	plan, err := planVolume(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+	return &Image{plan: plan}, nil
+}
+
+// WriteTo emits the image, returning the number of bytes written.
+func (i *Image) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
+	return i.plan.write(ctx, w)
+}
+
+// Write plans and writes v in one step, returning the size of the image.
+func Write(ctx context.Context, w io.Writer, v Volume) (int64, error) {
+	image, err := Plan(ctx, v)
 	if err != nil {
 		return 0, err
 	}
-	return plan.write(ctx, w)
+	return image.WriteTo(ctx, w)
 }
 
 // layout is a fully decided image: every fork has a home and every structure

@@ -86,10 +86,10 @@ func (ds *DSStore) SetBgColor(r, g, b float64) {
 	ds.getIconViewPreferences().SetBgColor(r, g, b)
 }
 
-// SetBackgroundImage points the Finder window at a background image. volumeName
-// names the volume path lives on; the alias record encoding the path stores it.
-func (ds *DSStore) SetBackgroundImage(path, volumeName string) error {
-	return ds.getIconViewPreferences().SetBgImage(path, volumeName)
+// SetBackgroundImage points the Finder window at a background image, named by
+// an alias record built with the alias package.
+func (ds *DSStore) SetBackgroundImage(record []byte) {
+	ds.getIconViewPreferences().SetBgImage(record)
 }
 
 func (ds *DSStore) SetBgToDefault() {
@@ -128,7 +128,14 @@ func (ds *DSStore) AddEntry(entry entry.Entry) {
 	ds.Entries = append(ds.Entries, entry)
 }
 
+// Write encodes the store and saves it to filePath.
 func (ds *DSStore) Write(filePath string) error {
+	return os.WriteFile(filePath, ds.Encode(), 0644)
+}
+
+// Encode returns the contents of the .DS_Store file describing this store, for
+// callers placing one somewhere other than a filesystem they can write to.
+func (ds *DSStore) Encode() []byte {
 	sort.Sort(Entries(ds.Entries))
 
 	buf := bytes.Clone(DSStoreClean)
@@ -149,7 +156,7 @@ func (ds *DSStore) Write(filePath string) error {
 
 	binary.BigEndian.PutUint32(buf[76:], count)
 	copy(buf[4100:], modified)
-	return os.WriteFile(filePath, buf, 0644)
+	return buf
 }
 
 func entryBuild(entry entry.Entry) []byte {

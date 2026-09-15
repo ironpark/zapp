@@ -178,3 +178,19 @@ func buildResourceFork(resType string, id int16, data []byte) ([]byte, error) {
 
 	return fork, nil
 }
+
+// volumeIconCreator is the creator code a .VolumeIcon.icns file carries, the
+// equivalent of SetFile -c icnC.
+const volumeIconCreator = "icnC"
+
+// finderInfoFor builds Finder info from nothing, for an entry being written
+// into an image rather than onto a filesystem, where there is no existing
+// attribute to preserve.
+func finderInfoFor(creator string, customIcon bool) [32]byte {
+	var info [32]byte
+	copy(info[creatorOffset:], creator)
+	if customIcon {
+		binary.BigEndian.PutUint16(info[finderFlagsOffset:], hasCustomIcon)
+	}
+	return info
+}

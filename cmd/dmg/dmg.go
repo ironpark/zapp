@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/cmd/subtask"
-	"github.com/ironpark/zapp/pkg/mactools/dmg"
+	"github.com/ironpark/zapp/pkg/dmg"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,13 +38,6 @@ var Command = &cli.Command{
 	ArgsUsage:   " <path of app-bundle>",
 	Action: func(ctx context.Context, c *cli.Command) error {
 		logger := cmd.NewAppLogger(c.Root())
-		// Create a temporary working directory
-		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
-		if err != nil {
-			return fmt.Errorf("error creating temporary directory: %w", err)
-		}
-		defer func() { _ = os.RemoveAll(tempDir) }()
-
 		_, _ = logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
 
 		if icon == "" {
@@ -97,7 +90,7 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
 		_, _ = logger.Println("Creating DMG file...")
-		err = dmg.CreateDMG(ctx, defaultConfig, tempDir)
+		err := dmg.CreateDMG(ctx, defaultConfig)
 		if err != nil {
 			return err
 		}

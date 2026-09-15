@@ -3,8 +3,6 @@ package alias
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -35,13 +33,12 @@ func extras(t *testing.T, record []byte) map[int16][]byte {
 }
 
 func TestCreateFile(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "target.txt")
-	if err := os.WriteFile(target, []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	record, err := Create(target, "Test Volume")
+	record, err := Create(Target{
+		Path:       "/.background/background.png",
+		ID:         42,
+		ParentID:   17,
+		VolumeName: "Test Volume",
+	})
 	if err != nil {
 		t.Fatalf("Create() error: %v", err)
 	}
@@ -58,46 +55,82 @@ func TestCreateFile(t *testing.T) {
 	if got := binary.BigEndian.Uint16(record[8:]); got != 0 {
 		t.Errorf("target type = %d, want 0 (file)", got)
 	}
-	if got := int(record[50]); got != len("target.txt") {
-		t.Errorf("filename length byte = %d, want %d", got, len("target.txt"))
+	if got := int(record[50]); got != len("background.png") {
+		t.Errorf("filename length byte = %d, want %d", got, len("background.png"))
 	}
-	if got := string(record[51 : 51+len("target.txt")]); got != "target.txt" {
-		t.Errorf("filename = %q, want %q", got, "target.txt")
+	if got := string(record[51 : 51+len("background.png")]); got != "background.png" {
+		t.Errorf("filename = %q, want %q", got, "background.png")
 	}
 
 	ex := extras(t, record)
-	if got := string(ex[0]); got != filepath.Base(dir) {
-		t.Errorf("extra 0 (parent name) = %q, want %q", got, filepath.Base(dir))
+	if got := string(ex[0]); got != ".background" {
+		t.Errorf("extra 0 (parent name) = %q, want %q", got, ".background")
 	}
-	if got, want := ex[14], utf16be("target.txt"); !bytes.Equal(got[2:], want) {
+	if got := binary.BigEndian.Uint32(ex[1]); got != 17 {
+		t.Errorf("extra 1 (parent id) = %d, want 17", got)
+	}
+	if got, want := ex[14], utf16be("background.png"); !bytes.Equal(got[2:], want) {
 		t.Errorf("extra 14 (filename UTF-16) = %x, want %x", got[2:], want)
 	}
 	// Type 18 is the target path relative to the volume root, type 19 the
-	// volume mount path. Joined they must reproduce the target.
-	if got := filepath.Join(string(ex[19]), string(ex[18])); got != target {
-		t.Errorf("extra 19+18 = %q, want %q", got, target)
+	// volume mount path.
+	if got := string(ex[18]); got != "/.background/background.png" {
+		t.Errorf("extra 18 (path in volume) = %q", got)
+	}
+	if got := string(ex[19]); got != "/Volumes/Test Volume" {
+		t.Errorf("extra 19 (mount path) = %q", got)
+	}
+}
+
+// The counts in extras 14 and 15 are in UTF-16 code units, not bytes, so a name
+// outside ASCII must not be reported as longer than it is.
+func TestCreateCountsUTF16Units(t *testing.T) {
+	record, err := Create(Target{Path: "/배경/그림.png", ID: 1, ParentID: 2, VolumeName: "한글 볼륨"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ex := extras(t, record)
+	for _, c := range []struct {
+		kind int16
+		want string
+	}{{14, "그림.png"}, {15, "한글 볼륨"}} {
+		units := int(binary.BigEndian.Uint16(ex[c.kind]))
+		if want := len(utf16be(c.want)) / 2; units != want {
+			t.Errorf("extra %d declares %d units, want %d", c.kind, units, want)
+		}
+		if got := ex[c.kind][2:]; !bytes.Equal(got, utf16be(c.want)) {
+			t.Errorf("extra %d = %x, want %x", c.kind, got, utf16be(c.want))
+		}
 	}
 }
 
 func TestCreateDirectory(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "Some.app")
-	if err := os.MkdirAll(target, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	record, err := Create(target, "Test Volume")
+	record, err := Create(Target{Path: "/Some.app", ID: 20, ParentID: 2, IsDir: true, VolumeName: "Test Volume"})
 	if err != nil {
 		t.Fatalf("Create() error: %v", err)
 	}
 	if got := binary.BigEndian.Uint16(record[8:]); got != 1 {
 		t.Errorf("target type = %d, want 1 (directory)", got)
 	}
+	// An entry at the root names the volume as its parent.
+	if got := string(extras(t, record)[0]); got != "Test Volume" {
+		t.Errorf("extra 0 (parent name) = %q, want the volume name", got)
+	}
 }
 
-func TestCreateMissingTarget(t *testing.T) {
-	if _, err := Create(filepath.Join(t.TempDir(), "nope"), "Test Volume"); err == nil {
-		t.Error("Create() on a missing path returned no error")
+func TestCreateRejectsBadTarget(t *testing.T) {
+	for name, target := range map[string]Target{
+		"no volume":     {Path: "/a.txt"},
+		"relative path": {Path: "a.txt", VolumeName: "V"},
+		"unclean path":  {Path: "/a/../b.txt", VolumeName: "V"},
+		"volume root":   {Path: "/", VolumeName: "V"},
+		"empty path":    {VolumeName: "V"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Create(target); err == nil {
+				t.Error("expected an error")
+			}
+		})
 	}
 }
 
@@ -141,14 +174,8 @@ func TestEncodeRejectsInvalidInfo(t *testing.T) {
 }
 
 func TestCreateRecordsTheGivenVolumeName(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "target.txt")
-	if err := os.WriteFile(target, []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
 	const volume = "SyncMaster"
-	record, err := Create(target, volume)
+	record, err := Create(Target{Path: "/target.txt", ID: 16, ParentID: 2, VolumeName: volume})
 	if err != nil {
 		t.Fatalf("Create() error: %v", err)
 	}

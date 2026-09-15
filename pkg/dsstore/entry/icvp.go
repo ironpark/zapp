@@ -1,7 +1,6 @@
 package entry
 
 import (
-	"github.com/ironpark/zapp/pkg/alias"
 	"github.com/ironpark/zapp/pkg/plist"
 )
 
@@ -68,10 +67,11 @@ func (i *IconViewPreferencesEntry) SetBgColor(r, g, b float64) {
 
 // SetBgImage points the view at a background image. volumeName names the volume
 // imagePath lives on, which the alias record records alongside the path.
-func (i *IconViewPreferencesEntry) SetBgImage(imagePath, volumeName string) (err error) {
+// SetBgImage points the window at a background image described by an alias
+// record the caller has already built.
+func (i *IconViewPreferencesEntry) SetBgImage(record []byte) {
 	i.BackgroundType = 2
-	i.BackgroundImageAlias, err = alias.Create(imagePath, volumeName)
-	return err
+	i.BackgroundImageAlias = record
 }
 
 func (i *IconViewPreferencesEntry) Filename() string {

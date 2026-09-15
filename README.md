@@ -90,6 +90,10 @@ zapp dep --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 > Zapp can be used to create DMG files, a common format used for distributing macOS apps.
 It greatly simplifies the DMG creation process by automatically extracting icons from the app bundle, compositing disk icons, and providing an interface for drag-and-drop installation of the app.
 
+DMG generation is pure Go, built on the [hfsplus](pkg/hfsplus) and [udif](pkg/udif)
+packages, with no `hdiutil` dependency. The image is assembled whole rather than
+created and then mounted to be decorated, so no volume is ever mounted during a
+build. Signing and notarization use the existing backends.
 
 ```bash
 zapp dmg --app="path/to/target.app"

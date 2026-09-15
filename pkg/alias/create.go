@@ -3,40 +3,12 @@ package alias
 
 import (
 	"encoding/binary"
-	"errors"
-	"os"
-	"path/filepath"
+	"fmt"
+	"path"
 	"strings"
-	"syscall"
+	"time"
 	"unicode/utf16"
 )
-
-func findVolume(startPath string, startStat os.FileInfo) (string, error) {
-	lastDev := startStat.Sys().(*syscall.Stat_t).Dev
-	lastIno := startStat.Sys().(*syscall.Stat_t).Ino
-	lastPath := startPath
-
-	for {
-		parentPath := filepath.Dir(lastPath)
-		parentStat, err := os.Stat(parentPath)
-		if err != nil {
-			return "", err
-		}
-
-		parentSys := parentStat.Sys().(*syscall.Stat_t)
-		if parentSys.Dev != lastDev {
-			return lastPath, nil
-		}
-
-		if parentSys.Ino == lastIno {
-			return lastPath, nil
-		}
-
-		lastDev = parentSys.Dev
-		lastIno = parentSys.Ino
-		lastPath = parentPath
-	}
-}
 
 func utf16be(str string) []byte {
 	u16 := utf16.Encode([]rune(str))
@@ -47,115 +19,80 @@ func utf16be(str string) []byte {
 	return b
 }
 
-// Create encodes an alias record pointing at targetPath. volumeName is the name
-// of the volume targetPath lives on, as the Finder displays it. The caller
-// supplies it because a mounted volume's label is not derivable from its mount
-// point, and the callers that build an alias know the name already.
-func Create(targetPath, volumeName string) ([]byte, error) {
+// Target describes the file an alias record should point at. Every field is
+// supplied by the caller rather than read from a live filesystem, so a record
+// can be built for a volume that has not been created yet, which is how a disk
+// image can carry an alias into a volume it is still being assembled from.
+type Target struct {
+	// Path is where the target sits within its volume, as an absolute POSIX
+	// path from the volume root, such as "/.background/background.png".
+	Path string
+
+	// ID is the target's catalog node ID, which a mounted volume reports as its
+	// inode number, and ParentID is the same for the directory holding it.
+	ID       uint32
+	ParentID uint32
+
+	IsDir   bool
+	Created time.Time
+
+	// VolumeName is the name the Finder shows for the volume, and the one the
+	// record stores.
+	VolumeName    string
+	VolumeCreated time.Time
+}
+
+// Create encodes an alias record pointing at t.
+func Create(t Target) ([]byte, error) {
+	if t.VolumeName == "" {
+		return nil, fmt.Errorf("volume name is required")
+	}
+	if !path.IsAbs(t.Path) || path.Clean(t.Path) != t.Path || t.Path == "/" {
+		return nil, fmt.Errorf("target path must be a clean absolute path within the volume: %q", t.Path)
+	}
+	name := path.Base(t.Path)
+	parentName := path.Base(path.Dir(t.Path))
+	if parentName == "/" {
+		// The volume root is named after the volume rather than "/".
+		parentName = t.VolumeName
+	}
+
 	info := Info{Version: 2, Extra: []Extra{}}
-
-	parentPath := filepath.Dir(targetPath)
-	targetStat, err := os.Stat(targetPath)
-	if err != nil {
-		return nil, err
-	}
-	parentStat, err := os.Stat(parentPath)
-	if err != nil {
-		return nil, err
-	}
-	volumePath, err := findVolume(targetPath, targetStat)
-	if err != nil {
-		return nil, err
-	}
-	volumeStat, err := os.Stat(volumePath)
-	if err != nil {
-		return nil, err
-	}
-
-	if !targetStat.IsDir() && !targetStat.Mode().IsRegular() {
-		return nil, errors.New("target is not a file or directory")
-	}
-
-	targetSys := targetStat.Sys().(*syscall.Stat_t)
-	parentSys := parentStat.Sys().(*syscall.Stat_t)
-
-	info.Target.ID = uint32(targetSys.Ino)
-	if targetStat.IsDir() {
+	info.Target.ID = t.ID
+	info.Target.Type = "file"
+	if t.IsDir {
 		info.Target.Type = "directory"
-	} else {
-		info.Target.Type = "file"
 	}
-	info.Target.Filename = filepath.Base(targetPath)
-	info.Target.Created = targetStat.ModTime()
+	info.Target.Filename = name
+	info.Target.Created = t.Created
 
-	info.Parent.ID = uint32(parentSys.Ino)
-	info.Parent.Name = filepath.Base(parentPath)
+	info.Parent.ID = t.ParentID
+	info.Parent.Name = parentName
 
-	info.Volume.Name = volumeName
-	info.Volume.Created = volumeStat.ModTime()
+	info.Volume.Name = t.VolumeName
+	info.Volume.Created = t.VolumeCreated
 	info.Volume.Signature = "H+"
-	if volumePath == "/" {
-		info.Volume.Type = "local"
-	} else {
-		info.Volume.Type = "other"
+	info.Volume.Type = "other"
+
+	// The record repeats the names and identifiers it already carries as a list
+	// of tagged extras, which is what modern readers actually look at.
+	add := func(kind int16, data []byte) {
+		info.Extra = append(info.Extra, Extra{Type: kind, Length: uint16(len(data)), Data: data})
 	}
-
-	// Add Type 0
-	info.Extra = append(info.Extra, Extra{
-		Type:   0,
-		Length: uint16(len(info.Parent.Name)),
-		Data:   []byte(info.Parent.Name),
-	})
-
-	// Add Type 1
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, info.Parent.ID)
-	info.Extra = append(info.Extra, Extra{
-		Type:   1,
-		Length: 4,
-		Data:   b,
-	})
-
-	// Add Type 14
-	filenameUTF16 := utf16be(info.Target.Filename)
-	b = make([]byte, 2+len(filenameUTF16))
-	binary.BigEndian.PutUint16(b, uint16(len(info.Target.Filename)))
-	copy(b[2:], filenameUTF16)
-	info.Extra = append(info.Extra, Extra{
-		Type:   14,
-		Length: uint16(len(b)),
-		Data:   b,
-	})
-
-	// Add Type 15
-	volumeNameUTF16 := utf16be(info.Volume.Name)
-	b = make([]byte, 2+len(volumeNameUTF16))
-	binary.BigEndian.PutUint16(b, uint16(len(info.Volume.Name)))
-	copy(b[2:], volumeNameUTF16)
-	info.Extra = append(info.Extra, Extra{
-		Type:   15,
-		Length: uint16(len(b)),
-		Data:   b,
-	})
-
-	// Add Type 18
-	rel, err := filepath.Rel(volumePath, targetPath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil, errors.New("target path is not within volume path")
-	}
-	localPath := targetPath[len(volumePath):]
-	info.Extra = append(info.Extra, Extra{
-		Type:   18,
-		Length: uint16(len(localPath)),
-		Data:   []byte(localPath),
-	})
-
-	// Add Type 19
-	info.Extra = append(info.Extra, Extra{
-		Type:   19,
-		Length: uint16(len(volumePath)),
-		Data:   []byte(volumePath),
-	})
+	add(0, []byte(parentName))
+	add(1, binary.BigEndian.AppendUint32(nil, t.ParentID))
+	add(14, prefixedUTF16(name))
+	add(15, prefixedUTF16(t.VolumeName))
+	add(18, []byte(t.Path))
+	// The mount point of a volume other than the boot volume.
+	add(19, []byte("/Volumes/"+strings.ReplaceAll(t.VolumeName, "/", ":")))
 
 	return Encode(info)
+}
+
+// prefixedUTF16 encodes s as the length-prefixed UTF-16 the extras use, where
+// the length counts characters rather than bytes.
+func prefixedUTF16(s string) []byte {
+	encoded := utf16be(s)
+	return append(binary.BigEndian.AppendUint16(nil, uint16(len(encoded)/2)), encoded...)
 }
