@@ -1,4 +1,4 @@
-package notarytool
+package signing
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
 // xcrun invokes a tool from the active Xcode toolchain.
@@ -26,8 +26,8 @@ func xcrunJSON(ctx context.Context, result any, args ...string) error {
 	return nil
 }
 
-// SubmissionResult represents the result of a notarization submission.
-type SubmissionResult struct {
+// submissionResult represents the result of a notarization submission.
+type submissionResult struct {
 	ID              string `json:"id"`
 	Status          string `json:"status"`
 	Message         string `json:"message"`
@@ -35,16 +35,16 @@ type SubmissionResult struct {
 	keychainProfile string `json:"-"`
 }
 
-func (r SubmissionResult) GetLog(ctx context.Context) (string, error) {
-	msg, err := GetNotarizationLog(ctx, r.ID, r.keychainProfile)
+func (r submissionResult) GetLog(ctx context.Context) (string, error) {
+	msg, err := notaryLog(ctx, r.ID, r.keychainProfile)
 	if err != nil {
 		return "", fmt.Errorf("getting notarization log failed: %w", err)
 	}
 	return msg, nil
 }
 
-// StoreCredentials stores the Apple ID credentials for notarization.
-func StoreCredentials(ctx context.Context, appleID, password, teamID, profileName string) error {
+// notaryStoreCredentials stores the Apple ID credentials for notarization.
+func notaryStoreCredentials(ctx context.Context, appleID, password, teamID, profileName string) error {
 	_, err := xcrun(ctx,
 		"notarytool", "store-credentials", profileName,
 		"--apple-id", appleID,
@@ -57,9 +57,9 @@ func StoreCredentials(ctx context.Context, appleID, password, teamID, profileNam
 	return nil
 }
 
-// Submit submits a file for notarization.
-func Submit(ctx context.Context, filePath, keychainProfile string) (*SubmissionResult, error) {
-	var result SubmissionResult
+// notarySubmit submits a file for notarization.
+func notarySubmit(ctx context.Context, filePath, keychainProfile string) (*submissionResult, error) {
+	var result submissionResult
 	err := xcrunJSON(ctx, &result,
 		"notarytool", "submit", filePath,
 		"--keychain-profile", keychainProfile,
@@ -71,9 +71,9 @@ func Submit(ctx context.Context, filePath, keychainProfile string) (*SubmissionR
 	return &result, nil
 }
 
-// WaitForCompletion waits for the notarization process to complete.
-func WaitForCompletion(ctx context.Context, submissionID, keychainProfile string) (*SubmissionResult, error) {
-	var result SubmissionResult
+// notaryWait waits for the notarization process to complete.
+func notaryWait(ctx context.Context, submissionID, keychainProfile string) (*submissionResult, error) {
+	var result submissionResult
 	err := xcrunJSON(ctx, &result,
 		"notarytool", "wait", submissionID,
 		"--keychain-profile", keychainProfile,
@@ -84,16 +84,16 @@ func WaitForCompletion(ctx context.Context, submissionID, keychainProfile string
 	return &result, nil
 }
 
-// Staple staples the notarization ticket to the file.
-func Staple(ctx context.Context, filePath string) error {
+// notaryStaple staples the notarization ticket to the file.
+func notaryStaple(ctx context.Context, filePath string) error {
 	if _, err := xcrun(ctx, "stapler", "staple", filePath); err != nil {
 		return fmt.Errorf("stapling failed: %w", err)
 	}
 	return nil
 }
 
-// IsStapled checks if the file has been stapled.
-func IsStapled(ctx context.Context, filePath string) (bool, error) {
+// notaryIsStapled checks if the file has been stapled.
+func notaryIsStapled(ctx context.Context, filePath string) (bool, error) {
 	output, err := xcrun(ctx, "stapler", "validate", filePath)
 	if err != nil {
 		// An unstapled file is a normal answer, not a failure.
@@ -105,8 +105,8 @@ func IsStapled(ctx context.Context, filePath string) (bool, error) {
 	return strings.Contains(output, "The validate action worked!"), nil
 }
 
-// GetNotarizationLog
-func GetNotarizationLog(ctx context.Context, submissionID, keychainProfile string) (string, error) {
+// notaryLog
+func notaryLog(ctx context.Context, submissionID, keychainProfile string) (string, error) {
 	output, err := xcrun(ctx,
 		"notarytool", "log", submissionID,
 		"--keychain-profile", keychainProfile,

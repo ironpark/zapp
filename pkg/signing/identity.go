@@ -1,4 +1,4 @@
-package security
+package signing
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
 type Identity struct {
@@ -51,7 +51,7 @@ func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
-func FindIdentity(ctx context.Context, keychain string) ([]Identity, error) {
+func listIdentities(ctx context.Context, keychain string) ([]Identity, error) {
 	args := []string{"find-identity", "-v"}
 	if keychain != "" {
 		args = append(args, "-k", keychain)

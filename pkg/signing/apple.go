@@ -5,11 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
-	"github.com/ironpark/zapp/pkg/mactools/codesign"
-	"github.com/ironpark/zapp/pkg/mactools/notarytool"
-	"github.com/ironpark/zapp/pkg/mactools/productsign"
-	"github.com/ironpark/zapp/pkg/mactools/security"
 )
 
 // appleBackend signs with Apple's own tools, taking the certificate from the
@@ -40,9 +35,9 @@ func (appleBackend) Sign(ctx context.Context, path string, creds Credentials) er
 
 	switch ext {
 	case ".pkg":
-		return productsign.Sign(ctx, path, idt.String())
+		return runProductsign(ctx, path, idt.String())
 	case ".app", ".dmg":
-		return codesign.CodeSign(ctx, idt.Fingerprint, path)
+		return runCodesign(ctx, idt.Fingerprint, path)
 	default:
 		return fmt.Errorf("%s is not a kind of artifact zapp signs; expected .app, .dmg or .pkg", path)
 	}
@@ -50,7 +45,7 @@ func (appleBackend) Sign(ctx context.Context, path string, creds Credentials) er
 
 // Identity reports which keychain identity would be used, so a caller can show
 // it before signing. It is specific to this backend.
-func (appleBackend) Identity(ctx context.Context, path string, creds Credentials) (security.Identity, error) {
+func (appleBackend) Identity(ctx context.Context, path string, creds Credentials) (Identity, error) {
 	wanted := "Developer ID Application"
 	if strings.ToLower(filepath.Ext(path)) == ".pkg" {
 		wanted = "Developer ID Installer"
@@ -63,20 +58,20 @@ func (appleBackend) Identity(ctx context.Context, path string, creds Credentials
 
 // findIdentity returns the first keychain identity whose description contains
 // want.
-func findIdentity(ctx context.Context, want string) (security.Identity, error) {
-	identities, err := security.FindIdentity(ctx, "")
+func findIdentity(ctx context.Context, want string) (Identity, error) {
+	identities, err := listIdentities(ctx, "")
 	if err != nil {
-		return security.Identity{}, err
+		return Identity{}, err
 	}
 	if len(identities) == 0 {
-		return security.Identity{}, fmt.Errorf("the keychain holds no signing identities")
+		return Identity{}, fmt.Errorf("the keychain holds no signing identities")
 	}
 	for _, identity := range identities {
 		if strings.Contains(identity.String(), want) {
 			return identity, nil
 		}
 	}
-	return security.Identity{}, fmt.Errorf("the keychain holds no identity matching %q", want)
+	return Identity{}, fmt.Errorf("the keychain holds no identity matching %q", want)
 }
 
 // Submit uploads through notarytool, storing a temporary keychain profile first
@@ -89,17 +84,17 @@ func (appleBackend) Submit(ctx context.Context, path string, creds Credentials) 
 				"or all of the Apple ID, password and team ID")
 		}
 		profile = "temp_profile"
-		if err := notarytool.StoreCredentials(ctx, creds.AppleID, creds.Password, creds.TeamID, profile); err != nil {
+		if err := notaryStoreCredentials(ctx, creds.AppleID, creds.Password, creds.TeamID, profile); err != nil {
 			return fmt.Errorf("failed to store credentials: %w", err)
 		}
 	}
 
-	result, err := notarytool.Submit(ctx, path, profile)
+	result, err := notarySubmit(ctx, path, profile)
 	if err != nil {
 		return err
 	}
 	if result.Status == "In Progress" {
-		if result, err = notarytool.WaitForCompletion(ctx, result.ID, profile); err != nil {
+		if result, err = notaryWait(ctx, result.ID, profile); err != nil {
 			return err
 		}
 	}
@@ -110,10 +105,10 @@ func (appleBackend) Submit(ctx context.Context, path string, creds Credentials) 
 }
 
 func (appleBackend) Staple(ctx context.Context, path string) error {
-	if err := notarytool.Staple(ctx, path); err != nil {
+	if err := notaryStaple(ctx, path); err != nil {
 		return fmt.Errorf("failed to staple: %w", err)
 	}
-	stapled, err := notarytool.IsStapled(ctx, path)
+	stapled, err := notaryIsStapled(ctx, path)
 	if err != nil {
 		return fmt.Errorf("failed to check stapling: %w", err)
 	}

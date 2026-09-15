@@ -1,7 +1,7 @@
 // Package productsign wraps the productsign(1) tool, which signs installer
 // packages. Unlike codesign it cannot sign in place, so Sign writes to a
 // temporary file and swaps it over the original.
-package productsign
+package signing
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
-// Sign signs the installer package at path with identity, replacing it with the
+// runProductsign signs the installer package at path with identity, replacing it with the
 // signed copy.
-func Sign(ctx context.Context, path, identity string) error {
+func runProductsign(ctx context.Context, path, identity string) error {
 	if identity == "" || path == "" {
 		return fmt.Errorf("identity and path are required")
 	}

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/ironpark/zapp/internal/fsutil"
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
 type Config struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
 // Format represents the supported DMG formats

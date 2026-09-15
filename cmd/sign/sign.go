@@ -9,7 +9,6 @@ import (
 
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/pkg/mactools/rcodesign"
-	"github.com/ironpark/zapp/pkg/mactools/security"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/urfave/cli/v3"
 )
@@ -99,7 +98,7 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 	// Apple's tools pick a certificate out of the keychain, so say which one
 	// before using it; rcodesign was handed one by path.
 	if apple, ok := backend.(interface {
-		Identity(context.Context, string, signing.Credentials) (security.Identity, error)
+		Identity(context.Context, string, signing.Credentials) (signing.Identity, error)
 	}); ok {
 		idt, err := apple.Identity(ctx, target, creds)
 		if err != nil {

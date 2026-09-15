@@ -1,4 +1,4 @@
-package codesign
+package signing
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ironpark/zapp/pkg/mactools/internal/macexec"
+	"github.com/ironpark/zapp/internal/macexec"
 )
 
-// ErrCodesignFailed is returned when the codesign command fails.
-var ErrCodesignFailed = errors.New("codesign command failed")
+// errCodesignFailed is returned when the codesign command fails.
+var errCodesignFailed = errors.New("codesign command failed")
 
 // Options holds the configuration for the CodeSign function.
-type Options struct {
+type codesignOptions struct {
 	IdentityName     string
 	FilePath         string
 	Entitlements     string
@@ -28,71 +28,15 @@ type Options struct {
 }
 
 // Option is a function that modifies Options.
-type Option func(*Options)
+type codesignOption func(*codesignOptions)
 
-// WithKeyChain sets the keychain.
-func WithKeyChain(keychain string) Option {
-	return func(o *Options) {
-		o.KeyChain = keychain
-	}
-}
-
-// WithEntitlements sets the entitlements file path.
-func WithEntitlements(path string) Option {
-	return func(o *Options) {
-		o.Entitlements = path
-	}
-}
-
-// WithForce sets the force flag.
-func WithForce(force bool) Option {
-	return func(o *Options) {
-		o.Force = force
-	}
-}
-
-// WithVerbose sets the verbose flag.
-func WithVerbose(verbose bool) Option {
-	return func(o *Options) {
-		o.Verbose = verbose
-	}
-}
-
-// WithDeepSign sets the deep sign flag.
-func WithDeepSign(deep bool) Option {
-	return func(o *Options) {
-		o.DeepSign = deep
-	}
-}
-
-// WithPreserveMetadata sets the metadata to preserve.
-func WithPreserveMetadata(metadata ...string) Option {
-	return func(o *Options) {
-		o.PreserveMetadata = metadata
-	}
-}
-
-// WithRequirements sets the requirements file path.
-func WithRequirements(path string) Option {
-	return func(o *Options) {
-		o.Requirements = path
-	}
-}
-
-// WithTimestamp sets the timestamp server URL.
-func WithTimestamp(url string) Option {
-	return func(o *Options) {
-		o.Timestamp = url
-	}
-}
-
-// CodeSign performs code signing on the specified file.
-func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option) error {
+// runCodesign signs the file with Apple's codesign.
+func runCodesign(ctx context.Context, identityName, filePath string) error {
 	if identityName == "" || filePath == "" {
 		return errors.New("identity name and file path are required")
 	}
 
-	options := &Options{
+	options := &codesignOptions{
 		IdentityName: identityName,
 		FilePath:     filePath,
 		Force:        true, // Set force as default
@@ -100,12 +44,8 @@ func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option
 		DeepSign:     true,
 	}
 
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	if _, err := macexec.Run(ctx, "codesign", buildArgs(options)...); err != nil {
-		return fmt.Errorf("%w: %v%s", ErrCodesignFailed, err, hint(macexec.Output(err)))
+	if _, err := macexec.Run(ctx, "codesign", buildCodesignArgs(options)...); err != nil {
+		return fmt.Errorf("%w: %v%s", errCodesignFailed, err, hint(macexec.Output(err)))
 	}
 
 	return nil
@@ -122,7 +62,7 @@ func hint(output string) string {
 	return ""
 }
 
-func buildArgs(options *Options) []string {
+func buildCodesignArgs(options *codesignOptions) []string {
 	args := []string{"--sign", options.IdentityName}
 
 	if options.Entitlements != "" {
