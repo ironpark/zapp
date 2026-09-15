@@ -1,35 +1,68 @@
 # Running zapp on Linux with Darling
 
-zapp itself is portable Go, but the work it does is macOS work: it drives
-`hdiutil`, `codesign`, `otool` and friends, which only exist on Darwin.
-[Darling](https://www.darlinghq.org/) supplies those tools on Linux, so zapp
-builds and runs natively on Linux and hands each tool invocation to Darling.
+zapp is portable Go, but the work it does is macOS work: it drives `hdiutil`,
+`codesign`, `otool` and friends. [Darling](https://www.darlinghq.org/) supplies
+those tools on Linux, so zapp builds and runs as a native Linux binary and hands
+each tool invocation to Darling.
 
-**Nothing here has been tried against Darling.** It was developed on macOS,
-where Darling does not run. What *was* verified is everything up to the point
-Darling takes over: a Linux binary was built and run in an x86-64 container, and
-the sections below distinguish what is known to work from what is not.
+**Verdict: the two things zapp exists for do not work.** Darling cannot create
+disk images or packages, and its `codesign` signs nothing. What works is the
+metadata handling and the Mach-O tooling. The measurements below were taken
+against Darling built from source (commit of September 2026) on x86-64 Linux,
+kernel 5.15.
 
-Treat the Darling parts as a starting point, not a supported configuration.
+## What works
 
-## What works on Linux without Darling
+| Command | Tools it needs | Result |
+| --- | --- | --- |
+| `zapp plist get` / `set` | none | **Works.** No macOS tool involved. |
+| `zapp info` | none | **Works.** |
+| `zapp dep` | `otool`, `install_name_tool` | **Works.** Both are real, from cctools, and report correctly. |
+| `zapp sign` | `security`, `codesign` | **Refused.** `security find-identity` is real; `codesign` is a stub (see below). |
+| `zapp dmg` | `hdiutil` | **Fails.** Darling's `hdiutil` implements only `attach` and `detach`, not `create` or `convert`. |
+| `zapp pkg` | `pkgbuild`, `productbuild` | **Fails.** Neither tool exists. |
+| `zapp notarize` | `notarytool`, `stapler` | **Fails.** `xcrun` resolves `notarytool` but cannot execute it; `stapler` is absent. |
 
-Some commands touch no macOS tool at all, and work on a plain Linux box. Both of
-these were run in an Alpine container against a fixture app bundle:
+Tool inventory, as measured:
 
-```console
-$ zapp plist get ./Fixture.app CFBundleIdentifier
-dev.zapp.fixture
-$ zapp plist set ./Fixture.app CFBundleShortVersionString 7.7.7
-Value set successfully
-$ zapp info
-[Build Info]
-...
+```
+hdiutil            present (attach/detach only)
+otool              present
+install_name_tool  present
+codesign           present (stub)
+security           present
+xcrun              present
+SetFile            present
+pkgbuild           missing
+productbuild       missing
+productsign        missing
+stapler            missing
+sips               missing
 ```
 
-`zapp dmg` gets surprisingly far too: the icon is decoded and resized, the
-Finder window settings and the background alias record are encoded, and only
-then does it need `hdiutil`. All of that is Go, and all of it ran on Linux.
+`sips` being absent is worth noting: zapp used to shell out to `sips`, `DeRez`,
+`Rez` and `SetFile` to attach a custom icon. It now writes the resource fork and
+Finder flags itself, so that path no longer depends on tools Darling lacks.
+
+## The codesign stub
+
+Darling's `codesign` prints a notice and **exits zero without signing
+anything**:
+
+```console
+$ darling shell sh -c 'codesign --force --sign X /usr/bin/otool; echo EXIT=$?'
+codesign DID NOT ACTUALLY VERIFY THE SIGNATURE OF ANY CODE THIS IS JUST A STUB
+EXIT=0
+```
+
+An exit status alone would therefore have zapp report a successful signing of an
+unsigned artifact. `codesign.CodeSign` checks the output for that notice and
+returns `ErrCodesignStub` instead:
+
+```
+codesign is a stub that did not sign anything; signing needs a real macOS
+codesign, which Darling does not provide: ./MachO
+```
 
 ## Building
 
@@ -45,7 +78,6 @@ Without Darling installed, the tool-driven commands stop with:
 failed to create dmg: zapp drives the macOS command line tools, which on Linux
 come from Darling, but "darling" is not on PATH: exec: "darling": executable
 file not found in $PATH
-see https://docs.darlinghq.org/installing-software.html
 ```
 
 ## How tool invocation works
@@ -62,63 +94,59 @@ Two translations happen:
 - **Paths.** Inside Darling the Linux filesystem is not the root; it is mounted
   at `/Volumes/SystemRoot`. Absolute arguments are rewritten, so
   `/home/u/App.app` is passed as `/Volumes/SystemRoot/home/u/App.app`. Arguments
-  of the form `--flag=/path` are rewritten in place. Relative paths are left
-  alone.
+  of the form `--flag=/path` are rewritten in place.
 - **Working directory.** The command runs under `sh -c` purely so the working
   directory can be set, since zapp passes relative paths in places and Darling
   would otherwise resolve them against the container's home directory.
 
 Arguments are single-quoted, so values that are not paths — a signing identity,
-a volume name — pass through as data.
+a volume name — pass through as data. The logic is a pure function in
+`darling.go` with tests that run on any platform; only the decision to use it
+sits behind a build tag.
 
-The logic is in `darling.go` and is covered by tests that run on any platform;
-only the decision to use it is behind a build tag (`exec_linux.go` versus
-`exec_darwin.go`).
+Error messages report the logical command, not the Darling wrapping:
+
+```
+failed to create dmg: hdiutil create -volname Fixture -srcfolder /tmp/... -ov
+-format UDRW ./Out.dmg failed: exit status 1 (output: Usage: hdiutil <action> ...)
+```
 
 ## Extended attributes
 
-A disk image's custom icon lives in two extended attributes,
-`com.apple.ResourceFork` and `com.apple.FinderInfo`. zapp writes them directly
-rather than shelling out. On Linux, unprivileged extended attributes live in the
+A disk image's custom icon lives in `com.apple.ResourceFork` and
+`com.apple.FinderInfo`. On Linux, unprivileged extended attributes live in the
 `user.` namespace, so `xattr_linux.go` writes `user.com.apple.ResourceFork`.
 
-**Assumption to verify:** that this is the mapping Darling uses when a macOS
-program reads the same attribute. If Darling maps names differently, adjust
-`linuxAttrPrefix` in `pkg/mactools/dmg/xattr_linux.go`.
+This mapping is **unverified** — `zapp dmg` cannot get far enough on Darling to
+exercise it. If Darling maps names differently, change `linuxAttrPrefix` in
+`pkg/mactools/dmg/xattr_linux.go`.
 
-## What to check on a Darling host
+## Reproducing the measurements
 
-In rough order of how likely each is to work:
+Darling has no prebuilt packages; it builds from source and wants 16 GB of disk
+and 4 GB of RAM. Two things the Ubuntu 22.04 instructions omit:
 
-| Command | Tools it needs | Notes |
-| --- | --- | --- |
-| `zapp dep` | `otool`, `install_name_tool` | Both are cctools, which is open source, so these are the most likely to be present. |
-| `zapp dmg` | `hdiutil` | Darling documents attaching and detaching disk images. Creating one, and writing into the attached volume, is the open question — see below. |
-| `zapp pkg` | `pkgbuild`, `productbuild` | Closed-source Apple tools. |
-| `zapp sign` | `codesign`, `security`, `productsign` | Needs a working keychain as well as the tools. |
-| `zapp notarize` | `xcrun notarytool`, `stapler` | Also needs network access and Apple credentials. |
+- `libcap2-bin` is required (cmake fails with `Could NOT find Setcap`). It
+  appears in the Debian package list but not the Ubuntu one.
+- `dsymutil` is needed; install `llvm-15` and symlink
+  `/usr/lib/llvm-15/bin/dsymutil`.
 
-### The mount visibility question
+In a container, Darling cannot create its prefix on an overlay filesystem
+(`Cannot mount overlay: Invalid argument`). Put the prefix on a real filesystem:
 
-`zapp dmg` attaches the image it just created, writes the Finder window settings
-and the background image into the mounted volume, then detaches. Under Darling,
-`hdiutil` runs inside a container, and a mount it makes there may not be visible
-to zapp, which is a native Linux process outside it.
-
-If that is the case, `zapp dmg` reports:
-
-```
-the volume attached at <path> appears empty from this process, so its contents
-cannot be customised
+```sh
+podman volume create dprefix
+podman run -d --name darling --privileged --network host --device /dev/fuse \
+  -v dprefix:/dprefix -e DPREFIX=/dprefix/p <image> sleep infinity
 ```
 
-rather than quietly producing a disk image with no background and no window
-layout. If you hit this, the options are to run zapp itself inside Darling
-(`darling shell zapp dmg ...`, using a darwin build), or to teach the dmg
-package to do the in-volume work through Darling as well.
+## If you want disk images on Linux
 
-### Reporting results
+Darling is not the path. `hdiutil create` is the blocker, and it is closed
+source. Options worth considering instead:
 
-If you try this, the useful things to record are: which of the table's commands
-ran at all, whether the mount is visible, and whether the custom icon survives
-being read back by a macOS program.
+- Build the image with a native Linux HFS+/APFS image writer, rather than
+  driving `hdiutil` at all. This is what `libdmg-hfsplus` and similar projects
+  do, and it would make `zapp dmg` work on Linux without Darling — the
+  `.DS_Store`, alias record and icon encoding are already pure Go.
+- Keep signing and notarization on macOS, where they have to happen anyway.

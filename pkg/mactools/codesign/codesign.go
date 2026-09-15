@@ -12,6 +12,20 @@ import (
 // ErrCodesignFailed is returned when the codesign command fails.
 var ErrCodesignFailed = errors.New("codesign command failed")
 
+// ErrCodesignStub is returned when codesign reports that it did nothing.
+// Darling ships a codesign that prints a notice and exits zero without signing,
+// so a plain exit status is not enough to conclude anything was signed.
+var ErrCodesignStub = errors.New("codesign is a stub that did not sign anything; " +
+	"signing needs a real macOS codesign, which Darling does not provide")
+
+// stubNotice is what Darling's codesign prints instead of signing.
+const stubNotice = "THIS IS JUST A STUB"
+
+// isStub reports whether codesign announced that it did no work.
+func isStub(output string) bool {
+	return strings.Contains(output, stubNotice)
+}
+
 // Options holds the configuration for the CodeSign function.
 type Options struct {
 	IdentityName     string
@@ -104,8 +118,12 @@ func CodeSign(ctx context.Context, identityName, filePath string, opts ...Option
 		opt(options)
 	}
 
-	if _, err := macexec.Run(ctx, "codesign", buildArgs(options)...); err != nil {
+	out, err := macexec.Run(ctx, "codesign", buildArgs(options)...)
+	if err != nil {
 		return fmt.Errorf("%w: %v%s", ErrCodesignFailed, err, hint(macexec.Output(err)))
+	}
+	if isStub(out) {
+		return fmt.Errorf("%w: %s", ErrCodesignStub, filePath)
 	}
 
 	return nil
