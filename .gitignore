@@ -7,3 +7,5 @@
 dist/
 .secret
 .env
+*.test
+*.prof

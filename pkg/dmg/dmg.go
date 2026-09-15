@@ -34,6 +34,10 @@ type Config struct {
 	Contents         []Item `json:"contents"`
 	LogWriter        io.Writer
 
+	// Format selects how the image is compressed. The zero value is zlib,
+	// which every version of macOS can read.
+	Format udif.Format
+
 	// Created is the timestamp recorded throughout the image. It defaults to
 	// the current time; setting it makes a build reproducible.
 	Created time.Time
@@ -98,7 +102,7 @@ func CreateDMG(ctx context.Context, config Config) error {
 	}
 	setChild(volume.Root, storeName, hfsplus.Bytes(store))
 
-	if err := writeImage(ctx, config.FileName, *volume); err != nil {
+	if err := writeImage(ctx, config.FileName, *volume, config.Format); err != nil {
 		return err
 	}
 	if config.Icon != "" {
@@ -114,7 +118,7 @@ func CreateDMG(ctx context.Context, config Config) error {
 // writeImage streams the volume through the compressor into the output file.
 // The image is planned first so its size is known, which lets the two stages
 // run against each other rather than through a copy of the whole volume on disk.
-func writeImage(ctx context.Context, output string, volume hfsplus.Volume) error {
+func writeImage(ctx context.Context, output string, volume hfsplus.Volume, format udif.Format) error {
 	image, err := hfsplus.Plan(ctx, volume)
 	if err != nil {
 		return fmt.Errorf("failed to lay out the disk image: %w", err)
@@ -134,7 +138,7 @@ func writeImage(ctx context.Context, output string, volume hfsplus.Volume) error
 		_, err := image.WriteTo(ctx, writer)
 		_ = writer.CloseWithError(err)
 	}()
-	if _, err = udif.Write(ctx, temp, reader, image.Size()); err != nil {
+	if _, err = udif.Write(ctx, temp, reader, image.Size(), format); err != nil {
 		_ = reader.CloseWithError(err)
 		return fmt.Errorf("failed to compress the disk image: %w", err)
 	}

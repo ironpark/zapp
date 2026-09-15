@@ -14,6 +14,8 @@ import (
 	"hash/crc32"
 	"io"
 
+	"github.com/ironpark/zapp/pkg/lzfse"
+
 	"github.com/ironpark/zapp/pkg/plist"
 )
 
@@ -31,6 +33,7 @@ const (
 	chunkZeroFill   = 0x00000000
 	chunkRaw        = 0x00000001
 	chunkZlib       = 0x80000005
+	chunkLZFSE      = 0x80000007
 	chunkTerminator = 0xFFFFFFFF
 )
 
@@ -41,11 +44,34 @@ const (
 	checksumBitCount = 32
 )
 
+// Format selects how the chunks of an image are compressed.
+type Format int
+
+const (
+	// UDZO stores chunks with zlib. Every version of macOS reads it, which is
+	// what makes it the safe choice for something being handed out.
+	UDZO Format = iota
+	// ULFO stores chunks with LZFSE, which is both smaller and quicker to read
+	// back, but which only macOS 10.11 and later understand.
+	ULFO
+)
+
+func (f Format) String() string {
+	if f == ULFO {
+		return "ULFO"
+	}
+	return "UDZO"
+}
+
 // Write compresses the raw disk image in src, which must be size bytes long,
-// into a UDIF image. It returns the number of bytes written.
-func Write(ctx context.Context, w io.Writer, src io.Reader, size int64) (int64, error) {
+// into a UDIF image in the given format. It returns the number of bytes
+// written.
+func Write(ctx context.Context, w io.Writer, src io.Reader, size int64, format Format) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
+	}
+	if format != UDZO && format != ULFO {
+		return 0, fmt.Errorf("unknown disk image format %d", format)
 	}
 	if size <= 0 {
 		return 0, fmt.Errorf("image size must be positive")
@@ -54,7 +80,7 @@ func Write(ctx context.Context, w io.Writer, src io.Reader, size int64) (int64, 
 		return 0, fmt.Errorf("image size %d is not a whole number of %d byte sectors", size, SectorSize)
 	}
 
-	table, dataLength, dataChecksum, err := writeChunks(ctx, w, src, size/SectorSize)
+	table, dataLength, dataChecksum, err := writeChunks(ctx, w, src, size/SectorSize, format)
 	if err != nil {
 		return 0, err
 	}
@@ -101,10 +127,10 @@ type chunk struct {
 
 // writeChunks streams the raw image out in compressed form, returning the table
 // needed to find each chunk again.
-func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64) (blockTable, int64, uint32, error) {
+func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64, format Format) (blockTable, int64, uint32, error) {
 	table := blockTable{sectorCount: sectors}
 	raw := make([]byte, chunkSectors*SectorSize)
-	var compressed bytes.Buffer
+	c := newCompressor(format)
 
 	uncompressed := crc32.NewIEEE()
 	data := crc32.NewIEEE()
@@ -121,26 +147,26 @@ func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64)
 		}
 		_, _ = uncompressed.Write(buf)
 
-		c := chunk{sector: sector, sectors: count, compressedOffset: offset}
-		switch payload := encodeChunk(&compressed, buf); {
+		entry := chunk{sector: sector, sectors: count, compressedOffset: offset}
+		switch payload := c.compress(buf); {
 		case payload == nil:
 			// A run of zeroes needs no storage at all: the reader fills it in.
-			c.kind = chunkZeroFill
+			entry.kind = chunkZeroFill
 		default:
-			c.kind = chunkZlib
+			entry.kind = c.kind
 			if len(payload) >= len(buf) {
 				// Compression did not pay for itself, so store the sectors as
 				// they are rather than make reading them cost more.
-				c.kind, payload = chunkRaw, buf
+				entry.kind, payload = chunkRaw, buf
 			}
-			c.compressedLength = int64(len(payload))
+			entry.compressedLength = int64(len(payload))
 			if _, err := w.Write(payload); err != nil {
 				return table, 0, 0, err
 			}
 			_, _ = data.Write(payload)
 			offset += int64(len(payload))
 		}
-		table.chunks = append(table.chunks, c)
+		table.chunks = append(table.chunks, entry)
 		sector += count
 	}
 
@@ -150,9 +176,25 @@ func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64)
 	return table, offset, data.Sum32(), nil
 }
 
-// encodeChunk compresses one chunk, returning nil when the chunk is entirely
-// zeroes and so needs no storage.
-func encodeChunk(buf *bytes.Buffer, sectors []byte) []byte {
+// compressor holds whatever state one format needs between chunks, so that a
+// codec with a large working set is set up once rather than per chunk.
+type compressor struct {
+	kind  uint32
+	buf   bytes.Buffer
+	lzfse *lzfse.Encoder
+	out   []byte
+}
+
+func newCompressor(format Format) *compressor {
+	if format == ULFO {
+		return &compressor{kind: chunkLZFSE, lzfse: lzfse.NewEncoder()}
+	}
+	return &compressor{kind: chunkZlib}
+}
+
+// compress returns the stored form of one chunk, or nil when the chunk is
+// entirely zeroes and so needs no storage at all.
+func (c *compressor) compress(sectors []byte) []byte {
 	zero := true
 	for _, b := range sectors {
 		if b != 0 {
@@ -163,11 +205,15 @@ func encodeChunk(buf *bytes.Buffer, sectors []byte) []byte {
 	if zero {
 		return nil
 	}
-	buf.Reset()
-	z := zlib.NewWriter(buf)
+	if c.lzfse != nil {
+		c.out = c.lzfse.Encode(c.out[:0], sectors)
+		return c.out
+	}
+	c.buf.Reset()
+	z := zlib.NewWriter(&c.buf)
 	_, _ = z.Write(sectors)
 	_ = z.Close()
-	return buf.Bytes()
+	return c.buf.Bytes()
 }
 
 // mish is the signature of a block table, and the name UDIF gives the record

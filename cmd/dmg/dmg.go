@@ -6,6 +6,7 @@ import (
 	"github.com/ironpark/zapp/cmd"
 	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/pkg/dmg"
+	"github.com/ironpark/zapp/pkg/udif"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +29,16 @@ var (
 	windowWidth, windowHeight int
 	labelSize                 int
 	contentsIconSize          int
+	format                    string
 )
+
+// imageFormats are the names the --format flag accepts.
+var imageFormats = map[string]udif.Format{
+	"udzo":  udif.UDZO,
+	"zlib":  udif.UDZO,
+	"ulfo":  udif.ULFO,
+	"lzfse": udif.ULFO,
+}
 
 var Command = &cli.Command{
 	Name:        "dmg",
@@ -75,6 +85,7 @@ var Command = &cli.Command{
 			WindowWidth:      windowWidth,
 			WindowHeight:     windowHeight,
 			Background:       background,
+			Format:           imageFormats[strings.ToLower(format)],
 			Contents: []dmg.Item{
 				{X: int(float64(windowWidth)/3*1 - float64(contentsIconSize)/2), Y: centerY, Type: dmg.Dir, Path: appDir},
 				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
@@ -89,6 +100,7 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowWidth", windowWidth)
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
+		logger.PrintValue("Format", imageFormats[strings.ToLower(format)].String())
 		_, _ = logger.Println("Creating DMG file...")
 		err := dmg.CreateDMG(ctx, defaultConfig)
 		if err != nil {
@@ -107,6 +119,18 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: append([]cli.Flag{
+		&cli.StringFlag{
+			Name:  "format",
+			Usage: "Compression of the disk image: udzo (zlib, read by every macOS) or ulfo (lzfse, smaller, needs macOS 10.11)",
+			Value: "udzo",
+			Action: func(ctx context.Context, c *cli.Command, v string) error {
+				if _, ok := imageFormats[strings.ToLower(v)]; !ok {
+					return fmt.Errorf("unknown image format %q: use udzo or ulfo", v)
+				}
+				return nil
+			},
+			Destination: &format,
+		},
 		&cli.StringFlag{
 			Name:        "background",
 			Usage:       "Path to the background image file",

@@ -70,11 +70,15 @@ func parseImage(t *testing.T, image []byte) parsed {
 	return out
 }
 
+// formats is every format an image can be written in, so that the tests below
+// cover each of them.
+var formats = []Format{UDZO, ULFO}
+
 // build compresses raw into an image and parses the result.
-func build(t *testing.T, raw []byte) ([]byte, parsed) {
+func build(t *testing.T, raw []byte, format Format) ([]byte, parsed) {
 	t.Helper()
 	var out bytes.Buffer
-	n, err := Write(context.Background(), &out, bytes.NewReader(raw), int64(len(raw)))
+	n, err := Write(context.Background(), &out, bytes.NewReader(raw), int64(len(raw)), format)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,8 +113,14 @@ func checkChunks(t *testing.T, p parsed) {
 }
 
 func TestZeroRunsAreNotStored(t *testing.T) {
+	for _, format := range formats {
+		t.Run(format.String(), func(t *testing.T) { testZeroRuns(t, format) })
+	}
+}
+
+func testZeroRuns(t *testing.T, format Format) {
 	raw := make([]byte, 8*chunkSectors*SectorSize)
-	image, p := build(t, raw)
+	image, p := build(t, raw, format)
 	checkChunks(t, p)
 
 	if p.sectorCount != int64(len(raw))/SectorSize {
@@ -131,9 +141,15 @@ func TestZeroRunsAreNotStored(t *testing.T) {
 }
 
 func TestIncompressibleDataIsStoredRaw(t *testing.T) {
+	for _, format := range formats {
+		t.Run(format.String(), func(t *testing.T) { testIncompressible(t, format) })
+	}
+}
+
+func testIncompressible(t *testing.T, format Format) {
 	raw := make([]byte, 2*chunkSectors*SectorSize)
 	rand.New(rand.NewSource(1)).Read(raw)
-	_, p := build(t, raw)
+	_, p := build(t, raw, format)
 	checkChunks(t, p)
 
 	for i, c := range p.chunks[:len(p.chunks)-1] {
@@ -151,14 +167,21 @@ func TestIncompressibleDataIsStoredRaw(t *testing.T) {
 }
 
 func TestCompressibleDataShrinks(t *testing.T) {
+	for _, format := range formats {
+		t.Run(format.String(), func(t *testing.T) { testCompressible(t, format) })
+	}
+}
+
+func testCompressible(t *testing.T, format Format) {
+	want := map[Format]uint32{UDZO: chunkZlib, ULFO: chunkLZFSE}[format]
 	raw := bytes.Repeat([]byte("zapp builds installers. "), 3*chunkSectors*SectorSize/24)
 	raw = raw[:3*chunkSectors*SectorSize]
-	_, p := build(t, raw)
+	_, p := build(t, raw, format)
 	checkChunks(t, p)
 
 	for i, c := range p.chunks[:len(p.chunks)-1] {
-		if c.kind != chunkZlib {
-			t.Fatalf("chunk %d has type %#x, want compressed storage", i, c.kind)
+		if c.kind != want {
+			t.Fatalf("chunk %d has type %#x, want %#x", i, c.kind, want)
 		}
 	}
 	if p.dataForkLength > int64(len(raw))/10 {
@@ -170,7 +193,7 @@ func TestPartialFinalChunk(t *testing.T) {
 	// A size that is a whole number of sectors but not of chunks.
 	raw := make([]byte, chunkSectors*SectorSize+3*SectorSize)
 	rand.New(rand.NewSource(2)).Read(raw)
-	_, p := build(t, raw)
+	_, p := build(t, raw, UDZO)
 	checkChunks(t, p)
 
 	last := p.chunks[len(p.chunks)-2]
@@ -188,7 +211,7 @@ func TestRejectsBadSize(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := bytes.NewReader(make([]byte, 512))
-			if _, err := Write(context.Background(), new(bytes.Buffer), src, size); err == nil {
+			if _, err := Write(context.Background(), new(bytes.Buffer), src, size, UDZO); err == nil {
 				t.Fatal("expected an error")
 			}
 		})
@@ -199,7 +222,7 @@ func TestHonoursContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	src := bytes.NewReader(make([]byte, SectorSize))
-	if _, err := Write(ctx, new(bytes.Buffer), src, SectorSize); err != context.Canceled {
+	if _, err := Write(ctx, new(bytes.Buffer), src, SectorSize, UDZO); err != context.Canceled {
 		t.Fatalf("got %v, want context.Canceled", err)
 	}
 }
@@ -208,6 +231,12 @@ func TestHonoursContext(t *testing.T) {
 // which validates the trailer, the table and both checksums. The payload need
 // not be a filesystem for that.
 func TestSystemAcceptsImage(t *testing.T) {
+	for _, format := range formats {
+		t.Run(format.String(), func(t *testing.T) { testSystemAccepts(t, format) })
+	}
+}
+
+func testSystemAccepts(t *testing.T, format Format) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("checking an image needs macOS")
 	}
@@ -216,7 +245,7 @@ func TestSystemAcceptsImage(t *testing.T) {
 	raw := make([]byte, 3*chunkSectors*SectorSize)
 	copy(raw, bytes.Repeat([]byte("zapp "), chunkSectors*SectorSize/5))
 	rand.New(rand.NewSource(3)).Read(raw[chunkSectors*SectorSize : 2*chunkSectors*SectorSize])
-	image, _ := build(t, raw)
+	image, _ := build(t, raw, format)
 
 	path := filepath.Join(t.TempDir(), "image.dmg")
 	if err := os.WriteFile(path, image, 0644); err != nil {
@@ -229,7 +258,7 @@ func TestSystemAcceptsImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(out), "\nFormat: UDZO") {
-		t.Fatalf("the image was not read as UDZO:\n%s", out)
+	if !strings.Contains(string(out), "\nFormat: "+format.String()) {
+		t.Fatalf("the image was not read as %s:\n%s", format, out)
 	}
 }
