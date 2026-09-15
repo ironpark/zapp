@@ -50,8 +50,8 @@ func TestFSFlag(t *testing.T) {
 			if want == "" {
 				want = "hfsplus"
 			}
-			if strings.ToLower(filesystem) != strings.ToLower(want) {
-				t.Fatalf("filesystem %q != %q", filesystem, want)
+			if strings.ToLower(command.String("fs")) != strings.ToLower(want) {
+				t.Fatalf("filesystem %q != %q", command.String("fs"), want)
 			}
 		})
 	}

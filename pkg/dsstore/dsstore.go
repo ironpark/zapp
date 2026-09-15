@@ -5,6 +5,7 @@ package dsstore
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"slices"
 	"sort"
@@ -159,14 +160,27 @@ func (ds *DSStore) Encode() []byte {
 	return buf
 }
 
+// EncodeChecked rejects layouts that exceed the single-node store capacity.
+func (ds *DSStore) EncodeChecked() ([]byte, error) {
+	size := 8
+	for _, e := range ds.Entries {
+		size += len(entryBuild(e))
+	}
+	if size > 3840 {
+		return nil, fmt.Errorf("Finder layout exceeds .DS_Store capacity (%d > 3840 bytes); reduce items or name lengths", size)
+	}
+	return ds.Encode(), nil
+}
+
 func entryBuild(entry entry.Entry) []byte {
 	filename := norm.NFD.String(entry.Filename())
-	filenameLength := len(filename)
-	filenameBytes := filenameLength * 2
+	filenameData := utf16be(filename)
+	filenameBytes := len(filenameData)
+	filenameLength := filenameBytes / 2
 	blob := entry.Bytes()
 	buffer := make([]byte, 4+filenameBytes+4+4+len(blob))
 	binary.BigEndian.PutUint32(buffer[0:], uint32(filenameLength))
-	copy(buffer[4:], utf16be(filename))
+	copy(buffer[4:], filenameData)
 	copy(buffer[4+filenameBytes:], entry.EntryType())
 	copy(buffer[8+filenameBytes:], entry.DataType())
 	copy(buffer[12+filenameBytes:], blob)

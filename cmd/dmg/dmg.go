@@ -19,20 +19,6 @@ import (
 //go:embed iconfile.icns
 var defaultIconFile []byte
 
-// flags
-var (
-	appDir                    string
-	out                       string
-	title                     string
-	icon                      string
-	background                string
-	windowWidth, windowHeight int
-	labelSize                 int
-	contentsIconSize          int
-	format                    string
-	filesystem                string
-)
-
 // imageFormats are the names the --format flag accepts.
 var imageFormats = map[string]udif.Format{
 	"udzo":  udif.UDZO,
@@ -46,16 +32,17 @@ var Command = &cli.Command{
 	Usage:       "Create a .dmg for macOS application deployment",
 	UsageText:   "",
 	Description: "",
-	ArgsUsage:   " <path of app-bundle>",
+	ArgsUsage:   "",
 	Action: func(ctx context.Context, c *cli.Command) error {
-		// Keep generated paths local: a temporary icon must not become a flag's value.
-		icon := c.String("icon")
-		out := c.String("out")
-		title := c.String("title")
+		config, appDir, err := resolveConfig(c)
+		if err != nil {
+			return err
+		}
+		icon := config.Icon
+		out := config.FileName
 		logger := cmd.NewAppLogger(c.Root())
-		_, _ = logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
 
-		if icon == "" || strings.EqualFold(filepath.Ext(icon), ".png") {
+		if (icon == "" && appDir != "") || strings.EqualFold(filepath.Ext(icon), ".png") {
 			source := icon
 			withDiskBackground := false
 			if source == "" {
@@ -70,7 +57,7 @@ var Command = &cli.Command{
 			defer func() { _ = os.RemoveAll(tempDirForIcon) }()
 			icon = filepath.Join(tempDirForIcon, "icon.icns")
 			if err = createIconSet(source, icon, withDiskBackground); err != nil {
-				if c.String("icon") != "" {
+				if config.Icon != "" {
 					return fmt.Errorf("could not convert PNG icon %s: %w", source, err)
 				}
 				return fmt.Errorf("could not derive a disk icon from %s: %w\n"+
@@ -78,48 +65,20 @@ var Command = &cli.Command{
 					filepath.Base(source), err)
 			}
 		}
-		if out == "" {
-			out = filepath.Base(appDir)
-			out = strings.TrimSuffix(out, filepath.Ext(out))
-		}
-		if !strings.HasSuffix(out, ".dmg") {
-			out += ".dmg"
-		}
-		if title == "" {
-			title = filepath.Base(appDir)
-			title = strings.TrimSuffix(title, filepath.Ext(title))
-		}
-
-		centerY := int(float64(windowHeight)/2-float64(contentsIconSize)/2) + labelSize
-		defaultConfig := dmg.Config{
-			FileName:         out,
-			Title:            title,
-			Icon:             icon,
-			LabelSize:        labelSize,
-			ContentsIconSize: contentsIconSize,
-			WindowWidth:      windowWidth,
-			WindowHeight:     windowHeight,
-			Background:       background,
-			Format:           imageFormats[strings.ToLower(format)],
-			FileSystem:       dmg.FileSystem(strings.ToLower(filesystem)),
-			Contents: []dmg.Item{
-				{X: int(float64(windowWidth)/3*1 - float64(contentsIconSize)/2), Y: centerY, Type: dmg.Dir, Path: appDir},
-				{X: int(float64(windowWidth)/3*2 + float64(contentsIconSize)/2), Y: centerY, Type: dmg.Link, Path: "/Applications"},
-			},
-		}
-		logger.PrintValue("Title", title)
-		logger.PrintValue("Icon", icon)
-		logger.PrintValue("labelSize", labelSize)
-		logger.PrintValue("AppPath", appDir)
+		config.Icon = icon
+		logger.PrintValue("Title", config.Title)
 		logger.PrintValue("OutputPath", out)
-		logger.PrintValue("ContentsIconSize", contentsIconSize)
-		logger.PrintValue("WindowWidth", windowWidth)
-		logger.PrintValue("WindowHeight", windowHeight)
-		logger.PrintValue("Background", background)
-		logger.PrintValue("Format", imageFormats[strings.ToLower(format)].String())
-		logger.PrintValue("FileSystem", defaultConfig.FileSystem.String())
+		logger.PrintValue("Icon", config.Icon)
+		logger.PrintValue("WindowWidth", config.WindowWidth)
+		logger.PrintValue("WindowHeight", config.WindowHeight)
+		logger.PrintValue("ContentsIconSize", config.ContentsIconSize)
+		logger.PrintValue("LabelSize", config.LabelSize)
+		logger.PrintValue("Background", config.Background)
+		logger.PrintValue("Format", config.Format.String())
+		logger.PrintValue("FileSystem", config.FileSystem.String())
+
 		_, _ = logger.Println("Creating DMG file...")
-		err := dmg.CreateDMG(ctx, defaultConfig)
+		err = dmg.CreateDMG(ctx, config)
 		if err != nil {
 			return err
 		}
@@ -136,11 +95,13 @@ var Command = &cli.Command{
 		return nil
 	},
 	Flags: append([]cli.Flag{
+		&cli.StringFlag{Name: "config", Usage: "Path to a YAML or JSON DMG configuration"},
+		&cli.StringFlag{Name: "app-position", Usage: "App icon center in content coordinates: x,y"},
+		&cli.StringFlag{Name: "applications-position", Usage: "Applications icon center in content coordinates: x,y"},
 		&cli.StringFlag{
-			Name:        "fs",
-			Usage:       "Volume filesystem: hfsplus, apfs, or apfs-case-sensitive (APFS needs macOS 10.13 or later)",
-			Value:       "hfsplus",
-			Destination: &filesystem,
+			Name:  "fs",
+			Usage: "Volume filesystem: hfsplus, apfs, or apfs-case-sensitive (APFS needs macOS 10.13 or later)",
+			Value: "hfsplus",
 			Action: func(ctx context.Context, c *cli.Command, v string) error {
 				_, err := dmg.ParseFileSystem(v)
 				return err
@@ -156,25 +117,21 @@ var Command = &cli.Command{
 				}
 				return nil
 			},
-			Destination: &format,
 		},
 		&cli.StringFlag{
-			Name:        "background",
-			Usage:       "Path to the background image file",
-			Aliases:     []string{"bg"},
-			Destination: &background,
+			Name:    "background",
+			Usage:   "Path to the background image file",
+			Aliases: []string{"bg"},
 		},
 		&cli.StringFlag{
-			Name:        "title",
-			Usage:       "The title displayed when the DMG file is mounted",
-			Aliases:     []string{"t"},
-			Destination: &title,
+			Name:    "title",
+			Usage:   "The title displayed when the DMG file is mounted",
+			Aliases: []string{"t"},
 		},
 		&cli.StringFlag{
-			Name:        "app",
-			Usage:       "App bundle path",
-			Destination: &appDir,
-			Required:    true,
+			Name:  "app",
+			Usage: "App bundle path",
+
 			Action: func(ctx context.Context, c *cli.Command, app string) error {
 				if !strings.HasSuffix(app, ".app") {
 					return fmt.Errorf("not valid app bundle extension")
@@ -191,37 +148,32 @@ var Command = &cli.Command{
 			},
 		},
 		&cli.StringFlag{
-			Name:        "out",
-			Usage:       "The output DMG file name",
-			Aliases:     []string{"o"},
-			Destination: &out,
+			Name:    "out",
+			Usage:   "The output DMG file name",
+			Aliases: []string{"o"},
 		},
 		&cli.StringFlag{
-			Name:        "icon",
-			Usage:       "Path to the icon file to display in the DMG file (icns, png)",
-			Destination: &icon,
+			Name:  "icon",
+			Usage: "Path to the icon file to display in the DMG file (icns, png)",
 		},
 		&cli.IntFlag{
-			Name:        "window-width",
-			Usage:       "Width of the Finder window when the DMG file is opened",
-			Aliases:     []string{"ww"},
-			Destination: &windowWidth,
-			Value:       640,
+			Name:    "window-width",
+			Usage:   "Width of the Finder window when the DMG file is opened",
+			Aliases: []string{"ww"},
+			Value:   640,
 		},
 		&cli.IntFlag{
-			Name:        "window-height",
-			Usage:       "Height of the Finder window when the DMG file is opened",
-			Aliases:     []string{"wh"},
-			Destination: &windowHeight,
-			Value:       480,
+			Name:    "window-height",
+			Usage:   "Height of the Finder window when the DMG file is opened",
+			Aliases: []string{"wh"},
+			Value:   480,
 		},
 		&cli.IntFlag{
-			Name:        "label-size",
-			Usage:       "Size of the label text in the Finder window (10-16)",
-			Aliases:     []string{"ls"},
-			Destination: &labelSize,
-			Value:       14,
-			Action: func(context.Context, *cli.Command, int) error {
+			Name:    "label-size",
+			Usage:   "Size of the label text in the Finder window (10-16)",
+			Aliases: []string{"ls"},
+			Value:   14,
+			Action: func(_ context.Context, _ *cli.Command, labelSize int) error {
 				if labelSize < 10 || labelSize > 16 {
 					return fmt.Errorf("label-size must be between 10 and 16")
 				}
@@ -229,12 +181,11 @@ var Command = &cli.Command{
 			},
 		},
 		&cli.IntFlag{
-			Name:        "contents-icon-size",
-			Usage:       "Size of the icons in the Finder window (16-512)",
-			Aliases:     []string{"cis"},
-			Destination: &contentsIconSize,
-			Value:       128,
-			Action: func(context.Context, *cli.Command, int) error {
+			Name:    "contents-icon-size",
+			Usage:   "Size of the icons in the Finder window (16-512)",
+			Aliases: []string{"cis"},
+			Value:   128,
+			Action: func(_ context.Context, _ *cli.Command, contentsIconSize int) error {
 				if contentsIconSize < 16 || contentsIconSize > 512 {
 					return fmt.Errorf("contents-icon-size must be between 16 and 512")
 				}

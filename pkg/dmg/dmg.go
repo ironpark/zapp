@@ -57,6 +57,7 @@ const (
 // Item is one entry placed in the disk image's window. Path names what to put
 // in the image, except for a link, where it is the target the link points at.
 type Item struct {
+	Name string   `json:"name,omitempty"`
 	X    int      `json:"x"`
 	Y    int      `json:"y"`
 	Type ItemType `json:"type"`
@@ -207,7 +208,7 @@ func (c Config) buildVolume() (*volumeTree, error) {
 func (c Config) nodeFor(item Item) (*imageNode, error) {
 	switch item.Type {
 	case Link:
-		return &imageNode{Name: filepath.Base(item.Path), Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
+		return &imageNode{Name: item.ImageName(), Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
 	case File, Dir:
 		node, err := nodeFromPath(item.Path)
 		if err != nil {
@@ -216,6 +217,7 @@ func (c Config) nodeFor(item Item) (*imageNode, error) {
 		if item.Type == Dir && !node.IsDir() {
 			return nil, fmt.Errorf("%s is not a directory", item.Path)
 		}
+		node.Name = item.ImageName()
 		return node, nil
 	default:
 		return nil, fmt.Errorf("unknown content type %q for %s", item.Type, item.Path)
@@ -286,7 +288,7 @@ func (c Config) buildStore(volume *volumeTree) ([]byte, error) {
 	store.SetLabelPlaceToBottom(true)
 	store.SetBgToDefault()
 	for _, item := range c.Contents {
-		store.SetIconPos(filepath.Base(item.Path), uint32(item.X), uint32(item.Y))
+		store.SetIconPos(item.ImageName(), uint32(item.X), uint32(item.Y))
 	}
 
 	if c.Background != "" {
@@ -297,7 +299,7 @@ func (c Config) buildStore(volume *volumeTree) ([]byte, error) {
 		store.SetBackgroundImage(record)
 	}
 
-	return store.Encode(), nil
+	return store.EncodeChecked()
 }
 
 // backgroundAlias encodes the record naming the background image. The record

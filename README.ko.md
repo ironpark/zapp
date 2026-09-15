@@ -120,6 +120,60 @@ zapp dmg --title="My App" \
 `--icon`은 ICNS와 PNG를 지원합니다. PNG는 비율과 투명도를 유지해 ICNS로 변환합니다.
 `--out MyApp`처럼 확장자를 생략하면 `MyApp.dmg`를 생성하고, 서명·공증에도 같은 경로를 사용합니다.
 
+#### 커스텀 레이아웃
+
+`--config dmg.yaml`로 파일·디렉터리·심볼릭 링크와 아이콘 위치를 지정합니다.
+같은 필드 구조의 JSON도 지원합니다.
+
+```yaml
+version: 1
+title: MyApp
+window: {width: 720, height: 460}
+iconSize: 96
+labelSize: 14
+contents:
+  dist/MyApp.app:
+    x: 180
+    y: 200
+  /Applications:
+    link: true
+    x: 540
+    y: 200
+  docs/README.pdf:
+    name: Guide.pdf
+    x: 360
+    y: 350
+```
+
+```sh
+zapp dmg --config dmg.yaml --out dist/MyApp.dmg
+# Adjust the two default icons without a config file:
+zapp dmg --app MyApp.app --app-position 180,200 --applications-position 540,200
+```
+
+- `version: 1`을 지정합니다. 알 수 없는 필드와 중복 키는 오류로 처리합니다.
+- 명시한 CLI 옵션이 설정 파일보다 우선하며, 생략한 필드는 기본값을 사용합니다.
+- 입력 경로(`app`, `icon`, `background`, `contents`의 파일·디렉터리 키)는 설정 파일
+  위치 기준입니다. CLI 경로와 `out`은 현재 작업 디렉터리 기준입니다.
+  링크 대상은 상대 경로를 포함해 그대로 보존합니다.
+- `contents`는 기본 앱·Applications 구성을 대체합니다. 경로를 키로 사용하고
+  값에 `x`, `y` 좌표를 지정합니다. `link: true`이면 심볼릭 링크를 만들고,
+  생략하거나 `false`이면 파일·디렉터리를 자동 판별합니다. `name`으로 이미지
+  내부 이름을 바꿀 수 있습니다. 대소문자·유니코드 정규화 기준 중복 이름과
+  DMG 메타데이터 예약 이름은 사용할 수 없습니다.
+- 좌표는 Finder 콘텐츠 영역 좌상단을 기준으로 한 아이콘 중심이며 음수는
+  허용하지 않습니다. `--app-position`, `--applications-position`은 기본
+  두 항목 배치 전용이며 명시적 `contents`와 함께 사용할 수 없습니다.
+- `contents`가 없으면 `app` 또는 `--app`이 필요합니다. `contents`가 있으면
+  `app`은 기본 제목과 디스크 아이콘 추출에만 사용합니다. `app`이 없으면
+  `title`을 지정해야 하며, `icon`을 생략하면 커스텀 디스크 아이콘을 넣지 않습니다.
+- 추가 설정 필드: `out`, `app`, `icon`, `background`, `fs`, `format`.
+  PNG 아이콘 변환과 CLI 서명·공증 옵션도 함께 사용할 수 있습니다.
+- 현재 `.DS_Store` 단일 노드 용량을 초과하면 오류가 발생합니다.
+  이 경우 항목 수나 이름 길이를 줄여야 합니다.
+
+[레이아웃 예제](examples/dmg/layout.yaml)를 참고하세요.
+
 #### 서명 & 공증 & 스테플링과 함께 사용
 > [!TIP]
 >

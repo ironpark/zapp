@@ -133,6 +133,60 @@ zapp dmg --title="My App" \
 ratio and transparency preserved. Omitting the extension in `--out MyApp`
 creates `MyApp.dmg`; signing and notarization use that same path.
 
+#### Custom layouts
+
+Use `--config dmg.yaml` (or JSON with the same fields) to include files,
+directories, and symbolic links at explicit icon positions. For example:
+
+```yaml
+version: 1
+title: MyApp
+window: {width: 720, height: 460}
+iconSize: 96
+labelSize: 14
+contents:
+  dist/MyApp.app:
+    x: 180
+    y: 200
+  /Applications:
+    link: true
+    x: 540
+    y: 200
+  docs/README.pdf:
+    name: Guide.pdf
+    x: 360
+    y: 350
+```
+
+```sh
+zapp dmg --config dmg.yaml --out dist/MyApp.dmg
+# Adjust the two default icons without a config file:
+zapp dmg --app MyApp.app --app-position 180,200 --applications-position 540,200
+```
+
+- Set `version: 1`. Unknown fields and duplicate keys are rejected.
+- Explicit CLI options override config values; omitted fields use CLI defaults.
+- Input paths (`app`, `icon`, `background`, and file/directory keys in `contents`) are relative
+  to the config file. CLI paths and `out` are relative to the working directory.
+  Link targets are preserved literally, including relative targets.
+- `contents` replaces the default app and Applications link. Each key is a source path, with
+  `x` and `y` coordinates in its value. Set `link: true` for a symbolic link;
+  otherwise the source is detected as a file or directory. Optional `name` changes
+  its name inside the image. Names must be unique ignoring case and Unicode
+  normalization, and must not use reserved DMG metadata names.
+- Coordinates are nonnegative icon centers measured from the top-left of the
+  Finder content area. `--app-position` and `--applications-position` apply only
+  to the default two-item layout and cannot be combined with explicit `contents`.
+- Without `contents`, provide `app` or `--app`. With explicit `contents`, `app`
+  is optional and is used only to derive the default title and disk icon. Without
+  `app`, provide `title`; omit `icon` for no custom disk icon.
+- Other config fields: `out`, `app`, `icon`, `background`, `fs`, and `format`.
+  PNG icon conversion and signing/notarization flags also work with `--config`.
+- Layouts exceeding the current single-node `.DS_Store` capacity fail with an
+  error; reduce the number of items or shorten names.
+
+See [the layout example](examples/dmg/layout.yaml).
+
 #### with sign & notarize & staple
 > [!TIP]
 >
