@@ -1,4 +1,4 @@
-package notarize
+package signing
 
 import (
 	"archive/zip"

@@ -22,7 +22,7 @@ func Sign(ctx context.Context, c *cli.Command, target string) error {
 	if !c.Bool("sign") {
 		return nil
 	}
-	return sign.Run(ctx, cmd.NewAppLogger(c.Root()), target, c.String("identity"))
+	return sign.Run(ctx, cmd.NewAppLogger(c.Root()), target, sign.Credentials(c))
 }
 
 // Notarize notarizes target when --notarize was given, and is a no-op otherwise.
@@ -30,12 +30,5 @@ func Notarize(ctx context.Context, c *cli.Command, target string) error {
 	if !c.Bool("notarize") {
 		return nil
 	}
-	return notarize.Run(ctx, cmd.NewAppLogger(c.Root()), notarize.Options{
-		Target:   target,
-		Profile:  c.String("profile"),
-		AppleID:  c.String("apple-id"),
-		Password: c.String("password"),
-		TeamID:   c.String("team-id"),
-		Staple:   c.Bool("staple"),
-	})
+	return notarize.Run(ctx, cmd.NewAppLogger(c.Root()), target, notarize.Credentials(c), c.Bool("staple"))
 }

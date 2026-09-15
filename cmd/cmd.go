@@ -7,7 +7,7 @@ import (
 )
 
 func CreateSubTaskFlags() []cli.Flag {
-	return []cli.Flag{
+	return append([]cli.Flag{
 		&cli.BoolFlag{
 			Category: "[with --notarize (default: false)]",
 			Name:     "notarize",
@@ -56,7 +56,7 @@ func CreateSubTaskFlags() []cli.Flag {
 			Usage:    "Identity to use for signing",
 			Action:   requireFlag[string]("sign", "identity"),
 		},
-	}
+	}, append(CertificateFlags(), NotaryKeyFlag())...)
 }
 
 func requireFlag[T any](requiredFlag, flagName string) func(context.Context, *cli.Command, T) error {
@@ -65,5 +65,39 @@ func requireFlag[T any](requiredFlag, flagName string) func(context.Context, *cl
 			return fmt.Errorf("%s flag must be used with %s flag", flagName, requiredFlag)
 		}
 		return nil
+	}
+}
+
+// CertificateFlags name a signing certificate by file. Away from macOS there is
+// no keychain to take an identity from, so these are how a certificate is
+// supplied; on macOS they select rcodesign over Apple's tools, which is how a
+// build machine with no usable keychain signs.
+func CertificateFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:  "p12-file",
+			Usage: "Path to a PKCS#12 certificate bundle to sign with",
+		},
+		&cli.StringFlag{
+			Name:  "p12-password",
+			Usage: "Password for the PKCS#12 bundle",
+		},
+		&cli.StringFlag{
+			Name:  "p12-password-file",
+			Usage: "File holding the password for the PKCS#12 bundle",
+		},
+		&cli.StringFlag{
+			Name:  "pem-file",
+			Usage: "Path to a PEM certificate bundle to sign with",
+		},
+	}
+}
+
+// NotaryKeyFlag names an App Store Connect API key, which is how rcodesign
+// authenticates to the notary service.
+func NotaryKeyFlag() cli.Flag {
+	return &cli.StringFlag{
+		Name:  "api-key-file",
+		Usage: "App Store Connect API key JSON to notarize with",
 	}
 }
