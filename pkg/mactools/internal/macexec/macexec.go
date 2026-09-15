@@ -11,7 +11,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -43,8 +42,12 @@ func (e *Error) Output() string {
 // Run executes name with args and returns its stdout. A non-zero exit or a
 // cancelled context yields an *Error.
 func Run(ctx context.Context, name string, args ...string) (string, error) {
+	if err := preflight(); err != nil {
+		return "", err
+	}
+
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := command(ctx, name, args)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 

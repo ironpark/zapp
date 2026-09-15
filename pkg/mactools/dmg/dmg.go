@@ -152,6 +152,10 @@ func tmpMount(ctx context.Context, dmgPath string, process func(dmgFilePath stri
 	if err = hdiutil.Attach(ctx, dmgPath, mountPoint); err != nil {
 		return fmt.Errorf("failed to attach DMG: %w", err)
 	}
+	if err = checkMountVisible(mountPoint); err != nil {
+		_ = hdiutil.Detach(ctx, mountPoint)
+		return err
+	}
 	defer func() {
 		if err = hdiutil.Detach(ctx, mountPoint); err != nil {
 			fmt.Printf("failed to detach DMG: %s", err)
@@ -212,6 +216,24 @@ func setupSourceDirectory(config Config, sourceDir string) error {
 		if err := fsutil.CopyFile(config.Background, filepath.Join(backgroundDir, "background.png")); err != nil {
 			return fmt.Errorf("failed to copy background: %s", err)
 		}
+	}
+	return nil
+}
+
+// checkMountVisible confirms the attached volume is readable from this process.
+// hdiutil reports success once it has attached the image in its own view of the
+// filesystem, which is not necessarily this one: under Darling the tool runs
+// inside a container, and a mount it makes there may not propagate to the host.
+// The steps that follow write the window settings and the background image into
+// the volume, so an invisible mount would silently produce a bare disk image.
+func checkMountVisible(mountPoint string) error {
+	entries, err := os.ReadDir(mountPoint)
+	if err != nil {
+		return fmt.Errorf("the attached volume is not readable at %s: %w", mountPoint, err)
+	}
+	if len(entries) == 0 {
+		return fmt.Errorf("the volume attached at %s appears empty from this process, "+
+			"so its contents cannot be customised", mountPoint)
 	}
 	return nil
 }

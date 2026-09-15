@@ -12,8 +12,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -49,7 +47,7 @@ func applyCustomIcon(path string, icns []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := unix.Setxattr(path, resourceForkAttr, fork, 0); err != nil {
+	if err := setXattr(path, resourceForkAttr, fork); err != nil {
 		return fmt.Errorf("failed to write resource fork of %s: %w", path, err)
 	}
 	return markCustomIcon(path)
@@ -68,7 +66,7 @@ func markCustomIcon(path string) error {
 		return nil
 	}
 	binary.BigEndian.PutUint16(info[finderFlagsOffset:], flags|hasCustomIcon)
-	if err := unix.Setxattr(path, finderInfoAttr, info, 0); err != nil {
+	if err := setXattr(path, finderInfoAttr, info); err != nil {
 		return fmt.Errorf("failed to set custom icon flag on %s: %w", path, err)
 	}
 	return nil
@@ -85,7 +83,7 @@ func setCreatorCode(path, code string) error {
 		return err
 	}
 	copy(info[creatorOffset:creatorOffset+4], code)
-	if err := unix.Setxattr(path, finderInfoAttr, info, 0); err != nil {
+	if err := setXattr(path, finderInfoAttr, info); err != nil {
 		return fmt.Errorf("failed to set creator code on %s: %w", path, err)
 	}
 	return nil
@@ -96,9 +94,9 @@ func setCreatorCode(path, code string) error {
 // one does not clear the others.
 func finderInfo(path string) ([]byte, error) {
 	info := make([]byte, finderInfoSize)
-	n, err := unix.Getxattr(path, finderInfoAttr, info)
+	n, err := getXattr(path, finderInfoAttr, info)
 	if err != nil {
-		if errors.Is(err, unix.ENOATTR) {
+		if errors.Is(err, errNoAttr) {
 			return info, nil
 		}
 		return nil, fmt.Errorf("failed to read finder info of %s: %w", path, err)
