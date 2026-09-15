@@ -60,7 +60,7 @@ archives:
 homebrew_casks:
   - name: zapp
     homepage: "https://github.com/ironpark/zapp"
-    description: "Zapp is a powerful CLI tool designed to streamline the deployment process for macOS applications. With Zapp, you can effortlessly create DMG and PKG files, perform code signing, notarize your apps, and modify plist files."
+    description: "Package, sign, and notarize macOS applications"
     repository:
       owner: ironpark
       name: homebrew-zapp

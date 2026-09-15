@@ -67,8 +67,19 @@ jobs:
         run: python scripts/build-native.py ${{ matrix.target }} --test
       - name: Generate license notices
         shell: bash
+        env:
+          LLVM_HOST: ${{ matrix.llvm_host }}
         run: |
-          cargo install cargo-about --locked --version 0.8.4
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            # Match the signing build's MinGW toolchain instead of the host
+            # MSVC target, whose ARM64 C headers are not configured here.
+            target="${LLVM_HOST}-pc-windows-gnullvm"
+            compiler="${LLVM_HOST}-w64-mingw32-clang"
+            CC="$compiler" AR=llvm-ar cargo install cargo-about --locked --version 0.8.4 \
+              --target "$target" --config "target.$target.linker=\"$compiler\""
+          else
+            cargo install cargo-about --locked --version 0.8.4
+          fi
           cd libcodesign
           cargo about generate about.hbs -o THIRD_PARTY_LICENSES.html
       - name: Package binary
