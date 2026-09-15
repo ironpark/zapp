@@ -181,6 +181,25 @@ func TestBackgroundAliasMatchesTheMountedVolume(t *testing.T) {
 	}
 }
 
+// The image is built through a temporary file, which is private to its owner;
+// what comes out of it has to be readable by anyone the image is handed to.
+func TestOutputIsReadable(t *testing.T) {
+	config := Config{
+		FileName: filepath.Join(t.TempDir(), "Readable.dmg"), Title: "Readable",
+		ContentsIconSize: 128, WindowWidth: 640, WindowHeight: 480,
+	}
+	if err := CreateDMG(context.Background(), config); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(config.FileName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Fatalf("the image is mode %o, want 644", got)
+	}
+}
+
 func TestRejectsBadConfig(t *testing.T) {
 	dir := t.TempDir()
 	for name, config := range map[string]Config{
@@ -213,6 +232,33 @@ func TestFileNameGainsExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(config.FileName + ".dmg"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCrossPlatformArtifact exports an image so that a build from one platform
+// can be checked by the Apple tools on another, which is the only way to prove
+// that an image made off macOS is one macOS will mount.
+func TestCrossPlatformArtifact(t *testing.T) {
+	dir := os.Getenv("ZAPP_DMG_ARTIFACT_DIR")
+	if dir == "" {
+		t.Skip("set ZAPP_DMG_ARTIFACT_DIR to export a platform fixture")
+	}
+	source := t.TempDir()
+	app := sampleApp(t, source)
+	background := filepath.Join(source, "bg.png")
+	if err := os.WriteFile(background, []byte("background from "+runtime.GOOS), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := CreateDMG(context.Background(), Config{
+		FileName: filepath.Join(dir, "cross-platform.dmg"), Title: "Cross Platform",
+		Background: background, ContentsIconSize: 128, WindowWidth: 640, WindowHeight: 480,
+		Contents: []Item{
+			{X: 100, Y: 200, Type: Dir, Path: app},
+			{X: 400, Y: 200, Type: Link, Path: "/Applications"},
+		},
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 }

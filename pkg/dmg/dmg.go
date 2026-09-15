@@ -138,6 +138,11 @@ func writeImage(ctx context.Context, output string, volume hfsplus.Volume) error
 		_ = reader.CloseWithError(err)
 		return fmt.Errorf("failed to compress the disk image: %w", err)
 	}
+	// A temporary file is created private to its owner, but the image is
+	// something to hand out.
+	if err = temp.Chmod(0644); err != nil {
+		return err
+	}
 	if err = temp.Close(); err != nil {
 		return err
 	}
