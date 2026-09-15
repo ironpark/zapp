@@ -18,7 +18,7 @@ import (
 )
 
 func TestFSFlag(t *testing.T) {
-	for _, value := range []string{"", "hfsplus", "apfs", "APFS", "apfs-case-sensitive", "ntfs"} {
+	for _, value := range []string{"", "hfsplus", "apfs", "APFS", "apfs-case-sensitive"} {
 		t.Run("value="+value, func(t *testing.T) {
 			var filesystemFlag cli.Flag
 			for _, flag := range Command.Flags {
@@ -37,12 +37,6 @@ func TestFSFlag(t *testing.T) {
 				args = append(args, "--fs", value)
 			}
 			err := command.Run(context.Background(), args)
-			if value == "ntfs" {
-				if err == nil || called {
-					t.Fatal("invalid filesystem reached the action")
-				}
-				return
-			}
 			if err != nil || !called {
 				t.Fatalf("run: called=%v, %v", called, err)
 			}
@@ -176,5 +170,21 @@ func TestInvalidPNGDoesNotCreateDMG(t *testing.T) {
 	}
 	if _, err := os.Stat(output); !os.IsNotExist(err) {
 		t.Fatalf("output created for invalid PNG: %v", err)
+	}
+}
+
+func TestInvalidFileSystemRejected(t *testing.T) {
+	dir := t.TempDir()
+	app := filepath.Join(dir, "Demo.app")
+	if err := os.Mkdir(app, 0755); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(dir, "output.dmg")
+	err := testCommand().Run(t.Context(), []string{"dmg", "--app", app, "--fs", "ntfs", "--out", output})
+	if err == nil || !strings.Contains(err.Error(), "unknown filesystem") {
+		t.Fatalf("expected filesystem error, got %v", err)
+	}
+	if _, err := os.Stat(output); !os.IsNotExist(err) {
+		t.Fatalf("output created for invalid filesystem: %v", err)
 	}
 }

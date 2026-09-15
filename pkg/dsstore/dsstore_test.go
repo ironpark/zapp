@@ -26,7 +26,7 @@ func TestStoreCapacity(t *testing.T) {
 	for i := range 100 {
 		ds.AddEntry(entry.NewIconLocationEntry(strings.Repeat("a", 50), uint32(i), 0))
 	}
-	if _, err := ds.EncodeChecked(); err == nil {
+	if _, err := ds.Encode(); err == nil {
 		t.Fatal("oversized store accepted")
 	}
 }

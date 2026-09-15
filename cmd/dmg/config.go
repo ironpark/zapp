@@ -14,8 +14,8 @@ import (
 )
 
 type position struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X int
+	Y int
 }
 type configItem struct {
 	Link bool   `json:"link"`
@@ -36,27 +36,28 @@ type fileConfig struct {
 		Width  int `json:"width"`
 		Height int `json:"height"`
 	} `json:"window"`
-	IconSize  int                    `json:"iconSize"`
-	LabelSize int                    `json:"labelSize"`
-	FS        string                 `json:"fs"`
-	Format    string                 `json:"format"`
-	Contents  *map[string]configItem `json:"contents"`
+	IconSize  int                   `json:"iconSize"`
+	LabelSize int                   `json:"labelSize"`
+	FS        string                `json:"fs"`
+	Format    string                `json:"format"`
+	Contents  map[string]configItem `json:"contents"`
 }
 
 func resolveConfig(c *cli.Command) (dmg.Config, string, error) {
+	fail := func(err error) (dmg.Config, string, error) { return dmg.Config{}, "", err }
 	f := fileConfig{IconSize: 128, LabelSize: 14, FS: "hfsplus", Format: "udzo"}
 	f.Window.Width, f.Window.Height = 640, 480
 	base := "."
 	if name := c.String("config"); name != "" {
 		data, err := os.ReadFile(name)
 		if err != nil {
-			return dmg.Config{}, "", err
+			return fail(err)
 		}
 		if err := yaml.UnmarshalWithOptions(data, &f, yaml.Strict()); err != nil {
-			return dmg.Config{}, "", fmt.Errorf("config %s: %w", name, err)
+			return fail(fmt.Errorf("config %s: %w", name, err))
 		}
 		if f.Version != 1 {
-			return dmg.Config{}, "", fmt.Errorf("config version must be 1")
+			return fail(fmt.Errorf("config version must be 1"))
 		}
 		base = filepath.Dir(name)
 		resolve := func(p string) string {
@@ -78,7 +79,6 @@ func resolveConfig(c *cli.Command) (dmg.Config, string, error) {
 			*target = c.Int(flag)
 		}
 	}
-	fail := func(err error) (dmg.Config, string, error) { return dmg.Config{}, "", err }
 	if f.App != "" {
 		info, err := os.Stat(f.App)
 		if err != nil {
@@ -103,7 +103,7 @@ func resolveConfig(c *cli.Command) (dmg.Config, string, error) {
 	}
 	format, ok := imageFormats[strings.ToLower(f.Format)]
 	if !ok {
-		return fail(fmt.Errorf("unknown image format %q", f.Format))
+		return fail(fmt.Errorf("unknown image format %q: use udzo or ulfo", f.Format))
 	}
 	cfg := dmg.Config{FileName: f.Out, Title: f.Title, Icon: f.Icon, Background: f.Background, WindowWidth: f.Window.Width, WindowHeight: f.Window.Height, ContentsIconSize: f.IconSize, LabelSize: f.LabelSize, FileSystem: fs, Format: format}
 	if f.Contents != nil {
@@ -111,13 +111,13 @@ func resolveConfig(c *cli.Command) (dmg.Config, string, error) {
 			return fail(fmt.Errorf("position flags cannot be used with explicit contents; set contents[path].x and contents[path].y"))
 		}
 		// Sort source keys so map iteration cannot change image ordering.
-		paths := make([]string, 0, len(*f.Contents))
-		for path := range *f.Contents {
+		paths := make([]string, 0, len(f.Contents))
+		for path := range f.Contents {
 			paths = append(paths, path)
 		}
 		sort.Strings(paths)
 		for _, source := range paths {
-			item := (*f.Contents)[source]
+			item := f.Contents[source]
 			if source == "" {
 				return fail(fmt.Errorf("contents path must not be empty"))
 			}

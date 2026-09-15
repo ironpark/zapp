@@ -299,7 +299,7 @@ func (c Config) buildStore(volume *volumeTree) ([]byte, error) {
 		store.SetBackgroundImage(record)
 	}
 
-	return store.EncodeChecked()
+	return store.Encode()
 }
 
 // backgroundAlias encodes the record naming the background image. The record

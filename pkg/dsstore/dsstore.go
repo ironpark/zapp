@@ -21,6 +21,9 @@ import (
 //go:embed clean
 var DSStoreClean []byte
 
+// nodeSize is the usable capacity of the store's single B-tree node.
+const nodeSize = 3840
+
 type Entries []entry.Entry
 
 func (e Entries) Len() int {
@@ -131,16 +134,21 @@ func (ds *DSStore) AddEntry(entry entry.Entry) {
 
 // Write encodes the store and saves it to filePath.
 func (ds *DSStore) Write(filePath string) error {
-	return os.WriteFile(filePath, ds.Encode(), 0644)
+	data, err := ds.Encode()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filePath, data, 0644)
 }
 
 // Encode returns the contents of the .DS_Store file describing this store, for
-// callers placing one somewhere other than a filesystem they can write to.
-func (ds *DSStore) Encode() []byte {
+// callers placing one somewhere other than a filesystem they can write to. It
+// fails for layouts that exceed the single-node store capacity.
+func (ds *DSStore) Encode() ([]byte, error) {
 	sort.Sort(Entries(ds.Entries))
 
 	buf := bytes.Clone(DSStoreClean)
-	modified := make([]byte, 3840)
+	modified := make([]byte, nodeSize)
 	currentPos := 0
 	P := uint32(0)
 	count := uint32(len(ds.Entries))
@@ -151,25 +159,16 @@ func (ds *DSStore) Encode() []byte {
 
 	for _, entry := range ds.Entries {
 		blob := entryBuild(entry)
+		if currentPos+len(blob) > nodeSize {
+			return nil, fmt.Errorf("Finder layout exceeds .DS_Store capacity (%d bytes); reduce items or name lengths", nodeSize)
+		}
 		copy(modified[currentPos:], blob)
 		currentPos += len(blob)
 	}
 
 	binary.BigEndian.PutUint32(buf[76:], count)
 	copy(buf[4100:], modified)
-	return buf
-}
-
-// EncodeChecked rejects layouts that exceed the single-node store capacity.
-func (ds *DSStore) EncodeChecked() ([]byte, error) {
-	size := 8
-	for _, e := range ds.Entries {
-		size += len(entryBuild(e))
-	}
-	if size > 3840 {
-		return nil, fmt.Errorf("Finder layout exceeds .DS_Store capacity (%d > 3840 bytes); reduce items or name lengths", size)
-	}
-	return ds.Encode(), nil
+	return buf, nil
 }
 
 func entryBuild(entry entry.Entry) []byte {
