@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp/cmd"
-	"github.com/ironpark/zapp/pkg/mactools/rcodesign"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/urfave/cli/v3"
 )
@@ -73,13 +72,11 @@ var Command = &cli.Command{
 // backend ends up being selected.
 func Credentials(c *cli.Command) signing.Credentials {
 	return signing.Credentials{
-		Identity: c.String("identity"),
-		Certificate: rcodesign.Credentials{
-			P12File:         c.String("p12-file"),
-			P12Password:     c.String("p12-password"),
-			P12PasswordFile: c.String("p12-password-file"),
-			PEMFile:         c.String("pem-file"),
-		},
+		Identity:        c.String("identity"),
+		P12File:         c.String("p12-file"),
+		P12Password:     c.String("p12-password"),
+		P12PasswordFile: c.String("p12-password-file"),
+		PEMFile:         c.String("pem-file"),
 	}
 }
 
@@ -95,19 +92,15 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 	logger.PrintValue("Target", target)
 	logger.PrintValue("Toolchain", backend.Name())
 
-	// Apple's tools pick a certificate out of the keychain, so say which one
-	// before using it; rcodesign was handed one by path.
-	if apple, ok := backend.(interface {
-		Identity(context.Context, string, signing.Credentials) (signing.Identity, error)
-	}); ok {
-		idt, err := apple.Identity(ctx, target, creds)
-		if err != nil {
-			return err
-		}
-		logger.PrintValue("Selected Identity", idt.SecureString())
+	// Apple's tools pick a certificate out of the keychain and rcodesign was
+	// handed one by path; either way, say which before using it.
+	credential, err := backend.Describe(ctx, target)
+	if err != nil {
+		return err
 	}
+	logger.PrintValue("Certificate", credential)
 
-	if err := backend.Sign(ctx, target, creds); err != nil {
+	if err := backend.Sign(ctx, target); err != nil {
 		return err
 	}
 	logger.Success("%s signed successfully!", target)

@@ -1,7 +1,7 @@
 // Package productsign wraps the productsign(1) tool, which signs installer
 // packages. Unlike codesign it cannot sign in place, so Sign writes to a
 // temporary file and swaps it over the original.
-package signing
+package macos
 
 import (
 	"context"

@@ -7,9 +7,9 @@
 // file, and which talks to the App Store Connect API directly and so takes an
 // API key rather than an Apple ID.
 //
-// Because the credentials differ, so do the fields a caller fills in; Select
-// picks the backend that matches what it was given, and each backend reports
-// plainly when something it needs is missing.
+// The backends live below this package and know nothing of it: each takes the
+// options it actually needs, and Select translates the credentials a caller
+// gathered into whichever of them is going to run.
 package signing
 
 import (
@@ -20,20 +20,25 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/ironpark/zapp/pkg/mactools/rcodesign"
+	"github.com/ironpark/zapp/pkg/signing/macos"
+	"github.com/ironpark/zapp/pkg/signing/rcodesign"
 )
 
 // Credentials carry everything either toolchain might need. A caller fills in
-// the ones its toolchain uses; Select decides which that is.
+// the ones it was given; Select works out which toolchain that implies and
+// hands it the subset it understands.
 type Credentials struct {
 	// Identity names a keychain identity, for Apple's tools. An empty value
 	// means the best matching Developer ID is chosen.
 	Identity string
 
-	// Certificate names a signing certificate by file, for rcodesign.
-	Certificate rcodesign.Credentials
+	// P12File and PEMFile name a signing certificate by file, for rcodesign.
+	P12File         string
+	P12Password     string
+	P12PasswordFile string
+	PEMFile         string
 
-	// Keychain profile or Apple ID credentials, for notarytool.
+	// Profile, or the Apple ID trio, authenticate notarytool.
 	Profile  string
 	AppleID  string
 	Password string
@@ -43,22 +48,60 @@ type Credentials struct {
 	APIKeyFile string
 }
 
-// usesCertificateFile reports whether the caller supplied file-based
+// namesCertificateFile reports whether the caller supplied file-based
 // credentials, which only rcodesign can use.
-func (c Credentials) usesCertificateFile() bool {
-	return c.Certificate.Configured() || c.APIKeyFile != ""
+func (c Credentials) namesCertificateFile() bool {
+	return c.P12File != "" || c.PEMFile != "" || c.APIKeyFile != ""
 }
 
-// Backend signs, notarizes and staples through one toolchain.
+// Backend signs, notarizes and staples through one toolchain. A backend is
+// built with the credentials it needs, so the methods take only what varies per
+// call.
 type Backend interface {
 	// Name identifies the toolchain, for logging.
 	Name() string
+	// Describe reports which credential will be used to sign path, in a form
+	// safe to log.
+	Describe(ctx context.Context, path string) (string, error)
 	// Sign signs the artifact at path in place.
-	Sign(ctx context.Context, path string, creds Credentials) error
+	Sign(ctx context.Context, path string) error
 	// Submit uploads the artifact for notarization and waits for the verdict.
-	Submit(ctx context.Context, path string, creds Credentials) error
+	Submit(ctx context.Context, path string) error
 	// Staple attaches an issued notarization ticket to the artifact.
 	Staple(ctx context.Context, path string) error
+}
+
+// Select returns the backend that suits the platform and the credentials.
+//
+// Apple's tools are preferred on macOS, where they are present and understand
+// the keychain. A caller that names a certificate file has asked for rcodesign
+// whatever the platform, since Apple's codesign cannot read one; that is how a
+// macOS build machine with no usable keychain, such as a CI runner, signs.
+func Select(creds Credentials) (Backend, error) {
+	if runtime.GOOS == "darwin" && !creds.namesCertificateFile() {
+		return macos.New(macos.Options{
+			Identity: creds.Identity,
+			Profile:  creds.Profile,
+			AppleID:  creds.AppleID,
+			Password: creds.Password,
+			TeamID:   creds.TeamID,
+		}), nil
+	}
+	if !creds.namesCertificateFile() {
+		return nil, fmt.Errorf("signing away from macOS needs a certificate file, "+
+			"because there is no keychain to take an identity from: "+
+			"pass --p12-file or --pem-file (running on %s)", runtime.GOOS)
+	}
+	if err := rcodesign.Available(); err != nil {
+		return nil, err
+	}
+	return rcodesign.New(rcodesign.Options{
+		P12File:         creds.P12File,
+		P12Password:     creds.P12Password,
+		P12PasswordFile: creds.P12PasswordFile,
+		PEMFile:         creds.PEMFile,
+		APIKeyFile:      creds.APIKeyFile,
+	}), nil
 }
 
 // Notarize submits path and, if asked, staples the resulting ticket.
@@ -66,7 +109,7 @@ type Backend interface {
 // An app bundle is archived first: the notary service takes an archive, not a
 // directory. The ticket is then stapled to the bundle itself rather than to the
 // archive, which is thrown away.
-func Notarize(ctx context.Context, b Backend, path string, creds Credentials, staple bool) error {
+func Notarize(ctx context.Context, b Backend, path string, staple bool) error {
 	submitPath := path
 	if strings.EqualFold(filepath.Ext(path), ".app") {
 		tempDir, err := os.MkdirTemp("", "zapp-notary-*")
@@ -81,32 +124,11 @@ func Notarize(ctx context.Context, b Backend, path string, creds Credentials, st
 		}
 	}
 
-	if err := b.Submit(ctx, submitPath, creds); err != nil {
+	if err := b.Submit(ctx, submitPath); err != nil {
 		return err
 	}
 	if !staple {
 		return nil
 	}
 	return b.Staple(ctx, path)
-}
-
-// Select returns the backend that suits the platform and the credentials.
-//
-// Apple's tools are preferred on macOS, where they are present and understand
-// the keychain. A caller that names a certificate file has asked for rcodesign
-// whatever the platform, since Apple's codesign cannot read one; that is how a
-// macOS build machine with no usable keychain, such as a CI runner, signs.
-func Select(creds Credentials) (Backend, error) {
-	if runtime.GOOS == "darwin" && !creds.usesCertificateFile() {
-		return appleBackend{}, nil
-	}
-	if runtime.GOOS != "darwin" && !creds.usesCertificateFile() {
-		return nil, fmt.Errorf("signing away from macOS needs a certificate file, "+
-			"because there is no keychain to take an identity from: "+
-			"pass --p12-file or --pem-file (running on %s)", runtime.GOOS)
-	}
-	if err := rcodesign.Available(); err != nil {
-		return nil, err
-	}
-	return rcodesignBackend{}, nil
 }

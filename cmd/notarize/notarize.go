@@ -105,7 +105,7 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 		logger.PrintValue("API key", creds.APIKeyFile)
 	}
 
-	if err := signing.Notarize(ctx, backend, target, creds, staple); err != nil {
+	if err := signing.Notarize(ctx, backend, target, staple); err != nil {
 		return err
 	}
 	logger.Success("Notarization completed successfully!")

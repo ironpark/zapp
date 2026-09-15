@@ -84,6 +84,20 @@ An `.app` bundle is archived before it is submitted either way, because the
 notary service takes an archive rather than a directory. The ticket is stapled
 to the bundle, not to the archive.
 
+## How it is put together
+
+```
+pkg/signing/             the Backend interface, Select, and the archiving that
+                         notarization needs whichever backend runs
+pkg/signing/macos/       codesign, productsign, notarytool, and the keychain
+pkg/signing/rcodesign/   rcodesign
+```
+
+The backends know nothing of the package above them: each takes the options it
+actually needs, and `Select` translates the credentials a command gathered into
+whichever backend is going to run. That keeps the dependency one-way and means
+neither backend carries fields the other uses.
+
 ## What is verified
 
 The rcodesign path was exercised against rcodesign 0.29.0 with a self-signed
