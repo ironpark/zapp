@@ -1,12 +1,14 @@
 package pkg
 
 import (
+	"context"
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installer"
 	"github.com/samber/lo"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,13 +22,12 @@ var Command = &cli.Command{
 	Usage:       "Create a .pkg installer for macOS",
 	UsageText:   "zapp pkg --app=<path of app-bundle>",
 	Description: "Creates a .pkg installer from the specified .app bundle",
-	Args:        true,
-	Action: func(c *cli.Context) error {
+	Action: func(ctx context.Context, c *cli.Command) error {
 		info, err := appbundle.Open(appDir)
 		if err != nil {
 			return fmt.Errorf("failed to get app info: %v", err)
 		}
-		logger := cmd.NewAppLogger(c.App)
+		logger := cmd.NewAppLogger(c.Root())
 		appName := filepath.Base(appDir)
 		logger.Printf("Start Creating PKG file for %s\n", appName)
 		appName = strings.TrimSuffix(appName, ".app")
@@ -72,18 +73,18 @@ var Command = &cli.Command{
 		if len(keys) == 0 {
 			logger.Println("EULA files not found.")
 		}
-		err = installer.CreatePKG(c.Context, config)
+		err = installer.CreatePKG(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}
 		logger.Success("PKG file created successfully!")
 		logger.PrintValue("OutputPath", config.OutputPath)
-		err = cmd.RunSignCmd(c, config.OutputPath)
+		err = subtask.Sign(ctx, c, config.OutputPath)
 		if err != nil {
 			return fmt.Errorf("failed to sign PKG: %v", err)
 		}
 
-		err = cmd.RunNotarizeCmd(c, config.OutputPath)
+		err = subtask.Notarize(ctx, c, config.OutputPath)
 		if err != nil {
 			return fmt.Errorf("failed to notarize PKG: %v", err)
 		}
@@ -95,7 +96,7 @@ var Command = &cli.Command{
 			Usage:       "App bundle path",
 			Destination: &appDir,
 			Required:    true,
-			Action: func(c *cli.Context, app string) error {
+			Action: func(ctx context.Context, c *cli.Command, app string) error {
 				if !strings.HasSuffix(app, ".app") {
 					return fmt.Errorf("not valid app bundle extension")
 				}

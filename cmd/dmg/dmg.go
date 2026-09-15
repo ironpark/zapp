@@ -1,8 +1,10 @@
 package dmg
 
 import (
+	"context"
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/pkg/mactools/dmg"
 	"os"
 	"path/filepath"
@@ -10,7 +12,7 @@ import (
 
 	_ "embed"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 //go:embed iconfile.icns
@@ -33,10 +35,9 @@ var Command = &cli.Command{
 	Usage:       "Create a .dmg for macOS application deployment",
 	UsageText:   "",
 	Description: "",
-	Args:        true,
 	ArgsUsage:   " <path of app-bundle>",
-	Action: func(c *cli.Context) error {
-		logger := cmd.NewAppLogger(c.App)
+	Action: func(ctx context.Context, c *cli.Command) error {
+		logger := cmd.NewAppLogger(c.Root())
 		// Create a temporary working directory
 		tempDir, err := os.MkdirTemp("", "*-zapp-dmg")
 		if err != nil {
@@ -95,19 +96,19 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
 		logger.Println("Creating DMG file...")
-		err = dmg.CreateDMG(c.Context, defaultConfig, tempDir)
+		err = dmg.CreateDMG(ctx, defaultConfig, tempDir)
 		if err != nil {
 			return err
 		}
 		logger.Success("DMG file created successfully!")
-		err = cmd.RunSignCmd(c, out)
+		err = subtask.Sign(ctx, c, out)
 		if err != nil {
-			return fmt.Errorf("failed to sign PKG: %v", err)
+			return fmt.Errorf("failed to sign DMG: %w", err)
 		}
 
-		err = cmd.RunNotarizeCmd(c, out)
+		err = subtask.Notarize(ctx, c, out)
 		if err != nil {
-			return fmt.Errorf("failed to notarize PKG: %v", err)
+			return fmt.Errorf("failed to notarize DMG: %w", err)
 		}
 		return nil
 	},
@@ -129,7 +130,7 @@ var Command = &cli.Command{
 			Usage:       "App bundle path",
 			Destination: &appDir,
 			Required:    true,
-			Action: func(c *cli.Context, app string) error {
+			Action: func(ctx context.Context, c *cli.Command, app string) error {
 				if !strings.HasSuffix(app, ".app") {
 					return fmt.Errorf("not valid app bundle extension")
 				}
@@ -175,7 +176,7 @@ var Command = &cli.Command{
 			Aliases:     []string{"ls"},
 			Destination: &labelSize,
 			Value:       14,
-			Action: func(*cli.Context, int) error {
+			Action: func(context.Context, *cli.Command, int) error {
 				if labelSize < 10 || labelSize > 16 {
 					return fmt.Errorf("label-size must be between 10 and 16")
 				}
@@ -188,7 +189,7 @@ var Command = &cli.Command{
 			Aliases:     []string{"cis"},
 			Destination: &contentsIconSize,
 			Value:       128,
-			Action: func(*cli.Context, int) error {
+			Action: func(context.Context, *cli.Command, int) error {
 				if contentsIconSize < 16 || contentsIconSize > 512 {
 					return fmt.Errorf("contents-icon-size must be between 16 and 512")
 				}
@@ -201,6 +202,4 @@ var Command = &cli.Command{
 			Usage:   "Use the original icon file without modifications.",
 		},
 	}, cmd.CreateSubTaskFlags()...),
-	HelpName:           "",
-	CustomHelpTemplate: "",
 }

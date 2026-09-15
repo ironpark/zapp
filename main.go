@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"log"
+	"net/mail"
+	"os"
+
 	"github.com/ironpark/zapp/cmd/dep"
 	"github.com/ironpark/zapp/cmd/dmg"
 	"github.com/ironpark/zapp/cmd/info"
@@ -8,14 +13,13 @@ import (
 	"github.com/ironpark/zapp/cmd/pkg"
 	"github.com/ironpark/zapp/cmd/plist"
 	"github.com/ironpark/zapp/cmd/sign"
-	"log"
-	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := &cli.App{
+	app := &cli.Command{
+		Name: "zapp",
 		Commands: []*cli.Command{
 			info.Command,
 			dmg.Command,
@@ -26,21 +30,18 @@ func main() {
 			dep.Command,
 		},
 		Usage: "Simplify your macOS App deployment",
-		Action: func(ctx *cli.Context) error {
-			if ctx.NArg() == 0 {
-				return cli.ShowAppHelp(ctx)
+		Action: func(ctx context.Context, c *cli.Command) error {
+			if c.NArg() == 0 {
+				return cli.ShowAppHelp(c)
 			}
 			return nil
 		},
-		Authors: []*cli.Author{
-			{
-				Name:  "Cheolwan. Park",
-				Email: "cjfdhksaos@gmail.com",
-			},
+		Authors: []any{
+			&mail.Address{Name: "Cheolwan. Park", Address: "cjfdhksaos@gmail.com"},
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

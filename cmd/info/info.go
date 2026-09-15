@@ -1,10 +1,11 @@
 package info
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"github.com/fatih/color"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"strings"
 )
 import _ "embed"
@@ -19,20 +20,19 @@ var Commit string = "50261600d655ae526b7645d05d2bc573e3a8dee5"
 var Command = &cli.Command{
 	Name:   "info",
 	Usage:  "Display detailed information about the current ZAPP build",
-	Args:   true,
 	Action: action,
 }
 
-func action(c *cli.Context) error {
-	printInfo(c.App)
-	err := print3rdPartyLicenseOverview(c.App)
+func action(ctx context.Context, c *cli.Command) error {
+	printInfo(c.Root())
+	err := print3rdPartyLicenseOverview(c.Root())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func printInfo(app *cli.App) {
+func printInfo(app *cli.Command) {
 	c0 := color.New(color.FgCyan, color.Bold)
 	c2 := color.New(color.FgHiWhite)
 	c0.Fprintln(app.Writer, "[Build Info]")
@@ -46,7 +46,7 @@ func printInfo(app *cli.App) {
 	c2.Printf("%-12s: %s\n\n", "URL", "https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/LICENSE")
 }
 
-func print3rdPartyLicenseOverview(app *cli.App) error {
+func print3rdPartyLicenseOverview(app *cli.Command) error {
 	c0 := color.New(color.FgCyan, color.Bold)
 	c1 := color.New(color.FgGreen, color.Italic)
 	c2 := color.New(color.FgHiWhite)

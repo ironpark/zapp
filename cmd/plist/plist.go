@@ -1,11 +1,12 @@
 package plist
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func findPlistPath(path string) (string, error) {
@@ -36,7 +37,7 @@ var Command = &cli.Command{
 	UsageText:   "zapp plist [command] [arguments...]",
 	Description: "Perform operations on plist files",
 	ArgsUsage:   "<path of .app directory> or <path of .plist file>",
-	Action: func(c *cli.Context) error {
+	Action: func(ctx context.Context, c *cli.Command) error {
 		if c.NArg() < 1 {
 			return fmt.Errorf("path is required")
 		}
@@ -50,7 +51,7 @@ var Command = &cli.Command{
 		fmt.Printf("Using plist file: %s\n", plistPath)
 		return nil
 	},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		getCommand,
 		setCommand,
 	},

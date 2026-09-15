@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/ironpark/zapp/cmd"
+	"github.com/ironpark/zapp/cmd/subtask"
 	"github.com/ironpark/zapp/internal/fsutil"
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/mactools/installnametool"
 	"github.com/ironpark/zapp/pkg/mactools/otool"
 	"github.com/samber/lo"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,10 +37,9 @@ var Command = &cli.Command{
 	Name:      "dep",
 	Usage:     "Find dependencies of the specified app-bundle and bundle them",
 	UsageText: "zapp dep <path of app-bundle>",
-	Args:      true,
 	ArgsUsage: " <path of app-bundle>",
-	Action: func(c *cli.Context) error {
-		logger := cmd.NewAppLogger(c.App)
+	Action: func(ctx context.Context, c *cli.Command) error {
+		logger := cmd.NewAppLogger(c.Root())
 		if appDir == "" {
 			return fmt.Errorf("[--app] target app-bundle is required")
 		}
@@ -69,7 +69,7 @@ var Command = &cli.Command{
 		logger.PrintValue("Frameworks Path", frameworksPath)
 		logger.Println("Getting dependencies")
 
-		dependencies, err := directDependencies(c.Context, targetBundle)
+		dependencies, err := directDependencies(ctx, targetBundle)
 		if err != nil {
 			return fmt.Errorf("failed to get dependencies: %v", err)
 		}
@@ -100,7 +100,7 @@ var Command = &cli.Command{
 		// the app fails to load on any machine that lacks it, and under the
 		// hardened runtime fails even on the build machine because the outside
 		// library carries a different Team ID.
-		bundled, err := bundleDependencies(c.Context, targetBundle, frameworksPath, libPaths, dependencies)
+		bundled, err := bundleDependencies(ctx, targetBundle, frameworksPath, libPaths, dependencies)
 		if err != nil {
 			return err
 		}
@@ -112,21 +112,21 @@ var Command = &cli.Command{
 		// resolve inside the bundle.
 		for _, dependency := range dependencies {
 			target := fmt.Sprintf("%s/%s", frameworksRPath, filepath.Base(dependency))
-			if err = installnametool.Change(c.Context, dependency, target, targetBundle); err != nil {
+			if err = installnametool.Change(ctx, dependency, target, targetBundle); err != nil {
 				return fmt.Errorf("failed to change install name: %v", err)
 			}
 		}
-		if err = ensureRPath(c.Context, targetBundle, frameworksRPath); err != nil {
+		if err = ensureRPath(ctx, targetBundle, frameworksRPath); err != nil {
 			return fmt.Errorf("failed to add rpath: %v", err)
 		}
 
 		logger.Printf("(%d) Dependencies bundled successfully\n", len(bundled))
-		err = cmd.RunSignCmd(c, appDir)
+		err = subtask.Sign(ctx, c, appDir)
 		if err != nil {
 			return fmt.Errorf("failed to sign: %v", err)
 		}
 
-		err = cmd.RunNotarizeCmd(c, appDir)
+		err = subtask.Notarize(ctx, c, appDir)
 		if err != nil {
 			return fmt.Errorf("failed to notarize: %v", err)
 		}
@@ -138,7 +138,7 @@ var Command = &cli.Command{
 			Usage:       "App bundle path",
 			Destination: &appDir,
 			Required:    true,
-			Action: func(c *cli.Context, app string) error {
+			Action: func(ctx context.Context, c *cli.Command, app string) error {
 				if !strings.HasSuffix(app, ".app") {
 					return fmt.Errorf("not valid app bundle extension")
 				}

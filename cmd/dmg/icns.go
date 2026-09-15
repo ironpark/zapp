@@ -12,7 +12,7 @@ import (
 
 	"github.com/ironpark/zapp/internal/imageutil"
 	"github.com/ironpark/zapp/pkg/appbundle"
-	"yrh.dev/icns"
+	"github.com/ironpark/zapp/pkg/icns"
 )
 
 func getAppIconPath(appPath string) (string, error) {
@@ -132,16 +132,24 @@ func createIcns(img image.Image, icnsPath string) error {
 	}
 
 	defer icnsFile.Close()
-	icnsImg := icns.NewICNS(icns.WithMinCompatibility(icns.MountainLion))
-	for _, size := range []int{32, 64, 128, 256, 512} {
-		resizedImg := imageutil.Resize(img, size, size)
-		icnsImg.Add(resizedImg)
+	icnsImg := icns.NewICNS()
+	for _, slot := range []struct {
+		typ  string
+		size int
+	}{
+		{"is32", 16}, {"il32", 32}, {"ic07", 128}, {"ic08", 256}, {"ic09", 512},
+		{"ic11", 32}, {"ic12", 64}, {"ic13", 256}, {"ic14", 512},
+	} {
+		resizedImg := imageutil.Resize(img, slot.size, slot.size)
+		if err := icnsImg.AddWithType(slot.typ, resizedImg); err != nil {
+			return fmt.Errorf("failed to add %s icon: %w", slot.typ, err)
+		}
 	}
 	// Encode the image as ICNS
 	if err := icns.Encode(icnsFile, icnsImg); err != nil {
 		return fmt.Errorf("failed to encode ICNS: %w", err)
 	}
-	return nil
+	return icnsFile.Close()
 }
 
 func createIcnsFromPng(imgPath string, icnsPath string) error {

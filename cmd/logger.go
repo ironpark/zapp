@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/fatih/color"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"io"
 )
 
@@ -12,9 +12,16 @@ type AppLogger struct {
 	Header string
 }
 
-func NewAppLogger(app *cli.App) *AppLogger {
+// NewAppLogger writes to the root command's writer.
+func NewAppLogger(app *cli.Command) *AppLogger {
+	return NewLogger(app.Writer)
+}
+
+// NewLogger writes to w. Subtasks invoked directly, rather than through the CLI
+// parser, use this.
+func NewLogger(w io.Writer) *AppLogger {
 	return &AppLogger{
-		Writer: app.Writer,
+		Writer: w,
 		Header: color.HiCyanString("[ZAPP] "),
 	}
 }

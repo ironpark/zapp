@@ -1,8 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func CreateSubTaskFlags() []cli.Flag {
@@ -58,41 +59,11 @@ func CreateSubTaskFlags() []cli.Flag {
 	}
 }
 
-func requireFlag[T any](requiredFlag, flagName string) func(*cli.Context, T) error {
-	return func(c *cli.Context, value T) error {
+func requireFlag[T any](requiredFlag, flagName string) func(context.Context, *cli.Command, T) error {
+	return func(ctx context.Context, c *cli.Command, value T) error {
 		if !c.Bool(requiredFlag) {
 			return fmt.Errorf("%s flag must be used with %s flag", flagName, requiredFlag)
 		}
 		return nil
 	}
-}
-
-func runner(c *cli.Context, command string, req string, flags ...string) error {
-	var args []string
-	for _, flag := range flags {
-		if c.String(flag) != "" {
-			args = append(args, "--"+flag+"="+c.String(flag))
-		} else if c.Bool(flag) {
-			args = append(args, "--"+flag)
-		}
-	}
-	return c.App.Run(append([]string{c.App.Name, command, req}, args...))
-}
-
-func RunSignCmd(c *cli.Context, target string) error {
-	if c.Bool("sign") {
-		if err := runner(c, "sign", "--target="+target, "identity"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func RunNotarizeCmd(c *cli.Context, target string) error {
-	if c.Bool("notarize") {
-		if err := runner(c, "notarize", "--target="+target, "profile", "apple-id", "password", "team-id", "staple"); err != nil {
-			return err
-		}
-	}
-	return nil
 }

@@ -1,10 +1,11 @@
 package plist
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/ironpark/zapp/pkg/plist"
 )
@@ -13,7 +14,7 @@ var setCommand = &cli.Command{
 	Name:      "set",
 	Usage:     "Set a value in the plist file",
 	ArgsUsage: "<path> <key> <value>",
-	Action: func(c *cli.Context) error {
+	Action: func(ctx context.Context, c *cli.Command) error {
 		if c.NArg() < 3 {
 			return fmt.Errorf("path, key, and value are required")
 		}
