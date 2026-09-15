@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"golang.org/x/sys/unix"
 )
 
 // sampleICNS is not a real icon; the resource fork encoder is agnostic to its
@@ -226,12 +224,12 @@ func TestSetCreatorRejectsBadCode(t *testing.T) {
 
 func readAttr(t *testing.T, path, name string) []byte {
 	t.Helper()
-	size, err := unix.Getxattr(path, name, nil)
+	size, err := getXattr(path, name, nil)
 	if err != nil {
 		t.Fatalf("failed to size %s on %s: %v", name, path, err)
 	}
 	buf := make([]byte, size)
-	n, err := unix.Getxattr(path, name, buf)
+	n, err := getXattr(path, name, buf)
 	if err != nil {
 		t.Fatalf("failed to read %s on %s: %v", name, path, err)
 	}
