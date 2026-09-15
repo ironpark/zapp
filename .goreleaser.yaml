@@ -54,17 +54,28 @@ archives:
       - goos: windows
         formats: [zip]
 
-brews:
+# Homebrew distributes pre-compiled binaries as casks; the old `brews` section
+# built a formula instead, and is deprecated. The tap needs a tap_migrations.json
+# entry so anyone who installed the formula moves across on their next upgrade.
+homebrew_casks:
   - name: zapp
     homepage: "https://github.com/ironpark/zapp"
     description: "Zapp is a powerful CLI tool designed to streamline the deployment process for macOS applications. With Zapp, you can effortlessly create DMG and PKG files, perform code signing, notarize your apps, and modify plist files."
-    directory: Formula
     repository:
       owner: ironpark
       name: homebrew-zapp
     commit_author:
       name: ironpark
       email: cjfdhksaos@gmail.com
+    # Unlike a formula, a cask keeps Homebrew's download quarantined. zapp's own
+    # macOS builds are neither signed nor notarized, so without this Gatekeeper
+    # refuses to run the installed binary.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/zapp"]
+          end
 changelog:
   sort: asc
   filters:
