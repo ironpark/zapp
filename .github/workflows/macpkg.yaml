@@ -1,0 +1,70 @@
+name: macpkg
+
+on:
+  pull_request:
+    paths: ['pkg/macpkg/**', 'pkg/mactools/installer/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+  push:
+    paths: ['pkg/macpkg/**', 'pkg/mactools/installer/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+  workflow_dispatch:
+    inputs:
+      large:
+        description: Run the >8 GiB macOS round-trip test
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test package generation
+        run: go test -count=1 ./pkg/macpkg ./pkg/mactools/installer
+      - name: Export Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/macpkg"
+          MACPKG_ARTIFACT_DIR="$RUNNER_TEMP/macpkg" go test -count=1 -run '^TestCrossPlatformArtifact$' ./pkg/macpkg
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: linux-packages
+          path: ${{ runner.temp }}/macpkg/*.pkg
+
+  linux-artifact-on-macos:
+    needs: test
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: packages
+      - name: Read Linux-generated product with Apple tools
+        run: |
+          pkgutil --expand-full packages/product.pkg expanded
+          test "$(cat expanded/component.pkg/Payload/hello)" = 'hello from linux'
+          lsbom expanded/component.pkg/Bom
+          installer -showChoicesXML -pkg packages/product.pkg -target /
+
+  large:
+    if: github.event_name == 'workflow_dispatch' && inputs.large
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -run '^TestLargeFileIntegration$' -timeout 10m -v ./pkg/macpkg
+        env:
+          CGO_ENABLED: '0'
+          MACPKG_LARGE_TEST: '1'

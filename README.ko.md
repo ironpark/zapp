@@ -111,6 +111,9 @@ zapp dmg --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 ```
 ### 📦 PKG 파일 생성
 
+PKG 생성은 순수 Go [macpkg 패키지](pkg/macpkg/README.md)를 사용하며
+`pkgbuild`·`productbuild`가 필요하지 않습니다. 서명·공증은 기존 백엔드를 사용합니다.
+
 > [!TIP]
 > 
 > `--version` 및 `--identifier` 플래그가 설정되지 않은 경우 이러한 값은 제공된 앱 번들의 Info.plist 파일에서 자동으로 검색됩니다.

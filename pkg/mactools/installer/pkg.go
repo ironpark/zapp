@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ironpark/zapp/internal/fsutil"
-	"github.com/ironpark/zapp/internal/macexec"
+	"github.com/ironpark/zapp/pkg/macpkg"
 )
 
 type Config struct {
@@ -21,10 +22,16 @@ type Config struct {
 
 func CreatePKG(ctx context.Context, config Config) error {
 	// Validate the language codes.
+	seenLanguages := make(map[string]bool)
 	for lang := range config.LicensePaths {
 		if !isValidLanguageCode(lang) {
 			return fmt.Errorf("invalid language code: %s", lang)
 		}
+		normalized := strings.ToLower(lang)
+		if seenLanguages[normalized] {
+			return fmt.Errorf("duplicate license language: %s", lang)
+		}
+		seenLanguages[normalized] = true
 	}
 
 	tempDir, err := os.MkdirTemp("", "pkg-build")
@@ -34,14 +41,14 @@ func CreatePKG(ctx context.Context, config Config) error {
 	defer os.RemoveAll(tempDir)
 
 	componentPkgPath := filepath.Join(tempDir, "component.pkg")
-	_, err = macexec.Run(ctx, "pkgbuild",
-		"--root", filepath.Dir(config.AppPath),
-		"--install-location", config.InstallLocation,
-		"--identifier", config.Identifier,
-		"--version", config.Version,
-		componentPkgPath)
+	appPath := filepath.Clean(config.AppPath)
+	err = macpkg.BuildComponent(ctx, macpkg.ComponentConfig{
+		Root: filepath.Dir(appPath), RootEntry: filepath.Base(appPath),
+		InstallLocation: config.InstallLocation, Identifier: config.Identifier,
+		Version: config.Version, OutputPath: componentPkgPath,
+	})
 	if err != nil {
-		return fmt.Errorf("pkgbuild failed: %w", err)
+		return fmt.Errorf("build component: %w", err)
 	}
 
 	// Create resources directory with lproj folders
@@ -51,7 +58,7 @@ func CreatePKG(ctx context.Context, config Config) error {
 	}
 
 	for lang, sourcePath := range config.LicensePaths {
-		lprojDir := filepath.Join(resourcesDir, lang+".lproj")
+		lprojDir := filepath.Join(resourcesDir, strings.ToLower(lang)+".lproj")
 		if err := os.MkdirAll(lprojDir, 0755); err != nil {
 			return fmt.Errorf("failed to create lproj directory for %s: %v", lang, err)
 		}
@@ -61,28 +68,16 @@ func CreatePKG(ctx context.Context, config Config) error {
 		}
 	}
 
-	builder := NewDistributionBuilder()
-	builder.Title = filepath.Base(config.AppPath)
-	builder.Organization = config.Identifier
-	builder.Identifier = config.Identifier
-	builder.Version = config.Version
-	builder.AddLicense("license.txt")
-	builder.AddChoice("choice1", false, config.Identifier)
-	distributionContent := builder.Build()
-
-	distributionPath := filepath.Join(tempDir, "distribution.xml")
-	err = os.WriteFile(distributionPath, []byte(distributionContent), 0644)
-	if err != nil {
-		return fmt.Errorf("failed to create distribution.xml: %v", err)
+	distribution := &macpkg.Distribution{Title: filepath.Base(appPath), Organization: config.Identifier}
+	if len(config.LicensePaths) > 0 {
+		distribution.LicenseFile = "license.txt"
 	}
-
-	_, err = macexec.Run(ctx, "productbuild",
-		"--distribution", distributionPath,
-		"--package-path", tempDir,
-		"--resources", resourcesDir,
-		config.OutputPath)
+	err = macpkg.BuildProduct(ctx, macpkg.ProductConfig{
+		Packages: []string{componentPkgPath}, ResourcesDir: resourcesDir,
+		OutputPath: config.OutputPath, Distribution: distribution,
+	})
 	if err != nil {
-		return fmt.Errorf("productbuild failed: %w", err)
+		return fmt.Errorf("build product: %w", err)
 	}
 
 	return nil

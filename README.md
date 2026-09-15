@@ -114,6 +114,9 @@ zapp dmg --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 ```
 ### 📦 Creating PKG Files
 
+PKG generation uses the pure Go [macpkg package](pkg/macpkg/README.md), with no
+`pkgbuild` or `productbuild` dependency. Signing and notarization use the existing backends.
+
 > [!TIP]
 > 
 > If the `--version` and `--identifier` flags are not set, these values will be automatically retrieved from the Info.plist file of the provided app bundle
