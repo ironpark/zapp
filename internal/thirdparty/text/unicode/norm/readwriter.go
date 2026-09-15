@@ -21,10 +21,7 @@ func (w *normWriter) Write(data []byte) (n int, err error) {
 
 	for len(data) > 0 {
 		// Normalize into w.buf.
-		m := len(data)
-		if m > chunk {
-			m = chunk
-		}
+		m := min(len(data), chunk)
 		w.rb.src = inputBytes(data[:m])
 		w.rb.nsrc = m
 		w.buf = doAppend(&w.rb, w.buf, 0)

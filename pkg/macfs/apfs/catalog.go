@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"math"
 	"sort"
+	"strings"
 )
 
 type stream struct {
@@ -108,7 +109,7 @@ func (l *layout) compareKey(a, b []byte) int {
 		if i > j {
 			return 1
 		}
-		return bytes.Compare([]byte(normalizedName(string(a[12:len(a)-1]), !l.volume.CaseSensitive)), []byte(normalizedName(string(b[12:len(b)-1]), !l.volume.CaseSensitive)))
+		return strings.Compare(l.normalize(string(a[12:len(a)-1])), l.normalize(string(b[12:len(b)-1])))
 	case 4:
 		return bytes.Compare(a[10:], b[10:])
 	case 8:

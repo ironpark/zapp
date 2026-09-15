@@ -154,7 +154,7 @@ func (l *layout) collect(dir *Node) ([]item, error) {
 	var walk func(*Node) error
 	walk = func(parent *Node) error {
 		for _, n := range parent.Children {
-			it := item{node: n, parentID: parent.ID, dataFork: -1, rsrcFork: -1}
+			it := item{node: n, parentID: uint32(parent.ID), dataFork: -1, rsrcFork: -1}
 			switch {
 			case n.IsDir():
 				l.folderCount++
@@ -225,12 +225,12 @@ func (l *layout) buildCatalog(ctx context.Context, items []item) ([]byte, error)
 			return nil, err
 		}
 		if it.node.IsDir() {
-			add(catalogKey{it.parentID, name}, l.encodeFolder(it.node, it.node.ID))
-			add(catalogKey{it.node.ID, nil}, encodeThread(recordFolderThread, it.parentID, name))
+			add(catalogKey{it.parentID, name}, l.encodeFolder(it.node, uint32(it.node.ID)))
+			add(catalogKey{uint32(it.node.ID), nil}, encodeThread(recordFolderThread, it.parentID, name))
 			continue
 		}
 		add(catalogKey{it.parentID, name}, l.encodeFile(it))
-		add(catalogKey{it.node.ID, nil}, encodeThread(recordFileThread, it.parentID, name))
+		add(catalogKey{uint32(it.node.ID), nil}, encodeThread(recordFileThread, it.parentID, name))
 	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].key.compare(entries[j].key) < 0 })
@@ -266,7 +266,7 @@ func (l *layout) encodeFile(it item) []byte {
 	b := make([]byte, fileRecordSize)
 	binary.BigEndian.PutUint16(b, recordFile)
 	binary.BigEndian.PutUint16(b[2:], flagThreadExists)
-	binary.BigEndian.PutUint32(b[8:], n.ID)
+	binary.BigEndian.PutUint32(b[8:], uint32(n.ID))
 	l.putTimes(b[12:], n.ModTime)
 
 	mode := uint16(modeRegular | 0o644)
@@ -554,10 +554,7 @@ func (c *counter) zeros(n int64) {
 	}
 	var chunk [32 * 1024]byte
 	for n > 0 && c.err == nil {
-		size := int64(len(chunk))
-		if n < size {
-			size = n
-		}
+		size := min(n, int64(len(chunk)))
 		c.write(chunk[:size])
 		n -= size
 	}

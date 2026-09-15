@@ -29,8 +29,8 @@ func appearanceConfig(t *testing.T, filesystem FileSystem, format udif.Format) C
 	dir := t.TempDir()
 	bg := filepath.Join(dir, "background.png")
 	picture := image.NewRGBA(image.Rect(0, 0, 640, 480))
-	for y := 0; y < 480; y++ {
-		for x := 0; x < 640; x++ {
+	for y := range 480 {
+		for x := range 640 {
 			picture.SetRGBA(x, y, color.RGBA{40, 70, 110, 255})
 		}
 	}
@@ -309,7 +309,8 @@ func TestFailedBuildPreservesOutput(t *testing.T) {
 			}
 			for _, size := range []int{512, 4096} {
 				for _, format := range []udif.Format{udif.UDZO, udif.ULFO} {
-					if err := writeImage(context.Background(), path, failingImage{size: size}, format, filesystem, ""); err == nil {
+					c := Config{FileName: path, Format: format, FileSystem: filesystem}
+					if err := c.writeImage(context.Background(), failingImage{size: size}); err == nil {
 						t.Fatal("expected source failure")
 					}
 					if !bytes.Equal(mustRead(t, path), original) {

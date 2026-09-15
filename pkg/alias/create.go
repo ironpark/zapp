@@ -42,11 +42,19 @@ type Target struct {
 	VolumeName    string
 	VolumeCreated time.Time
 
-	// Optional filesystem identity. Defaults preserve the existing HFS+ record.
-	VolumeSignature  string
-	VolumeFSID       uint16
-	VolumeAttributes uint32
-	VolumeType       string
+	// Identity describes the filesystem holding the target. Its zero value
+	// gives the HFS+ record this package produced before other filesystems
+	// were supported.
+	Identity VolumeIdentity
+}
+
+// VolumeIdentity is the legacy filesystem description an alias record carries,
+// as FSNewAlias reports it for a mounted volume.
+type VolumeIdentity struct {
+	Signature  string
+	FSID       uint16
+	Attributes uint32
+	Type       string
 }
 
 // Create encodes an alias record pointing at t.
@@ -79,14 +87,17 @@ func Create(t Target) ([]byte, error) {
 	info.Volume.Name = legacyName(t.VolumeName, 27)
 	info.Volume.Created = t.VolumeCreated
 	info.Volume.Signature = "H+"
-	if t.VolumeSignature != "" {
-		info.Volume.Signature = t.VolumeSignature
+	if t.Identity.Signature != "" {
+		info.Volume.Signature = t.Identity.Signature
 	}
-	info.Volume.FSID = t.VolumeFSID
-	info.Volume.Attributes = t.VolumeAttributes
+	info.Volume.FSID = t.Identity.FSID
+	info.Volume.Attributes = t.Identity.Attributes
+	if info.Volume.Attributes == 0 {
+		info.Volume.Attributes = 0x00000D02
+	}
 	info.Volume.Type = "other"
-	if t.VolumeType != "" {
-		info.Volume.Type = t.VolumeType
+	if t.Identity.Type != "" {
+		info.Volume.Type = t.Identity.Type
 	}
 
 	// The record repeats the names and identifiers it already carries as a list

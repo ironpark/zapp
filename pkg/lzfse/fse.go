@@ -74,10 +74,7 @@ func adjustFreqs(freq []uint16, overrun int) {
 			if freq[sym] <= 1 {
 				continue
 			}
-			n := int(freq[sym]-1) >> shift
-			if n > overrun {
-				n = overrun
-			}
+			n := min(int(freq[sym]-1)>>shift, overrun)
 			freq[sym] -= uint16(n)
 			overrun -= n
 			if overrun == 0 {

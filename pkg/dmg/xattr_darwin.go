@@ -1,6 +1,10 @@
 package dmg
 
-import "golang.org/x/sys/unix"
+import (
+	"golang.org/x/sys/unix"
+
+	"github.com/ironpark/zapp/pkg/macfs"
+)
 
 // errNoAttr is what the kernel reports for an attribute that is not set.
 var errNoAttr = unix.ENOATTR
@@ -15,8 +19,8 @@ func getSourceXattr(path, name string, buf []byte) (int, error) {
 	return unix.Lgetxattr(path, name, buf)
 }
 
-func sourceResourceFork(path string, size int) (imageSource, error) {
-	return imageFile{path: path + "/..namedfork/rsrc", size: int64(size)}, nil
+func sourceResourceFork(path string, size int) (macfs.Source, error) {
+	return macfs.File(path+"/..namedfork/rsrc", int64(size)), nil
 }
 
 func setXattr(path, name string, data []byte) error {

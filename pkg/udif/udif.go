@@ -113,7 +113,7 @@ func WriteWithOptions(ctx context.Context, w io.Writer, src io.Reader, size int6
 		return 0, err
 	}
 
-	xml, err := marshalTableForDisk(table, options.DiskType)
+	xml, err := marshalTable(table, options.DiskType)
 	if err != nil {
 		return 0, err
 	}
@@ -157,15 +157,9 @@ type chunk struct {
 // needed to find each chunk again.
 func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64, format Format) (blockTable, int64, uint32, error) {
 	table := blockTable{sectorCount: sectors}
-	sectorsPerChunk := int64(chunkSectors)
-	if format == ULFO {
-		// macOS's streaming LZFSE decoder can reject large final chunks even
-		// when its buffer decoder verifies them. Keep streams below its
-		// internal input window; this also bounds random-access decode work.
-		sectorsPerChunk = 1024
-	}
-	raw := make([]byte, sectorsPerChunk*SectorSize)
 	c := newCompressor(format)
+	sectorsPerChunk := c.maxChunkSectors
+	raw := make([]byte, sectorsPerChunk*SectorSize)
 
 	uncompressed := crc32.NewIEEE()
 	data := crc32.NewIEEE()
@@ -214,7 +208,12 @@ func writeChunks(ctx context.Context, w io.Writer, src io.Reader, sectors int64,
 // compressor holds whatever state one format needs between chunks, so that a
 // codec with a large working set is set up once rather than per chunk.
 type compressor struct {
-	kind  uint32
+	kind uint32
+
+	// maxChunkSectors is how much of the image one chunk may cover, which a
+	// codec may need to hold below its decoder's input window.
+	maxChunkSectors int64
+
 	buf   bytes.Buffer
 	lzfse *lzfse.Encoder
 	out   []byte
@@ -222,9 +221,12 @@ type compressor struct {
 
 func newCompressor(format Format) *compressor {
 	if format == ULFO {
-		return &compressor{kind: chunkLZFSE, lzfse: lzfse.NewEncoder()}
+		// macOS's streaming LZFSE decoder can reject large final chunks even
+		// when its buffer decoder verifies them. Keep streams below its
+		// internal input window; this also bounds random-access decode work.
+		return &compressor{kind: chunkLZFSE, maxChunkSectors: 1024, lzfse: lzfse.NewEncoder()}
 	}
-	return &compressor{kind: chunkZlib}
+	return &compressor{kind: chunkZlib, maxChunkSectors: chunkSectors}
 }
 
 // compress returns the stored form of one chunk, or nil when the chunk is
@@ -291,11 +293,7 @@ func encodeBlockTable(t blockTable) []byte {
 // marshalTable wraps the block table in the property list the trailer points
 // at. The format inherits its shape from a classic resource fork, so the table
 // appears as a single numbered resource.
-func marshalTable(t blockTable) ([]byte, error) {
-	return marshalTableForDisk(t, AppleHFS)
-}
-
-func marshalTableForDisk(t blockTable, diskType DiskType) ([]byte, error) {
+func marshalTable(t blockTable, diskType DiskType) ([]byte, error) {
 	name := fmt.Sprintf("whole disk (%s : 0)", diskType)
 	return plist.MarshalXML(map[string]any{
 		"resource-fork": map[string]any{

@@ -17,6 +17,7 @@ import (
 
 	"github.com/ironpark/zapp/pkg/alias"
 	"github.com/ironpark/zapp/pkg/dsstore"
+	"github.com/ironpark/zapp/pkg/macfs"
 	"github.com/ironpark/zapp/pkg/udif"
 )
 
@@ -75,9 +76,11 @@ func CreateDMG(ctx context.Context, config Config) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !config.FileSystem.valid() {
-		return fmt.Errorf("unknown filesystem %q", config.FileSystem)
+	fileSystem, err := ParseFileSystem(string(config.FileSystem))
+	if err != nil {
+		return err
 	}
+	config.FileSystem = fileSystem
 	if config.Title == "" {
 		return fmt.Errorf("a volume title is required")
 	}
@@ -99,7 +102,7 @@ func CreateDMG(ctx context.Context, config Config) error {
 	if err != nil {
 		return err
 	}
-	if err := writeImage(ctx, config.FileName, image, config.Format, config.FileSystem, config.Icon); err != nil {
+	if err := config.writeImage(ctx, image); err != nil {
 		return err
 	}
 
@@ -109,7 +112,8 @@ func CreateDMG(ctx context.Context, config Config) error {
 // writeImage streams the volume through the compressor into the output file.
 // The image is planned first so its size is known, which lets the two stages
 // run against each other rather than through a copy of the whole volume on disk.
-func writeImage(ctx context.Context, output string, image plannedImage, format udif.Format, filesystem FileSystem, icon string) error {
+func (c Config) writeImage(ctx context.Context, image plannedImage) error {
+	output := c.FileName
 	temp, err := os.CreateTemp(filepath.Dir(output), ".dmg-*")
 	if err != nil {
 		return err
@@ -127,7 +131,7 @@ func writeImage(ctx context.Context, output string, image plannedImage, format u
 		_ = writer.CloseWithError(err)
 		written <- err
 	}()
-	if _, err = udif.WriteWithOptions(ctx, temp, reader, image.Size(), udif.Options{Format: format, DiskType: filesystem.diskType()}); err != nil {
+	if _, err = udif.WriteWithOptions(ctx, temp, reader, image.Size(), udif.Options{Format: c.Format, DiskType: c.FileSystem.diskType()}); err != nil {
 		_ = reader.CloseWithError(err)
 		return fmt.Errorf("failed to compress the disk image: %w", err)
 	}
@@ -137,8 +141,8 @@ func writeImage(ctx context.Context, output string, image plannedImage, format u
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if icon != "" {
-		if err := setFileIcon(temp.Name(), icon); err != nil {
+	if c.Icon != "" {
+		if err := setFileIcon(temp.Name(), c.Icon); err != nil {
 			return err
 		}
 	}
@@ -167,7 +171,7 @@ func (c Config) buildVolume() (*volumeTree, error) {
 	}
 
 	if c.Background != "" {
-		image, err := imageFromFile(c.Background)
+		image, err := macfs.FromFile(c.Background)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the background image: %w", err)
 		}
@@ -178,7 +182,7 @@ func (c Config) buildVolume() (*volumeTree, error) {
 	}
 
 	if c.Icon != "" {
-		icon, err := imageFromFile(c.Icon)
+		icon, err := macfs.FromFile(c.Icon)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the volume icon: %w", err)
 		}
@@ -194,95 +198,80 @@ func (c Config) buildVolume() (*volumeTree, error) {
 
 	// A placeholder, replaced once the tree has been numbered and the window
 	// settings can be encoded.
-	root.Children = append(root.Children, &imageNode{Name: storeName, Mode: 0644, ModTime: c.Created, Data: imageBytes(nil)})
+	root.Children = append(root.Children, &imageNode{Name: storeName, Mode: 0644, ModTime: c.Created, Data: macfs.Bytes(nil)})
 
 	return &volumeTree{Name: c.Title, Created: c.Created, Root: root}, nil
 }
 
 // nodeFor turns one configured item into a tree node.
 func (c Config) nodeFor(item Item) (*imageNode, error) {
-	name := filepath.Base(item.Path)
 	switch item.Type {
 	case Link:
-		return &imageNode{Name: name, Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
-	case File:
-		data, err := imageFromFile(item.Path)
+		return &imageNode{Name: filepath.Base(item.Path), Mode: fs.ModeSymlink, ModTime: c.Created, LinkTarget: item.Path}, nil
+	case File, Dir:
+		node, err := nodeFromPath(item.Path)
 		if err != nil {
 			return nil, err
 		}
-		info, err := os.Lstat(item.Path)
-		if err != nil {
-			return nil, err
-		}
-		node := &imageNode{Name: name, Mode: info.Mode(), ModTime: info.ModTime(), Data: data}
-		if err := sourceMetadata(item.Path, node); err != nil {
-			return nil, err
+		if item.Type == Dir && !node.IsDir() {
+			return nil, fmt.Errorf("%s is not a directory", item.Path)
 		}
 		return node, nil
-	case Dir:
-		return nodeFromDir(item.Path)
 	default:
 		return nil, fmt.Errorf("unknown content type %q for %s", item.Type, item.Path)
 	}
 }
 
-// nodeFromDir reads a directory into a tree. Symbolic links are kept as links
-// rather than followed, which matters for an application bundle: a framework
-// inside one is a web of links whose shape its code signature covers.
-func nodeFromDir(dir string) (*imageNode, error) {
-	info, err := os.Lstat(dir)
+// nodeFromPath reads one filesystem entry into a tree node, recursing into
+// directories. Symbolic links are kept as links rather than followed, which
+// matters for an application bundle: a framework inside one is a web of links
+// whose shape its code signature covers.
+func nodeFromPath(path string) (*imageNode, error) {
+	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory", dir)
-	}
-	node := &imageNode{Name: filepath.Base(dir), Mode: info.Mode(), ModTime: info.ModTime()}
-	if err := sourceMetadata(dir, node); err != nil {
-		return nil, err
-	}
+	return nodeFromInfo(path, info.Name(), info)
+}
 
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range entries {
-		child := filepath.Join(dir, e.Name())
-		entryInfo, err := e.Info()
+// nodeFromInfo builds the node for path, whose metadata has already been read.
+// name is the entry's name in its parent, which differs from info.Name() only
+// for a directory named on the command line.
+func nodeFromInfo(path, name string, info fs.FileInfo) (*imageNode, error) {
+	node := &imageNode{Name: name, Mode: info.Mode(), ModTime: info.ModTime()}
+	switch mode := info.Mode(); {
+	case mode&fs.ModeSymlink != 0:
+		// A link carries no Finder metadata of its own, and reading its
+		// extended attributes would follow it to its target.
+		target, err := os.Readlink(path)
 		if err != nil {
 			return nil, err
 		}
-		switch mode := entryInfo.Mode(); {
-		case mode&fs.ModeSymlink != 0:
-			target, err := os.Readlink(child)
-			if err != nil {
-				return nil, err
-			}
-			node.Children = append(node.Children, &imageNode{
-				Name: e.Name(), Mode: fs.ModeSymlink, ModTime: entryInfo.ModTime(), LinkTarget: target,
-			})
-		case mode.IsDir():
-			sub, err := nodeFromDir(child)
-			if err != nil {
-				return nil, err
-			}
-			node.Children = append(node.Children, sub)
-		case mode.IsRegular():
-			data, err := imageFromFile(child)
-			if err != nil {
-				return nil, err
-			}
-			node.Children = append(node.Children, &imageNode{
-				Name: e.Name(), Mode: mode, ModTime: entryInfo.ModTime(), Data: data,
-			})
-		default:
-			return nil, fmt.Errorf("%s is neither a file, a directory, nor a link", child)
+		node.Mode, node.LinkTarget = fs.ModeSymlink, target
+		return node, nil
+	case mode.IsDir():
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, err
 		}
-		if !entryInfo.IsDir() {
-			if err := sourceMetadata(child, node.Children[len(node.Children)-1]); err != nil {
+		for _, e := range entries {
+			entryInfo, err := e.Info()
+			if err != nil {
 				return nil, err
 			}
+			child, err := nodeFromInfo(filepath.Join(path, e.Name()), e.Name(), entryInfo)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
 		}
+	case mode.IsRegular():
+		node.Data = macfs.File(path, info.Size())
+	default:
+		return nil, fmt.Errorf("%s is neither a file, a directory, nor a link", path)
+	}
+	if err := sourceMetadata(path, node); err != nil {
+		return nil, err
 	}
 	return node, nil
 }
@@ -316,11 +305,11 @@ func (c Config) buildStore(volume *volumeTree) ([]byte, error) {
 // stat reports as its inode; because the image is numbered before it is
 // written, those IDs are known here without ever mounting it.
 func (c Config) backgroundAlias(volume *volumeTree) ([]byte, error) {
-	parent := findChild(volume.Root, backgroundDir)
+	parent := volume.Root.Child(backgroundDir)
 	if parent == nil {
 		return nil, fmt.Errorf("the background directory is missing from the image")
 	}
-	image := findChild(parent, backgroundName)
+	image := parent.Child(backgroundName)
 	if image == nil {
 		return nil, fmt.Errorf("the background image is missing from the image")
 	}
@@ -334,25 +323,9 @@ func (c Config) backgroundAlias(volume *volumeTree) ([]byte, error) {
 		Created:       c.Created,
 		VolumeName:    volume.Name,
 		VolumeCreated: volume.Created,
-	}
-	if c.FileSystem != HFSPlus && c.FileSystem != "" {
-		// These legacy identity fields match FSNewAlias on a mounted APFS
-		// image, including its "network" classification. No network is used.
-		target.VolumeSignature = "BD"
-		target.VolumeFSID = 0x6375
-		target.VolumeAttributes = 0x00000e02
-		target.VolumeType = "network"
+		Identity:      c.FileSystem.aliasVolume(),
 	}
 	return alias.Create(target)
-}
-
-func findChild(parent *imageNode, name string) *imageNode {
-	for _, child := range parent.Children {
-		if child.Name == name {
-			return child
-		}
-	}
-	return nil
 }
 
 // setFileIcon gives the disk image itself a custom Finder icon.

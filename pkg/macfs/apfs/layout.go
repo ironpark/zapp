@@ -35,12 +35,26 @@ type layout struct {
 	blocks                                                             map[uint64][]byte
 	checkpointBlocks                                                   uint64
 	ipQueueLimit, mainQueueLimit                                       uint16
+
+	// normalized memoizes normalizedName, which the catalog's key comparator
+	// would otherwise recompute for both operands of every comparison.
+	normalized map[string]string
+}
+
+// normalize is normalizedName for this volume's case sensitivity, cached.
+func (l *layout) normalize(name string) string {
+	if out, ok := l.normalized[name]; ok {
+		return out
+	}
+	out := normalizedName(name, !l.volume.CaseSensitive)
+	l.normalized[name] = out
+	return out
 }
 
 func blocksFor(n uint64) uint64 { return (n + blockSize - 1) / blockSize }
 
 func planVolume(ctx context.Context, v Volume) (*layout, error) {
-	l := &layout{volume: v, blocks: make(map[uint64][]byte)}
+	l := &layout{volume: v, blocks: make(map[uint64][]byte), normalized: make(map[string]string)}
 	if err := l.collect(ctx); err != nil {
 		return nil, err
 	}
@@ -372,14 +386,17 @@ func (w *imageWriter) Write(p []byte) (int, error) {
 	}
 	return n, err
 }
+
+// zeroBlock is the padding written between extents. It is never modified.
+var zeroBlock = make([]byte, 32768)
+
 func (w *imageWriter) zeros(n int64) error {
 	if n < 0 {
 		return fmt.Errorf("APFS extents overlap by %d bytes", -n)
 	}
-	var b [32768]byte
 	for n > 0 {
-		count := min(n, int64(len(b)))
-		if _, err := w.Write(b[:count]); err != nil {
+		count := min(n, int64(len(zeroBlock)))
+		if _, err := w.Write(zeroBlock[:count]); err != nil {
 			return err
 		}
 		n -= count

@@ -35,7 +35,7 @@ func extras(t *testing.T, record []byte) map[int16][]byte {
 
 func TestLongUnicodeNamesUseExtras(t *testing.T) {
 	name := strings.Repeat("한", 30)
-	r, err := Create(Target{Path: "/" + name, VolumeName: name, VolumeSignature: "BD", VolumeFSID: 0x6375, VolumeType: "network", VolumeAttributes: 0xe02})
+	r, err := Create(Target{Path: "/" + name, VolumeName: name, Identity: VolumeIdentity{Signature: "BD", FSID: 0x6375, Type: "network", Attributes: 0xe02}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -78,7 +78,7 @@ func (l *layout) spaceManager(ctx context.Context) error {
 		put32(cib, 32, uint32(i))
 		count := min(uint64(chunksPerCIB), l.chunks-i*chunksPerCIB)
 		put32(cib, 36, uint32(count))
-		for j := uint64(0); j < count; j++ {
+		for j := range count {
 			chunk := i*chunksPerCIB + j
 			start := chunk * blocksPerChunk
 			blocks := min(uint64(blocksPerChunk), l.total-start)
@@ -109,7 +109,7 @@ func (l *layout) spaceManager(ctx context.Context) error {
 		put32(cab, 32, uint32(i))
 		count := min(uint64(cibsPerCAB), l.cibs-i*cibsPerCAB)
 		put32(cab, 36, uint32(count))
-		for j := uint64(0); j < count; j++ {
+		for j := range count {
 			put64(cab, int(40+j*8), l.ipBase+i*cibsPerCAB+j)
 		}
 		seal(cab)

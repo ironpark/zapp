@@ -128,12 +128,8 @@ var Command = &cli.Command{
 			Value:       "hfsplus",
 			Destination: &filesystem,
 			Action: func(ctx context.Context, c *cli.Command, v string) error {
-				switch dmg.FileSystem(strings.ToLower(v)) {
-				case dmg.HFSPlus, dmg.APFS, dmg.APFSCaseSensitive:
-					return nil
-				default:
-					return fmt.Errorf("unknown filesystem %q: use hfsplus, apfs, or apfs-case-sensitive", v)
-				}
+				_, err := dmg.ParseFileSystem(v)
+				return err
 			},
 		},
 		&cli.StringFlag{

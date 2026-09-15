@@ -204,11 +204,11 @@ func TestAssignIDsIsStableAndIndependentOfContents(t *testing.T) {
 			{Name: "a", Data: Bytes([]byte(contents))},
 		}}}
 	}
-	ids := func(v Volume) map[string]uint32 {
+	ids := func(v Volume) map[string]uint64 {
 		if err := AssignIDs(&v); err != nil {
 			t.Fatal(err)
 		}
-		out := map[string]uint32{}
+		out := map[string]uint64{}
 		var walk func(string, *Node)
 		walk = func(prefix string, n *Node) {
 			for _, c := range n.Children {

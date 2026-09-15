@@ -4,68 +4,29 @@
 package apfs
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/ironpark/zapp/pkg/macfs"
 )
 
-// Source supplies immutable file data. Open must return exactly Size bytes.
-type Source interface {
-	Size() int64
-	Open() (io.ReadCloser, error)
-}
-
-type byteSource []byte
-
-func (b byteSource) Size() int64                  { return int64(len(b)) }
-func (b byteSource) Open() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(b)), nil }
+// The tree written to an image is the shared one from pkg/macfs; these
+// aliases let callers name it without importing both packages.
+type (
+	Source = macfs.Source
+	Node   = macfs.Node
+)
 
 // Bytes wraps b without copying it; do not modify b until writing has finished.
-func Bytes(b []byte) Source { return byteSource(b) }
-
-type fileSource struct {
-	path string
-	size int64
-}
-
-func (f fileSource) Size() int64                  { return f.size }
-func (f fileSource) Open() (io.ReadCloser, error) { return os.Open(f.path) }
+func Bytes(b []byte) Source { return macfs.Bytes(b) }
 
 // FromFile captures the size of a regular file without reading its contents.
-func FromFile(path string) (Source, error) {
-	i, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !i.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file", path)
-	}
-	return fileSource{path, i.Size()}, nil
-}
-
-// Node is a directory, regular file, or symbolic link. ID is assigned before
-// layout, allowing Finder metadata to refer to files before the image exists.
-type Node struct {
-	Name         string
-	Mode         fs.FileMode
-	ModTime      time.Time
-	FinderInfo   [32]byte
-	Data         Source
-	ResourceFork Source
-	LinkTarget   string
-	Children     []*Node
-	ID           uint64
-}
-
-func (n *Node) IsDir() bool     { return n.Mode.IsDir() }
-func (n *Node) IsSymlink() bool { return n.Mode&fs.ModeSymlink != 0 }
+func FromFile(path string) (Source, error) { return macfs.FromFile(path) }
 
 // Volume describes a single APFS volume. Names are normalization insensitive
 // in both modes. The default also ignores case, as macOS normally does.
@@ -164,8 +125,10 @@ func Plan(ctx context.Context, v Volume) (*Image, error) {
 	if v.Created.IsZero() {
 		v.Created = time.Now()
 	}
-	if err := assignIDs(ctx, &v); err != nil {
-		return nil, err
+	if v.Root == nil || v.Root.ID == 0 {
+		if err := assignIDs(ctx, &v); err != nil {
+			return nil, err
+		}
 	}
 	l, err := planVolume(ctx, v)
 	if err != nil {

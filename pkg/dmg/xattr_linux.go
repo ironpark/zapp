@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/ironpark/zapp/pkg/macfs"
 )
 
 // Linux keeps extended attributes written by unprivileged processes in the
@@ -34,7 +36,7 @@ func getSourceXattr(path, name string, buf []byte) (int, error) {
 	return unix.Lgetxattr(path, linuxAttrPrefix+name, buf)
 }
 
-func sourceResourceFork(path string, size int) (imageSource, error) {
+func sourceResourceFork(path string, size int) (macfs.Source, error) {
 	// Linux xattrs are bounded by the filesystem's small attribute limit;
 	// unlike macOS named forks, they cannot be opened as a byte stream.
 	b := make([]byte, size)
@@ -42,7 +44,7 @@ func sourceResourceFork(path string, size int) (imageSource, error) {
 	if err != nil {
 		return nil, err
 	}
-	return imageBytes(b[:n]), nil
+	return macfs.Bytes(b[:n]), nil
 }
 
 func setXattr(path, name string, data []byte) error {

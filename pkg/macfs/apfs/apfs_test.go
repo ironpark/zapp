@@ -145,7 +145,7 @@ func TestMountedFiles(t *testing.T) {
 
 func TestLargeDirectory(t *testing.T) {
 	v := testVolume()
-	for i := 0; i < 12000; i++ {
+	for i := range 12000 {
 		v.Root.Children = append(v.Root.Children, &Node{Name: fmt.Sprintf("file-%05d", i), Mode: 0644, Data: Bytes([]byte(fmt.Sprintf("payload-%d", i)))})
 	}
 	path, image := writeTestImage(t, v)

@@ -56,7 +56,7 @@ func (e *Encoder) findMatches() {
 	// of the end and the tail is emitted as literals.
 	end := len(src) - 8
 
-	for pos := 0; pos < end; pos++ {
+	for pos := range end {
 		x := binary.LittleEndian.Uint32(src[pos:])
 		line := &e.history[hash4(x)]
 
