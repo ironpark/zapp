@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Options are the credentials Apple's tools take. The certificate comes from
@@ -30,40 +31,60 @@ type Options struct {
 // Backend signs with Apple's tools.
 type Backend struct {
 	opts Options
+
+	// mu guards resolved, which caches the keychain lookup so that describing
+	// and then signing an artifact does not enumerate the keychain twice.
+	mu       sync.Mutex
+	resolved map[string]Identity
 }
 
 // New returns a backend that signs with the given credentials.
-func New(opts Options) *Backend { return &Backend{opts: opts} }
+func New(opts Options) *Backend {
+	return &Backend{opts: opts, resolved: map[string]Identity{}}
+}
 
 func (b *Backend) Name() string { return "Apple codesign" }
 
-// wantedIdentity is the identity description to look for when signing path. An
-// installer is signed by a different kind of certificate than an app.
-func (b *Backend) wantedIdentity(path string) string {
+// wantedIdentity is the identity description to look for when signing an
+// artifact with the given extension. An installer is signed by a different kind
+// of certificate than an app.
+func (b *Backend) wantedIdentity(ext string) string {
 	if b.opts.Identity != "" {
 		return b.opts.Identity
 	}
-	if strings.EqualFold(filepath.Ext(path), ".pkg") {
+	if ext == ".pkg" {
 		return "Developer ID Installer"
 	}
 	return "Developer ID Application"
 }
 
+// extOf normalises an artifact's extension, which is what both the identity
+// choice and the choice of signing tool turn on.
+func extOf(path string) string { return strings.ToLower(filepath.Ext(path)) }
+
 // Describe reports the keychain identity that would be used, masked so it is
 // safe to log.
 func (b *Backend) Describe(ctx context.Context, path string) (string, error) {
-	identity, err := b.identity(ctx, path)
+	identity, err := b.identity(ctx, extOf(path))
 	if err != nil {
 		return "", err
 	}
 	return identity.SecureString(), nil
 }
 
-// identity finds the keychain identity to sign path with.
-func (b *Backend) identity(ctx context.Context, path string) (Identity, error) {
-	want := b.wantedIdentity(path)
+// identity finds the keychain identity to sign an artifact of the given
+// extension with. The result is cached: a signing run describes the identity
+// before using it, and enumerating the keychain means a subprocess each time.
+func (b *Backend) identity(ctx context.Context, ext string) (Identity, error) {
+	want := b.wantedIdentity(ext)
 
-	identities, err := listIdentities(ctx, "")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if identity, ok := b.resolved[want]; ok {
+		return identity, nil
+	}
+
+	identities, err := listIdentities(ctx)
 	if err != nil {
 		return Identity{}, err
 	}
@@ -72,6 +93,7 @@ func (b *Backend) identity(ctx context.Context, path string) (Identity, error) {
 	}
 	for _, identity := range identities {
 		if strings.Contains(identity.String(), want) {
+			b.resolved[want] = identity
 			return identity, nil
 		}
 	}
@@ -81,11 +103,12 @@ func (b *Backend) identity(ctx context.Context, path string) (Identity, error) {
 // Sign signs with the tool that suits the artifact: an installer package is
 // signed by productsign, everything else by codesign.
 func (b *Backend) Sign(ctx context.Context, path string) error {
-	identity, err := b.identity(ctx, path)
+	ext := extOf(path)
+	identity, err := b.identity(ctx, ext)
 	if err != nil {
 		return err
 	}
-	switch strings.ToLower(filepath.Ext(path)) {
+	switch ext {
 	case ".pkg":
 		return runProductsign(ctx, path, identity.String())
 	case ".app", ".dmg":

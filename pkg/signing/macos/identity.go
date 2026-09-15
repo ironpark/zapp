@@ -51,12 +51,8 @@ func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
-func listIdentities(ctx context.Context, keychain string) ([]Identity, error) {
-	args := []string{"find-identity", "-v"}
-	if keychain != "" {
-		args = append(args, "-k", keychain)
-	}
-	output, err := macexec.Run(ctx, "security", args...)
+func listIdentities(ctx context.Context) ([]Identity, error) {
+	output, err := macexec.Run(ctx, "security", "find-identity", "-v")
 	if err != nil {
 		return nil, err
 	}

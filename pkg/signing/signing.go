@@ -48,10 +48,23 @@ type Credentials struct {
 	APIKeyFile string
 }
 
+// rcodesignOptions is the subset of the credentials rcodesign understands. It
+// is the one place that knows how they map across.
+func (c Credentials) rcodesignOptions() rcodesign.Options {
+	return rcodesign.Options{
+		P12File:         c.P12File,
+		P12Password:     c.P12Password,
+		P12PasswordFile: c.P12PasswordFile,
+		PEMFile:         c.PEMFile,
+		APIKeyFile:      c.APIKeyFile,
+	}
+}
+
 // namesCertificateFile reports whether the caller supplied file-based
 // credentials, which only rcodesign can use.
 func (c Credentials) namesCertificateFile() bool {
-	return c.P12File != "" || c.PEMFile != "" || c.APIKeyFile != ""
+	opts := c.rcodesignOptions()
+	return opts.Configured() || opts.APIKeyFile != ""
 }
 
 // Backend signs, notarizes and staples through one toolchain. A backend is
@@ -78,16 +91,16 @@ type Backend interface {
 // whatever the platform, since Apple's codesign cannot read one; that is how a
 // macOS build machine with no usable keychain, such as a CI runner, signs.
 func Select(creds Credentials) (Backend, error) {
-	if runtime.GOOS == "darwin" && !creds.namesCertificateFile() {
-		return macos.New(macos.Options{
-			Identity: creds.Identity,
-			Profile:  creds.Profile,
-			AppleID:  creds.AppleID,
-			Password: creds.Password,
-			TeamID:   creds.TeamID,
-		}), nil
-	}
 	if !creds.namesCertificateFile() {
+		if runtime.GOOS == "darwin" {
+			return macos.New(macos.Options{
+				Identity: creds.Identity,
+				Profile:  creds.Profile,
+				AppleID:  creds.AppleID,
+				Password: creds.Password,
+				TeamID:   creds.TeamID,
+			}), nil
+		}
 		return nil, fmt.Errorf("signing away from macOS needs a certificate file, "+
 			"because there is no keychain to take an identity from: "+
 			"pass --p12-file or --pem-file (running on %s)", runtime.GOOS)
@@ -95,13 +108,7 @@ func Select(creds Credentials) (Backend, error) {
 	if err := rcodesign.Available(); err != nil {
 		return nil, err
 	}
-	return rcodesign.New(rcodesign.Options{
-		P12File:         creds.P12File,
-		P12Password:     creds.P12Password,
-		P12PasswordFile: creds.P12PasswordFile,
-		PEMFile:         creds.PEMFile,
-		APIKeyFile:      creds.APIKeyFile,
-	}), nil
+	return rcodesign.New(creds.rcodesignOptions()), nil
 }
 
 // Notarize submits path and, if asked, staples the resulting ticket.

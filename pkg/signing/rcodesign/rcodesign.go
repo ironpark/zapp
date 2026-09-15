@@ -19,6 +19,10 @@ const Tool = "rcodesign"
 // ErrNotInstalled is returned when rcodesign is not on PATH.
 var ErrNotInstalled = errors.New("rcodesign is not installed")
 
+// errNoCertificate is returned when no signing certificate was named. rcodesign
+// would sign ad-hoc instead, which is rarely what a release build wants.
+var errNoCertificate = errors.New("no signing certificate was given; pass --p12-file or --pem-file")
+
 // Options are the credentials rcodesign takes. It has no keychain to consult,
 // so the certificate is named by file, and it reaches the notary service
 // directly, so it authenticates with an App Store Connect API key.
@@ -76,14 +80,13 @@ func (b *Backend) Name() string { return Tool }
 
 // Describe reports the certificate file that will be used.
 func (b *Backend) Describe(context.Context, string) (string, error) {
-	switch {
-	case b.opts.P12File != "":
-		return b.opts.P12File, nil
-	case b.opts.PEMFile != "":
-		return b.opts.PEMFile, nil
-	default:
-		return "", errors.New("no signing certificate was given; pass --p12-file or --pem-file")
+	if !b.opts.Configured() {
+		return "", errNoCertificate
 	}
+	if b.opts.P12File != "" {
+		return b.opts.P12File, nil
+	}
+	return b.opts.PEMFile, nil
 }
 
 // Sign signs the artifact at path in place. rcodesign handles Mach-O binaries,
@@ -94,7 +97,7 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 		return errors.New("a target path is required")
 	}
 	if !b.opts.Configured() {
-		return errors.New("no signing certificate was given; pass --p12-file or --pem-file")
+		return errNoCertificate
 	}
 
 	args := append([]string{"sign"}, b.opts.args()...)
