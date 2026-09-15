@@ -12,7 +12,7 @@ import (
 
 // MarshalBinary renders a value as a binary property list ("bplist00"), the
 // format Finder expects for the plist blobs stored inside a .DS_Store.
-func MarshalBinary(value interface{}) ([]byte, error) {
+func MarshalBinary(value any) ([]byte, error) {
 	w := &bplistWriter{scalars: map[string]uint64{}}
 	root, err := w.add(value)
 	if err != nil {
@@ -49,14 +49,14 @@ func MarshalBinary(value interface{}) ([]byte, error) {
 }
 
 type bplistWriter struct {
-	objects []interface{}
+	objects []any
 	// scalars maps an immutable value to the object that already encodes it,
 	// so repeated keys and numbers are stored once.
 	scalars map[string]uint64
 }
 
 // add flattens a value into the object table and returns its reference.
-func (w *bplistWriter) add(value interface{}) (uint64, error) {
+func (w *bplistWriter) add(value any) (uint64, error) {
 	switch v := value.(type) {
 	case nil:
 		return 0, fmt.Errorf("nil is not representable in a property list")
@@ -70,7 +70,7 @@ func (w *bplistWriter) add(value interface{}) (uint64, error) {
 		return ref, nil
 	case []byte, time.Time:
 		return w.append(v), nil
-	case []interface{}:
+	case []any:
 		ref := w.append(v)
 		refs := make([]uint64, len(v))
 		for i, item := range v {
@@ -82,7 +82,7 @@ func (w *bplistWriter) add(value interface{}) (uint64, error) {
 		}
 		w.objects[ref] = bplistArray{refs: refs}
 		return ref, nil
-	case map[string]interface{}:
+	case map[string]any:
 		ref := w.append(v)
 		keys := make([]string, 0, len(v))
 		for k := range v {
@@ -108,7 +108,7 @@ func (w *bplistWriter) add(value interface{}) (uint64, error) {
 	}
 }
 
-func (w *bplistWriter) append(value interface{}) uint64 {
+func (w *bplistWriter) append(value any) uint64 {
 	w.objects = append(w.objects, value)
 	return uint64(len(w.objects) - 1)
 }
@@ -119,7 +119,7 @@ type bplistArray struct{ refs []uint64 }
 
 type bplistDict struct{ keys, values []uint64 }
 
-func (w *bplistWriter) encode(buf *bytes.Buffer, value interface{}, refSize uint8) error {
+func (w *bplistWriter) encode(buf *bytes.Buffer, value any, refSize uint8) error {
 	switch v := value.(type) {
 	case bool:
 		if v {
@@ -232,7 +232,7 @@ func isASCII(s string) bool {
 	return true
 }
 
-func toInt64(v interface{}) int64 {
+func toInt64(v any) int64 {
 	switch n := v.(type) {
 	case int:
 		return int64(n)
@@ -248,7 +248,7 @@ func toInt64(v interface{}) int64 {
 	return 0
 }
 
-func toUint64(v interface{}) uint64 {
+func toUint64(v any) uint64 {
 	switch n := v.(type) {
 	case uint:
 		return uint64(n)

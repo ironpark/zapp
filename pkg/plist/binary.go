@@ -31,7 +31,7 @@ func isBinary(data []byte) bool {
 	return len(data) >= len(bplistMagic) && string(data[:len(bplistMagic)]) == bplistMagic
 }
 
-func parseBinary(data []byte) (interface{}, error) {
+func parseBinary(data []byte) (any, error) {
 	if len(data) < len(bplistMagic)+bplistTrailerLen {
 		return nil, fmt.Errorf("binary plist is too short")
 	}
@@ -75,7 +75,7 @@ func beUint(b []byte) uint64 {
 	return n
 }
 
-func (r *bplistReader) object(ref uint64) (interface{}, error) {
+func (r *bplistReader) object(ref uint64) (any, error) {
 	if ref >= uint64(len(r.offsets)) {
 		return nil, fmt.Errorf("binary plist object reference %d is out of range", ref)
 	}
@@ -201,7 +201,7 @@ func (r *bplistReader) object(ref uint64) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		array := make([]interface{}, n)
+		array := make([]any, n)
 		for i, ref := range refs {
 			if array[i], err = r.object(ref); err != nil {
 				return nil, err
@@ -222,7 +222,7 @@ func (r *bplistReader) object(ref uint64) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		dict := make(map[string]interface{}, n)
+		dict := make(map[string]any, n)
 		for i := range keyRefs {
 			key, err := r.object(keyRefs[i])
 			if err != nil {

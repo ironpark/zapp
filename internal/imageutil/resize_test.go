@@ -9,8 +9,8 @@ import (
 
 func solid(w, h int, c color.RGBA) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			img.SetRGBA(x, y, c)
 		}
 	}
@@ -30,8 +30,8 @@ func TestSolidColorIsPreserved(t *testing.T) {
 	want := color.RGBA{10, 200, 90, 255}
 	for _, size := range []int{1, 7, 64, 129, 512} {
 		out := Resize(solid(97, 61, want), size, size)
-		for y := 0; y < size; y++ {
-			for x := 0; x < size; x++ {
+		for y := range size {
+			for x := range size {
 				if got := out.RGBAAt(x, y); got != want {
 					t.Fatalf("size %d, pixel (%d,%d) = %v, want %v", size, x, y, got, want)
 				}
@@ -69,8 +69,8 @@ func TestUpscaleKeepsCorners(t *testing.T) {
 // resize would return one of the two source colors instead of their mean.
 func TestDownscaleAverages(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 256, 256))
-	for y := 0; y < 256; y++ {
-		for x := 0; x < 256; x++ {
+	for y := range 256 {
+		for x := range 256 {
 			if (x+y)%2 == 0 {
 				src.SetRGBA(x, y, color.RGBA{0, 0, 0, 255})
 			} else {
@@ -79,8 +79,8 @@ func TestDownscaleAverages(t *testing.T) {
 		}
 	}
 	out := Resize(src, 16, 16)
-	for y := 0; y < 16; y++ {
-		for x := 0; x < 16; x++ {
+	for y := range 16 {
+		for x := range 16 {
 			got := out.RGBAAt(x, y)
 			if math.Abs(float64(got.R)-127.5) > 4 || got.A != 255 {
 				t.Fatalf("pixel (%d,%d) = %v, want a mid gray", x, y, got)
@@ -93,8 +93,8 @@ func TestDownscaleAverages(t *testing.T) {
 // premultiplied pixel must never exceed its alpha.
 func TestAlphaStaysPremultiplied(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 128, 128))
-	for y := 0; y < 128; y++ {
-		for x := 0; x < 128; x++ {
+	for y := range 128 {
+		for x := range 128 {
 			if x < 64 {
 				src.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
 			} else {
@@ -103,8 +103,8 @@ func TestAlphaStaysPremultiplied(t *testing.T) {
 		}
 	}
 	out := Resize(src, 32, 32)
-	for y := 0; y < 32; y++ {
-		for x := 0; x < 32; x++ {
+	for y := range 32 {
+		for x := range 32 {
 			p := out.RGBAAt(x, y)
 			if p.R > p.A || p.G > p.A || p.B > p.A {
 				t.Fatalf("pixel (%d,%d) = %v is not premultiplied", x, y, p)

@@ -49,7 +49,7 @@ func GetID(ctx context.Context, file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		line = strings.TrimSpace(line)
 		// otool prints a "<path>:" header per file and per architecture.
 		if line == "" || strings.HasSuffix(line, ":") {
@@ -72,7 +72,7 @@ func GetRPaths(ctx context.Context, file string) ([]string, error) {
 func parseOtoolOutput(output, id string) []string {
 	dependencies := make([]string, 0, 8)
 	seen := map[string]bool{}
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if !strings.Contains(line, "(compatibility version") {
 			continue
 		}
@@ -91,7 +91,7 @@ func parseOtoolOutput(output, id string) []string {
 func parseRPaths(output string) []string {
 	rpaths := make([]string, 0, 4)
 	inRPath := false
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 2 || fields[0] != "cmd" && fields[0] != "path" {
 			continue

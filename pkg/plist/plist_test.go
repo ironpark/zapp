@@ -11,7 +11,7 @@ import (
 	"github.com/ironpark/zapp/pkg/plist"
 )
 
-var sample = map[string]interface{}{
+var sample = map[string]any{
 	"CFBundleName":    "Zäpp ✨",
 	"CFBundleVersion": "1.0",
 	"count":           int64(42),
@@ -22,8 +22,8 @@ var sample = map[string]interface{}{
 	"ratio":           1.5,
 	"blob":            []byte{0, 1, 2, 3, 250},
 	"when":            time.Date(2020, 3, 4, 5, 6, 7, 0, time.UTC),
-	"list":            []interface{}{"a", int64(1), map[string]interface{}{"k": "v"}},
-	"empty":           map[string]interface{}{},
+	"list":            []any{"a", int64(1), map[string]any{"k": "v"}},
+	"empty":           map[string]any{},
 	"long":            "0123456789012345678901234567890123456789",
 }
 

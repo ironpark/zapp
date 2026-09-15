@@ -54,8 +54,8 @@ func fakeAppBundle(t *testing.T, dir, name string) string {
 func fakeBackground(t *testing.T, path string) string {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
-	for x := 0; x < 640; x++ {
-		for y := 0; y < 480; y++ {
+	for x := range 640 {
+		for y := range 480 {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
 		}
 	}

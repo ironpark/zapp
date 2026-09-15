@@ -67,8 +67,7 @@ func Run(ctx context.Context, name string, args ...string) (string, error) {
 // empty string for any other error. It lets callers match on tool diagnostics
 // without depending on how the error was wrapped.
 func Output(err error) string {
-	var cmdErr *Error
-	if errors.As(err, &cmdErr) {
+	if cmdErr, ok := errors.AsType[*Error](err); ok {
 		return cmdErr.Output()
 	}
 	return ""

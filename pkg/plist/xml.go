@@ -24,7 +24,7 @@ const (
 )
 
 // parseXML decodes an XML property list into Go values.
-func parseXML(data []byte) (interface{}, error) {
+func parseXML(data []byte) (any, error) {
 	dec := xml.NewDecoder(strings.NewReader(string(data)))
 	// Property lists reference an external DTD that we neither fetch nor need.
 	dec.Strict = false
@@ -55,8 +55,8 @@ func parseXML(data []byte) (interface{}, error) {
 }
 
 // parseXMLPlistBody reads the single object contained in a <plist> element.
-func parseXMLPlistBody(dec *xml.Decoder) (interface{}, error) {
-	var value interface{}
+func parseXMLPlistBody(dec *xml.Decoder) (any, error) {
+	var value any
 	seen := false
 	for {
 		tok, err := dec.Token()
@@ -82,7 +82,7 @@ func parseXMLPlistBody(dec *xml.Decoder) (interface{}, error) {
 	}
 }
 
-func parseXMLElement(dec *xml.Decoder, start xml.StartElement) (interface{}, error) {
+func parseXMLElement(dec *xml.Decoder, start xml.StartElement) (any, error) {
 	switch start.Name.Local {
 	case "dict":
 		return parseXMLDict(dec, start)
@@ -147,8 +147,8 @@ func parseXMLElement(dec *xml.Decoder, start xml.StartElement) (interface{}, err
 	}
 }
 
-func parseXMLDict(dec *xml.Decoder, start xml.StartElement) (map[string]interface{}, error) {
-	dict := map[string]interface{}{}
+func parseXMLDict(dec *xml.Decoder, start xml.StartElement) (map[string]any, error) {
+	dict := map[string]any{}
 	var key string
 	haveKey := false
 	for {
@@ -187,8 +187,8 @@ func parseXMLDict(dec *xml.Decoder, start xml.StartElement) (map[string]interfac
 	}
 }
 
-func parseXMLArray(dec *xml.Decoder, start xml.StartElement) ([]interface{}, error) {
-	array := []interface{}{}
+func parseXMLArray(dec *xml.Decoder, start xml.StartElement) ([]any, error) {
+	array := []any{}
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -239,7 +239,7 @@ func stripSpace(s string) string {
 // marshalXML renders a value as an XML property list in the layout used by
 // CFPropertyList: tab indentation and dictionary keys in sorted order so that
 // rewriting a file produces a stable diff.
-func marshalXML(value interface{}) ([]byte, error) {
+func marshalXML(value any) ([]byte, error) {
 	var sb strings.Builder
 	sb.WriteString(xmlHeader)
 	sb.WriteString(xmlDoctype)
@@ -251,7 +251,7 @@ func marshalXML(value interface{}) ([]byte, error) {
 	return []byte(sb.String()), nil
 }
 
-func writeXMLValue(sb *strings.Builder, value interface{}, depth int) error {
+func writeXMLValue(sb *strings.Builder, value any, depth int) error {
 	indent := strings.Repeat("\t", depth)
 	switch v := value.(type) {
 	case nil:
@@ -268,10 +268,7 @@ func writeXMLValue(sb *strings.Builder, value interface{}, depth int) error {
 		sb.WriteString(indent + "<data>\n")
 		encoded := base64.StdEncoding.EncodeToString(v)
 		for i := 0; i < len(encoded); i += 68 {
-			end := i + 68
-			if end > len(encoded) {
-				end = len(encoded)
-			}
+			end := min(i+68, len(encoded))
 			sb.WriteString(indent + encoded[i:end] + "\n")
 		}
 		sb.WriteString(indent + "</data>\n")
@@ -283,7 +280,7 @@ func writeXMLValue(sb *strings.Builder, value interface{}, depth int) error {
 		sb.WriteString(indent + "<real>" + strconv.FormatFloat(v, 'g', -1, 64) + "</real>\n")
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		sb.WriteString(indent + "<integer>" + fmt.Sprintf("%d", v) + "</integer>\n")
-	case []interface{}:
+	case []any:
 		if len(v) == 0 {
 			sb.WriteString(indent + "<array/>\n")
 			return nil
@@ -295,7 +292,7 @@ func writeXMLValue(sb *strings.Builder, value interface{}, depth int) error {
 			}
 		}
 		sb.WriteString(indent + "</array>\n")
-	case map[string]interface{}:
+	case map[string]any:
 		if len(v) == 0 {
 			sb.WriteString(indent + "<dict/>\n")
 			return nil

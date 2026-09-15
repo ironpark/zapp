@@ -18,7 +18,7 @@ import (
 //	bool    bool
 //	date    time.Time
 //	data    []byte
-func Parse(data []byte) (interface{}, error) {
+func Parse(data []byte) (any, error) {
 	if isBinary(data) {
 		return parseBinary(data)
 	}
@@ -30,12 +30,12 @@ func Parse(data []byte) (interface{}, error) {
 
 // ParseDict decodes a property list whose root object is a dictionary, which is
 // the case for Info.plist and every other file this tool reads.
-func ParseDict(data []byte) (map[string]interface{}, error) {
+func ParseDict(data []byte) (map[string]any, error) {
 	value, err := Parse(data)
 	if err != nil {
 		return nil, err
 	}
-	dict, ok := value.(map[string]interface{})
+	dict, ok := value.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("property list root is %T, not a dictionary", value)
 	}
@@ -45,6 +45,6 @@ func ParseDict(data []byte) (map[string]interface{}, error) {
 // MarshalXML renders a value as an XML property list. Property lists are
 // rewritten as XML regardless of the format they were read in, matching what
 // plutil and PlistBuddy produce by default.
-func MarshalXML(value interface{}) ([]byte, error) {
+func MarshalXML(value any) ([]byte, error) {
 	return marshalXML(value)
 }

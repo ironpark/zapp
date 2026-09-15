@@ -36,10 +36,10 @@ func findPlistPath(path string) (string, error) {
 // Info is the Info.plist of an app bundle.
 type Info struct {
 	path string
-	data map[string]interface{}
+	data map[string]any
 }
 
-func (a *Info) Get(key string) (interface{}, error) {
+func (a *Info) Get(key string) (any, error) {
 	value, ok := a.data[key]
 	if !ok {
 		return nil, fmt.Errorf("key not found")

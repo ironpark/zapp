@@ -74,7 +74,7 @@ func Detach(ctx context.Context, target string) error {
 	)
 
 	var lastErr error
-	for i := 0; i < maxRetries; i++ {
+	for range maxRetries {
 		err := runCommand(ctx, "detach", target)
 		if err == nil {
 			return nil // Success

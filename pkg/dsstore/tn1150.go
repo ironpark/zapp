@@ -52,10 +52,7 @@ var lowerCaseMap = map[rune]rune{
 }
 
 func hfsPlusFastUnicodeCompare(str1, str2 string) int {
-	minLen := len(str1)
-	if len(str2) < minLen {
-		minLen = len(str2)
-	}
+	minLen := min(len(str2), len(str1))
 
 	for i := 0; i < minLen; i++ {
 		c1 := rune(str1[i])
