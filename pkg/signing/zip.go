@@ -2,33 +2,32 @@ package signing
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-func createZip(source, target string) error {
+func createZip(source, target string) (err error) {
+	info, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
 	zipfile, err := os.Create(target)
 	if err != nil {
 		return err
 	}
-	defer zipfile.Close()
+	defer func() { err = errors.Join(err, zipfile.Close()) }()
 
 	archive := zip.NewWriter(zipfile)
-	defer archive.Close()
-
-	info, err := os.Stat(source)
-	if err != nil {
-		return nil
-	}
+	defer func() { err = errors.Join(err, archive.Close()) }()
 
 	var baseDir string
 	if info.IsDir() {
 		baseDir = filepath.Base(source)
 	}
 
-	filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -39,7 +38,11 @@ func createZip(source, target string) error {
 		}
 
 		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, source))
+			rel, err := filepath.Rel(source, path)
+			if err != nil {
+				return err
+			}
+			header.Name = filepath.ToSlash(filepath.Join(baseDir, rel))
 		}
 
 		if info.IsDir() {
@@ -61,10 +64,8 @@ func createZip(source, target string) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		_, err = io.Copy(writer, file)
 		return err
 	})
-
-	return err
 }

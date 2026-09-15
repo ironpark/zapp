@@ -28,7 +28,7 @@ var Command = &cli.Command{
 		}
 		logger := cmd.NewAppLogger(c.Root())
 		appName := filepath.Base(appDir)
-		logger.Printf("Start Creating PKG file for %s\n", appName)
+		_, _ = logger.Printf("Start Creating PKG file for %s\n", appName)
 		appName = strings.TrimSuffix(appName, ".app")
 
 		config := installer.Config{
@@ -69,13 +69,13 @@ var Command = &cli.Command{
 			config.LicensePaths[parts[0]] = parts[1]
 		}
 		if len(config.LicensePaths) == 0 {
-			logger.Println("EULA files not found.")
+			_, _ = logger.Println("EULA files not found.")
 		}
 		err = installer.CreatePKG(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to create PKG: %v", err)
 		}
-		logger.Success("PKG file created successfully!")
+		_, _ = logger.Success("PKG file created successfully!")
 		logger.PrintValue("OutputPath", config.OutputPath)
 		err = subtask.Sign(ctx, c, config.OutputPath)
 		if err != nil {

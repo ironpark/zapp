@@ -24,7 +24,9 @@ func rewriteTOC(t *testing.T, b []byte, change func(*xarDocument)) []byte {
 	if err = xml.NewDecoder(z).Decode(&d); err != nil {
 		t.Fatal(err)
 	}
-	z.Close()
+	if err := z.Close(); err != nil {
+		t.Fatal(err)
+	}
 	change(&d)
 	x, err := xml.Marshal(d)
 	if err != nil {
@@ -32,8 +34,12 @@ func rewriteTOC(t *testing.T, b []byte, change func(*xarDocument)) []byte {
 	}
 	var compressed bytes.Buffer
 	w := zlib.NewWriter(&compressed)
-	w.Write(x)
-	w.Close()
+	if _, err := w.Write(x); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
 	header := bytes.Clone(b[:28])
 	be.PutUint64(header[8:], uint64(compressed.Len()))
 	be.PutUint64(header[16:], uint64(len(x)))
@@ -69,7 +75,9 @@ func TestXARRejectsMalformedMembers(t *testing.T) {
 			put(t, p, rewriteTOC(t, b, change), 0644)
 			a, err := openXAR(context.Background(), p)
 			if err == nil {
-				a.f.Close()
+				if err := a.f.Close(); err != nil {
+					t.Fatal(err)
+				}
 				t.Fatal("accepted malformed XAR")
 			}
 		})
@@ -87,7 +95,9 @@ func TestProductRejectsDamagedPayloadAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	offset := a.heap + a.entries["Payload"].Data.Offset
-	a.f.Close()
+	if err := a.f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	f, err := os.OpenFile(c.OutputPath, os.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +110,9 @@ func TestProductRejectsDamagedPayloadAtomically(t *testing.T) {
 	if _, err = f.WriteAt(b, offset); err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	output := filepath.Join(dir, "product.pkg")
 	put(t, output, []byte("old"), 0644)
 	if err := BuildProduct(ctx, ProductConfig{OutputPath: output, Packages: []string{c.OutputPath}}); err == nil {
@@ -123,7 +135,7 @@ func FuzzOpenXAR(f *testing.F) {
 		put(t, p, b, 0644)
 		a, err := openXAR(context.Background(), p)
 		if err == nil {
-			defer a.f.Close()
+			defer func() { _ = a.f.Close() }()
 			_, _ = a.read(context.Background(), "PackageInfo", maxMetadata)
 		}
 	})

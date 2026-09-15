@@ -23,7 +23,7 @@ func runProductsign(ctx context.Context, path, identity string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	signedPath := filepath.Join(tempDir, filepath.Base(path))
 	if _, err := macexec.Run(ctx, "productsign", "--sign", identity, path, signedPath); err != nil {

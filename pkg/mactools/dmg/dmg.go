@@ -111,13 +111,12 @@ func CreateDMG(ctx context.Context, config Config, sourceDir string) error {
 	}
 
 	// Convert the DMG to read-only
-	tempFileName := "temp_" + config.FileName
 	dir, file := filepath.Split(config.FileName)
-	tempFileName = filepath.Join(dir, fmt.Sprintf("temp_%d_%s.dmg", time.Now().UnixNano(), file))
+	tempFileName := filepath.Join(dir, fmt.Sprintf("temp_%d_%s.dmg", time.Now().UnixNano(), file))
 	if err := os.Rename(config.FileName, tempFileName); err != nil {
 		return fmt.Errorf("failed to rename DMG file: %w", err)
 	}
-	defer os.Remove(tempFileName) // Ensure cleanup of temp file
+	defer func() { _ = os.Remove(tempFileName) }() // Ensure cleanup of temp file
 	if err := hdiutil.Convert(ctx, tempFileName, hdiutil.UDRO, config.FileName); err != nil {
 		return fmt.Errorf("failed to convert DMG: %w", err)
 	}
@@ -147,7 +146,7 @@ func tmpMount(ctx context.Context, dmgPath string, process func(dmgFilePath stri
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 	mountPoint := filepath.Join(tempDir, "mount")
 	if err = hdiutil.Attach(ctx, dmgPath, mountPoint); err != nil {
 		return fmt.Errorf("failed to attach DMG: %w", err)

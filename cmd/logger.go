@@ -26,9 +26,10 @@ func NewLogger(w io.Writer) *AppLogger {
 	}
 }
 
+// PrintValue emits best-effort diagnostic output, like CLI progress messages.
 func (l *AppLogger) PrintValue(key string, value any) {
 	if value != "" {
-		fmt.Fprintf(l.Writer, "       %-30s: %v\n", color.HiWhiteString(key), value)
+		_, _ = fmt.Fprintf(l.Writer, "       %-30s: %v\n", color.HiWhiteString(key), value)
 	}
 }
 

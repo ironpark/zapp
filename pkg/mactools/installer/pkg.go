@@ -38,7 +38,7 @@ func CreatePKG(ctx context.Context, config Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	componentPkgPath := filepath.Join(tempDir, "component.pkg")
 	appPath := filepath.Clean(config.AppPath)

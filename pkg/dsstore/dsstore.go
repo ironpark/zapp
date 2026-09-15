@@ -12,7 +12,7 @@ import (
 
 	"github.com/ironpark/zapp/pkg/dsstore/entry"
 
-	"golang.org/x/text/unicode/norm"
+	"github.com/ironpark/zapp/internal/thirdparty/text/unicode/norm"
 
 	_ "embed"
 )
@@ -171,7 +171,7 @@ func utf16be(str string) []byte {
 	utf16Encoded := utf16.Encode([]rune(str))
 	buffer := new(bytes.Buffer)
 	for _, r := range utf16Encoded {
-		binary.Write(buffer, binary.BigEndian, r)
+		_ = binary.Write(buffer, binary.BigEndian, r) // Fixed-width value in a bytes.Buffer; cannot fail.
 	}
 	return buffer.Bytes()
 }

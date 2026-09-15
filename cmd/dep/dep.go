@@ -63,10 +63,10 @@ var Command = &cli.Command{
 		targetBundle := filepath.Join(appDir, "Contents", "MacOS", bundleExecutable)
 		frameworksPath := filepath.Join(appDir, "Contents", "Frameworks")
 
-		logger.Printf("Start bundling dependencies for %s\n", bundleExecutable)
+		_, _ = logger.Printf("Start bundling dependencies for %s\n", bundleExecutable)
 		logger.PrintValue("Target Bundle", targetBundle)
 		logger.PrintValue("Frameworks Path", frameworksPath)
-		logger.Println("Getting dependencies")
+		_, _ = logger.Println("Getting dependencies")
 
 		dependencies, err := directDependencies(targetBundle)
 		if err != nil {
@@ -82,9 +82,9 @@ var Command = &cli.Command{
 
 		libPaths := c.StringSlice("libs")
 		if len(libPaths) == 0 {
-			logger.Println("No library path specified, using default paths")
+			_, _ = logger.Println("No library path specified, using default paths")
 		} else {
-			logger.Println("Using specified library paths first")
+			_, _ = logger.Println("Using specified library paths first")
 			for i, path := range libPaths {
 				logger.PrintValue(fmt.Sprintf("%d", i), path)
 			}
@@ -119,7 +119,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("failed to add rpath: %v", err)
 		}
 
-		logger.Printf("(%d) Dependencies bundled successfully\n", len(bundled))
+		_, _ = logger.Printf("(%d) Dependencies bundled successfully\n", len(bundled))
 		err = subtask.Sign(ctx, c, appDir)
 		if err != nil {
 			return fmt.Errorf("failed to sign: %v", err)

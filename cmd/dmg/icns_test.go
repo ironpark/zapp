@@ -22,8 +22,8 @@ func TestEmbeddedDiskIcon(t *testing.T) {
 
 func TestCreateICNS(t *testing.T) {
 	src := image.NewNRGBA(image.Rect(0, 0, 32, 32))
-	for y := 0; y < 32; y++ {
-		for x := 0; x < 32; x++ {
+	for y := range 32 {
+		for x := range 32 {
 			src.SetNRGBA(x, y, color.NRGBA{R: 200, G: 100, B: 50, A: 128})
 		}
 	}
@@ -35,7 +35,7 @@ func TestCreateICNS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	family, err := icns.Decode(file)
 	if err != nil {
 		t.Fatal(err)

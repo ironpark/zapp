@@ -123,7 +123,7 @@ func Notarize(ctx context.Context, b Backend, path string, staple bool) error {
 		if err != nil {
 			return fmt.Errorf("failed to create temp directory: %w", err)
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		submitPath = filepath.Join(tempDir, filepath.Base(path)+".zip")
 		if err := createZip(path, submitPath); err != nil {

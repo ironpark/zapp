@@ -76,7 +76,7 @@ func writeXAR(ctx context.Context, out io.Writer, work string, entries []archive
 	if err != nil {
 		return err
 	}
-	defer heap.Close()
+	defer func() { _ = heap.Close() }()
 	// Buffer the heap and track the write offset directly; both the member
 	// copies and the final spill are otherwise syscall-bound.
 	hw := bufio.NewWriterSize(heap, 1<<20)
@@ -172,7 +172,7 @@ func writeXAR(ctx context.Context, out io.Writer, work string, entries []archive
 			h := sha1.New()
 			count, copyErr := io.CopyBuffer(io.MultiWriter(hw, h), contextReader{ctx, e.r}, buf)
 			if src != nil {
-				src.Close()
+				_ = src.Close()
 			}
 			if copyErr != nil {
 				return copyErr
@@ -259,7 +259,7 @@ func openXAR(ctx context.Context, p string) (*xarArchive, error) {
 	ok := false
 	defer func() {
 		if !ok {
-			f.Close()
+			_ = f.Close()
 		}
 	}()
 	st, err := f.Stat()
@@ -286,7 +286,7 @@ func openXAR(ctx context.Context, p string) (*xarArchive, error) {
 		return nil, err
 	}
 	x, err := io.ReadAll(io.LimitReader(zr, int64(ul)+1))
-	zr.Close()
+	_ = zr.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func (a *xarArchive) read(ctx context.Context, name string, limit int64) ([]byte
 			return nil, err
 		}
 		b, err = io.ReadAll(io.LimitReader(zr, limit+1))
-		zr.Close()
+		_ = zr.Close()
 		if err != nil {
 			return nil, err
 		}

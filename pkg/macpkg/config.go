@@ -168,13 +168,13 @@ func atomicBuild(ctx context.Context, output string, build func(*os.File, string
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(work)
+	defer func() { _ = os.RemoveAll(work) }()
 	f, err := os.CreateTemp(dir, ".macpkg-*")
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
-	defer f.Close()
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
 	if err = build(f, work); err != nil {
 		return err
 	}

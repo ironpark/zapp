@@ -43,18 +43,18 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("error creating temporary directory: %w", err)
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }()
 
-		logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
+		_, _ = logger.Printf("Start Creating DMG file for %s\n", filepath.Base(appDir))
 
 		if icon == "" {
-			logger.Println("Icon file not provided")
-			logger.Println("Create dmg disk file icon using app icon")
+			_, _ = logger.Println("Icon file not provided")
+			_, _ = logger.Println("Create dmg disk file icon using app icon")
 			tempDirForIcon, err := os.MkdirTemp("", "*-zapp-dmg-icon")
 			if err != nil {
 				return fmt.Errorf("error creating temporary directory: %w", err)
 			}
-			defer os.RemoveAll(tempDirForIcon)
+			defer func() { _ = os.RemoveAll(tempDirForIcon) }()
 			icon = filepath.Join(tempDirForIcon, "icon.icns")
 			if err = createIconSet(appDir, icon, !c.Bool("use-original-icon")); err != nil {
 				return fmt.Errorf("could not derive a disk icon from %s: %w\n"+
@@ -96,12 +96,12 @@ var Command = &cli.Command{
 		logger.PrintValue("WindowWidth", windowWidth)
 		logger.PrintValue("WindowHeight", windowHeight)
 		logger.PrintValue("Background", background)
-		logger.Println("Creating DMG file...")
+		_, _ = logger.Println("Creating DMG file...")
 		err = dmg.CreateDMG(ctx, defaultConfig, tempDir)
 		if err != nil {
 			return err
 		}
-		logger.Success("DMG file created successfully!")
+		_, _ = logger.Success("DMG file created successfully!")
 		err = subtask.Sign(ctx, c, out)
 		if err != nil {
 			return fmt.Errorf("failed to sign DMG: %w", err)

@@ -70,7 +70,7 @@ func (f *ICNS) decodeImage(e Element) (image.Image, error) {
 			if len(mask.Data) != n/4 {
 				return nil, fmt.Errorf("%w: %q mask length", ErrFormat, mask.Type)
 			}
-			for i := 0; i < n; i++ {
+			for i := range n {
 				img.Pix[4*i+3] = 255 * ((mask.Data[n/8+i/8] >> uint(7-i%8)) & 1)
 			}
 		}
@@ -104,13 +104,13 @@ func decodePixels(e Element, s format) (*image.NRGBA, bool, error) {
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, s.w, s.h))
 	n := s.w * s.h
-	for i := 0; i < n; i++ {
+	for i := range n {
 		img.Pix[4*i+3] = 255
 	}
 	if s.kind >= rgb && bytes.HasPrefix(data, []byte("ARGB")) {
 		rest, err := decodeChannels(data[4:], img, []int{3, 0, 1, 2})
 		// A trailing NUL is Apple's ARM renderer workaround.
-		if err == nil && len(rest) > 0 && !(len(rest) == 1 && rest[0] == 0) {
+		if err == nil && len(rest) > 0 && (len(rest) != 1 || rest[0] != 0) {
 			err = fmt.Errorf("%w: trailing ARGB data", ErrFormat)
 		}
 		return img, true, err
@@ -126,7 +126,7 @@ func decodePixels(e Element, s format) (*image.NRGBA, bool, error) {
 			data = data[4:]
 		}
 		if len(data) == n*4 {
-			for i := 0; i < n; i++ {
+			for i := range n {
 				copy(img.Pix[4*i:4*i+3], data[4*i+1:4*i+4])
 			}
 		} else {
@@ -146,7 +146,7 @@ func decodePixels(e Element, s format) (*image.NRGBA, bool, error) {
 		if len(data) != want {
 			return nil, false, fmt.Errorf("%w: mono length", ErrFormat)
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			v := 255 * (1 - ((data[i/8] >> uint(7-i%8)) & 1))
 			img.Pix[4*i], img.Pix[4*i+1], img.Pix[4*i+2] = v, v, v
 			if s.kind == monoAlpha {
@@ -163,7 +163,7 @@ func decodePixels(e Element, s format) (*image.NRGBA, bool, error) {
 		if len(data) != want {
 			return nil, false, fmt.Errorf("%w: indexed length", ErrFormat)
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			var index byte
 			if s.kind == indexed4 {
 				index = (data[i/2] >> uint(4*(1-i%2))) & 15
@@ -246,7 +246,7 @@ func encodeImage(typ string, src image.Image) ([]Element, error) {
 			size *= 2
 		}
 		data = make([]byte, size)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			c := img.NRGBAAt(i%s.w, i/s.w)
 			// Convert straight RGB to luminance, independently of alpha.
 			if (299*int(c.R) + 587*int(c.G) + 114*int(c.B)) < 128000 {
@@ -264,7 +264,7 @@ func encodeImage(typ string, src image.Image) ([]Element, error) {
 			palette = palette16
 		}
 		data = make([]byte, size)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			c := img.NRGBAAt(i%s.w, i/s.w)
 			c.A = 255
 			index := byte(palette.Index(c))

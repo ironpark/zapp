@@ -88,7 +88,7 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 		return err
 	}
 
-	logger.Println("Start signing")
+	_, _ = logger.Println("Start signing")
 	logger.PrintValue("Target", target)
 	logger.PrintValue("Toolchain", backend.Name())
 
@@ -103,6 +103,6 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 	if err := backend.Sign(ctx, target); err != nil {
 		return err
 	}
-	logger.Success("%s signed successfully!", target)
+	_, _ = logger.Success("%s signed successfully!", target)
 	return nil
 }

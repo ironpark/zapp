@@ -55,7 +55,7 @@ func readCPIO(t *testing.T, r io.Reader) []cpioRecord {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer z.Close()
+	defer func() { _ = z.Close() }()
 	var out []cpioRecord
 	for {
 		h := make([]byte, 76)
@@ -103,7 +103,7 @@ func TestComponent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.f.Close()
+	defer func() { _ = a.f.Close() }()
 	b, err := a.read(context.Background(), "PackageInfo", maxMetadata)
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestProductAndScripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.f.Close()
+	defer func() { _ = a.f.Close() }()
 	b, err := a.read(ctx, "Distribution", maxMetadata)
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +243,12 @@ func TestFailuresKeepOutput(t *testing.T) {
 	if err := BuildComponent(context.Background(), c); err == nil {
 		t.Fatal("accepted missing root entry")
 	}
-	if err := atomicBuild(context.Background(), c.OutputPath, func(f *os.File, _ string) error { f.Write([]byte("partial")); return io.ErrClosedPipe }); !errors.Is(err, io.ErrClosedPipe) {
+	if err := atomicBuild(context.Background(), c.OutputPath, func(f *os.File, _ string) error {
+		if _, err := f.Write([]byte("partial")); err != nil {
+			return err
+		}
+		return io.ErrClosedPipe
+	}); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(c.OutputPath)
@@ -254,7 +259,7 @@ func TestFailuresKeepOutput(t *testing.T) {
 
 func TestChecksumsAndBounds(t *testing.T) {
 	s := &posixSum{}
-	s.Write([]byte("hello"))
+	_, _ = s.Write([]byte("hello")) // posixSum.Write cannot fail.
 	if s.Sum32() != 3287646509 {
 		t.Fatalf("cksum = %d", s.Sum32())
 	}
@@ -291,7 +296,9 @@ func TestChecksumsAndBounds(t *testing.T) {
 			put(t, p, bad, 0644)
 			a, err := openXAR(context.Background(), p)
 			if err == nil {
-				a.f.Close()
+				if err := a.f.Close(); err != nil {
+					t.Fatal(err)
+				}
 				t.Fatal("accepted corrupt archive")
 			}
 		})
@@ -377,7 +384,7 @@ func TestLargeModeSmallPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.f.Close()
+	defer func() { _ = a.f.Close() }()
 	if a.entries["LargeSegmentedPayload"] == nil {
 		t.Fatal("large member missing")
 	}
@@ -410,7 +417,7 @@ func TestRootEntryAndTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.f.Close()
+	defer func() { _ = a.f.Close() }()
 	b, err := a.read(context.Background(), "Payload", maxMetadata)
 	if err != nil {
 		t.Fatal(err)

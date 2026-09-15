@@ -31,7 +31,11 @@ func TestInstallInDisposableVM(t *testing.T) {
 	scripts := filepath.Join(dir, "scripts")
 	installed := filepath.Join(dir, "installed")
 	id := fmt.Sprintf("dev.zapp.install-test.%d", time.Now().UnixNano())
-	defer exec.Command("pkgutil", "--forget", id).Run()
+	defer func() {
+		if err := exec.Command("pkgutil", "--forget", id).Run(); err != nil {
+			t.Error(err)
+		}
+	}()
 	put(t, filepath.Join(scripts, "preinstall"), []byte("#!/bin/sh\nmkdir -p \"$2\"\nprintf pre > \"$2/preinstall-ran\"\n"), 0755)
 	put(t, filepath.Join(scripts, "postinstall"), []byte("#!/bin/sh\nprintf post > \"$2/postinstall-ran\"\n"), 0755)
 	put(t, filepath.Join(app, "Contents", "old"), []byte("remove on upgrade"), 0644)

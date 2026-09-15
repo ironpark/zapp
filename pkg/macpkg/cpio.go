@@ -71,7 +71,7 @@ func writeRegular(ctx context.Context, w io.Writer, e *fileEntry, name string, c
 	if err != nil {
 		return 0, err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	st, err := in.Stat()
 	if err != nil {
 		return 0, err
@@ -81,7 +81,7 @@ func writeRegular(ctx context.Context, w io.Writer, e *fileEntry, name string, c
 	}
 	sum := &posixSum{}
 	remaining := e.size
-	for c := int64(0); c < chunks; c++ {
+	for c := range chunks {
 		size := remaining
 		if large && size > segmentSize {
 			size = segmentSize
@@ -112,7 +112,7 @@ func writePayload(ctx context.Context, dest string, entries []fileEntry, large b
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	// flate flushes its bit-writer every few hundred bytes; buffer to keep the
 	// payload from turning into millions of tiny writes.
 	bw := bufio.NewWriterSize(f, 1<<20)
@@ -155,7 +155,7 @@ func writePayload(ctx context.Context, dest string, entries []fileEntry, large b
 			}
 			if e.link != "" {
 				s := posixSum{}
-				s.Write([]byte(e.link))
+				_, _ = s.Write([]byte(e.link)) // posixSum.Write cannot fail.
 				e.checksum = s.Sum32()
 			}
 			continue

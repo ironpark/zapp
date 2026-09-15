@@ -191,7 +191,7 @@ func BuildComponent(ctx context.Context, c ComponentConfig) error {
 		var staged []*os.File
 		defer func() {
 			for _, f := range staged {
-				f.Close()
+				_ = f.Close()
 			}
 		}()
 		// stage compresses a payload into the work dir and keeps it open for writeXAR.
@@ -268,7 +268,7 @@ func readMetadata(p string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(io.LimitReader(f, maxMetadata+1))
 	if err != nil {
 		return nil, err

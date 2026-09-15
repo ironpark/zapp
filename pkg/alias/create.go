@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"unicode/utf16"
 )
@@ -138,7 +139,8 @@ func Create(targetPath, volumeName string) ([]byte, error) {
 	})
 
 	// Add Type 18
-	if !filepath.HasPrefix(targetPath, volumePath) {
+	rel, err := filepath.Rel(volumePath, targetPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return nil, errors.New("target path is not within volume path")
 	}
 	localPath := targetPath[len(volumePath):]

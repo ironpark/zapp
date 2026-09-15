@@ -1,10 +1,6 @@
 package entry
 
 import (
-	"bytes"
-	"encoding/binary"
-	"unicode/utf16"
-
 	"github.com/ironpark/zapp/pkg/alias"
 	"github.com/ironpark/zapp/pkg/plist"
 )
@@ -109,14 +105,4 @@ func NewIconViewPreferencesEntry(iconSize float64) *IconViewPreferencesEntry {
 		ArrangeBy:            "none",
 		BackgroundImageAlias: nil,
 	}
-}
-
-// utf16be converts a string to a big-endian UTF-16 byte slice.
-func utf16be(str string) []byte {
-	utf16Encoded := utf16.Encode([]rune(str))
-	buffer := new(bytes.Buffer)
-	for _, r := range utf16Encoded {
-		binary.Write(buffer, binary.BigEndian, r)
-	}
-	return buffer.Bytes()
 }

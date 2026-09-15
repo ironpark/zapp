@@ -133,14 +133,14 @@ func (w *bplistWriter) encode(buf *bytes.Buffer, value any, refSize uint8) error
 		writeBInt(buf, int64(toUint64(v)))
 	case float32:
 		buf.WriteByte(0x22)
-		binary.Write(buf, binary.BigEndian, math.Float32bits(v))
+		_ = binary.Write(buf, binary.BigEndian, math.Float32bits(v)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	case float64:
 		buf.WriteByte(0x23)
-		binary.Write(buf, binary.BigEndian, math.Float64bits(v))
+		_ = binary.Write(buf, binary.BigEndian, math.Float64bits(v)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	case time.Time:
 		buf.WriteByte(0x33)
 		secs := float64(v.UTC().UnixNano())/float64(time.Second) - appleEpochOffset
-		binary.Write(buf, binary.BigEndian, math.Float64bits(secs))
+		_ = binary.Write(buf, binary.BigEndian, math.Float64bits(secs)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	case []byte:
 		writeMarker(buf, 0x4, uint64(len(v)))
 		buf.Write(v)
@@ -153,7 +153,7 @@ func (w *bplistWriter) encode(buf *bytes.Buffer, value any, refSize uint8) error
 		units := utf16.Encode([]rune(v))
 		writeMarker(buf, 0x6, uint64(len(units)))
 		for _, u := range units {
-			binary.Write(buf, binary.BigEndian, u)
+			_ = binary.Write(buf, binary.BigEndian, u) // Fixed-width value in a bytes.Buffer; cannot fail.
 		}
 	case bplistArray:
 		writeMarker(buf, 0xa, uint64(len(v.refs)))
@@ -192,14 +192,14 @@ func writeBInt(buf *bytes.Buffer, n int64) {
 		buf.WriteByte(byte(n))
 	case n >= 0 && n <= math.MaxUint16:
 		buf.WriteByte(0x11)
-		binary.Write(buf, binary.BigEndian, uint16(n))
+		_ = binary.Write(buf, binary.BigEndian, uint16(n)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	case n >= 0 && n <= math.MaxUint32:
 		buf.WriteByte(0x12)
-		binary.Write(buf, binary.BigEndian, uint32(n))
+		_ = binary.Write(buf, binary.BigEndian, uint32(n)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	default:
 		// Negative values are always stored as 8 bytes, two's complement.
 		buf.WriteByte(0x13)
-		binary.Write(buf, binary.BigEndian, uint64(n))
+		_ = binary.Write(buf, binary.BigEndian, uint64(n)) // Fixed-width value in a bytes.Buffer; cannot fail.
 	}
 }
 

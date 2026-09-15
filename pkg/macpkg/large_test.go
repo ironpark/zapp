@@ -39,7 +39,9 @@ func TestLargeFileIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if err = os.Link(p, filepath.Join(root, "hard")); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +75,7 @@ func TestLargeFileIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		h := sha256.New()
 		if _, err = io.Copy(h, f); err != nil {
 			t.Fatal(err)
@@ -95,7 +97,7 @@ func TestLargeFileIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.f.Close()
+	defer func() { _ = a.f.Close() }()
 	b, err := a.read(context.Background(), "Distribution", maxMetadata)
 	if err != nil {
 		t.Fatal(err)

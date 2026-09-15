@@ -89,7 +89,7 @@ func readPng(filename string) (image.Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open disk image: %w", err)
 	}
-	defer diskImg.Close()
+	defer func() { _ = diskImg.Close() }()
 	// Decode the disk image
 	img, err := png.Decode(diskImg)
 	if err != nil {
@@ -131,7 +131,7 @@ func createIcns(img image.Image, icnsPath string) error {
 		return fmt.Errorf("failed to create ICNS file: %w", err)
 	}
 
-	defer icnsFile.Close()
+	defer func() { _ = icnsFile.Close() }()
 	icnsImg := icns.NewICNS()
 	for _, slot := range []struct {
 		typ  string
@@ -150,13 +150,4 @@ func createIcns(img image.Image, icnsPath string) error {
 		return fmt.Errorf("failed to encode ICNS: %w", err)
 	}
 	return icnsFile.Close()
-}
-
-func createIcnsFromPng(imgPath string, icnsPath string) error {
-	// Read the PNG file
-	img, err := readPng(imgPath)
-	if err != nil {
-		return err
-	}
-	return createIcns(img, icnsPath)
 }

@@ -26,7 +26,7 @@ var palette256 = func() color.Palette {
 			}
 		}
 	}
-	for ch := 0; ch < 4; ch++ {
+	for ch := range 4 {
 		for _, v := range []byte{238, 221, 187, 170, 136, 119, 85, 68, 34, 17} {
 			c := color.NRGBA{A: 255}
 			switch ch {

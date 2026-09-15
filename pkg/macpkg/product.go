@@ -296,7 +296,7 @@ func BuildProduct(ctx context.Context, c ProductConfig) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", p, err)
 		}
-		defer a.f.Close()
+		defer func() { _ = a.f.Close() }()
 		b, err := a.read(ctx, "PackageInfo", maxMetadata)
 		if err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	slices0 "slices"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ func otoolL(t *testing.T, path string) []string {
 	out := run(t, "otool", "-L", path)
 	var names []string
 	seen := map[string]bool{}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if !strings.Contains(line, "(compatibility version") {
 			continue
 		}
@@ -31,7 +32,7 @@ func otoolL(t *testing.T, path string) []string {
 // otoolD returns the install name otool -D reports, empty for a non-dylib.
 func otoolD(t *testing.T, path string) string {
 	t.Helper()
-	for _, line := range strings.Split(run(t, "otool", "-D", path), "\n") {
+	for line := range strings.SplitSeq(run(t, "otool", "-D", path), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasSuffix(line, ":") {
 			continue
@@ -47,7 +48,7 @@ func otoolRPaths(t *testing.T, path string) []string {
 	var paths []string
 	seen := map[string]bool{}
 	inRPath := false
-	for _, line := range strings.Split(run(t, "otool", "-l", path), "\n") {
+	for line := range strings.SplitSeq(run(t, "otool", "-l", path), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
 			continue
@@ -300,12 +301,7 @@ func TestEditsMatchInstallNameTool(t *testing.T) {
 }
 
 func contains(haystack []string, needle string) bool {
-	for _, s := range haystack {
-		if s == needle {
-			return true
-		}
-	}
-	return false
+	return slices0.Contains(haystack, needle)
 }
 
 // assertSameLinkage checks that the two files describe the same linkage, which

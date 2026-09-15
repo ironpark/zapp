@@ -63,7 +63,7 @@ func fakeBackground(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := png.Encode(f, img); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,11 @@ func chdir(t *testing.T, dir string) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(prev) })
+	t.Cleanup(func() {
+		if err := os.Chdir(prev); err != nil {
+			t.Error(err)
+		}
+	})
 }
 
 func TestCreateDMG(t *testing.T) {

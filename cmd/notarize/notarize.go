@@ -95,7 +95,7 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 		return err
 	}
 
-	logger.Println("Start notarization")
+	_, _ = logger.Println("Start notarization")
 	logger.PrintValue("Target", target)
 	logger.PrintValue("Toolchain", backend.Name())
 	if creds.Profile != "" {
@@ -108,6 +108,6 @@ func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signin
 	if err := signing.Notarize(ctx, backend, target, staple); err != nil {
 		return err
 	}
-	logger.Success("Notarization completed successfully!")
+	_, _ = logger.Success("Notarization completed successfully!")
 	return nil
 }

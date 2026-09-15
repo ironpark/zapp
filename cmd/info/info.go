@@ -24,7 +24,9 @@ var Command = &cli.Command{
 }
 
 func action(ctx context.Context, c *cli.Command) error {
-	printInfo(c.Root())
+	if err := printInfo(c.Root()); err != nil {
+		return err
+	}
 	err := print3rdPartyLicenseOverview(c.Root())
 	if err != nil {
 		return err
@@ -32,18 +34,35 @@ func action(ctx context.Context, c *cli.Command) error {
 	return nil
 }
 
-func printInfo(app *cli.Command) {
+func printInfo(app *cli.Command) error {
 	c0 := color.New(color.FgCyan, color.Bold)
 	c2 := color.New(color.FgHiWhite)
-	c0.Fprintln(app.Writer, "[Build Info]")
-	c2.Printf("%-12s: %s\n", "Name", color.GreenString("ZAPP"))
-	c2.Printf("%-12s: %s\n", "Version", color.GreenString(Version))
-	c2.Printf("%-12s: %s\n", "Build Date", color.GreenString(BuildDate))
-	c2.Printf("%-12s: %s\n\n", "Commit Hash", color.GreenString(Commit))
+	if _, err := c0.Fprintln(app.Writer, "[Build Info]"); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n", "Name", color.GreenString("ZAPP")); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n", "Version", color.GreenString(Version)); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n", "Build Date", color.GreenString(BuildDate)); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n\n", "Commit Hash", color.GreenString(Commit)); err != nil {
+		return err
+	}
 
-	c0.Fprintln(app.Writer, "[License]")
-	c2.Printf("%-12s: %s\n", "Type", "MIT License")
-	c2.Printf("%-12s: %s\n\n", "URL", "https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/LICENSE")
+	if _, err := c0.Fprintln(app.Writer, "[License]"); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n", "Type", "MIT License"); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-12s: %s\n\n", "URL", "https://raw.githubusercontent.com/ironpark/zapp/refs/heads/main/LICENSE"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func print3rdPartyLicenseOverview(app *cli.Command) error {
@@ -74,9 +93,15 @@ func print3rdPartyLicenseOverview(app *cli.Command) error {
 		}
 		return downloadLink
 	}
-	c0.Fprintln(app.Writer, "[Included 3rdParty libraries]")
-	c2.Printf("%-28s %-12s %-35s %s\n", "Name", "Commit", "License", "URL")
-	fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	if _, err := c0.Fprintln(app.Writer, "[Included 3rdParty libraries]"); err != nil {
+		return err
+	}
+	if _, err := c2.Fprintf(app.Writer, "%-28s %-12s %-35s %s\n", "Name", "Commit", "License", "URL"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(app.Writer, "---------------------------------------------------------------------------------------------------------------"); err != nil {
+		return err
+	}
 	for _, record := range records[1:] {
 		name := strings.TrimSpace(record[0])
 		url := getUrl(name, strings.TrimSpace(record[len(record)-2]))
@@ -86,7 +111,9 @@ func print3rdPartyLicenseOverview(app *cli.Command) error {
 		if url != "" {
 			recordStr += fmt.Sprintf(" %s", url)
 		}
-		fmt.Println(recordStr)
+		if _, err := fmt.Fprintln(app.Writer, recordStr); err != nil {
+			return err
+		}
 	}
 	return nil
 }
