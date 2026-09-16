@@ -68,7 +68,11 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 			RoundedRect(dst, b.Bounds, Radius, t.Hover)
 		}
 	} else {
-		Surface(dst, b.Bounds, Radius, bg, t.Border)
+		border := t.Border
+		if b.Primary && !b.Disabled {
+			border = bg
+		}
+		Surface(dst, b.Bounds, Radius, bg, border)
 	}
 	clip := b.Bounds.Intersect(dst.Bounds())
 	if clip.Empty() {

@@ -386,7 +386,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	if i.Spec.Error != "" {
 		p.Wrapped(dst, i.Spec.Error, bounds.Min.X, bounds.Max.Y+4, bounds.Dx(), 11, t.Error, 2)
 	} else {
-		p.Text(dst, p.Fit(i.Spec.Hint, bounds.Dx(), 11), bounds.Min.X, bounds.Max.Y+4, 11, t.Muted)
+		p.Text(dst, p.Fit(i.Spec.Hint, bounds.Dx(), 12), bounds.Min.X, bounds.Max.Y+4, 12, t.Muted)
 	}
 	if i.Spec.Boolean {
 		label := "Off"

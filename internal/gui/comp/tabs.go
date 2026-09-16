@@ -48,7 +48,7 @@ func (t Tabs) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	for _, b := range t.Buttons() {
 		fg := p.Theme.Muted
 		if pointer.In(b.Bounds) && !b.Disabled {
-			RoundedRect(dst, b.Bounds.Inset(3), Radius, p.Theme.Hover)
+			Rect(dst, b.Bounds.Inset(3), p.Theme.Hover)
 			fg = p.Theme.Text
 		}
 		if b.Selected {

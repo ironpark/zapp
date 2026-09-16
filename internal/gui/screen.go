@@ -81,7 +81,9 @@ func (g *editor) Draw(dst *ebiten.Image) {
 // save state and actions. Long paths cannot intrude into the toolbar.
 func (g *editor) drawHeader(dst *ebiten.Image) {
 	p, t := g.ui, g.ui.Theme
+	comp.Rect(dst, comp.Box(0, 0, g.w, 64), t.Panel)
 	comp.Rect(dst, comp.Box(0, 63, g.w, 1), t.Border)
+	comp.Rect(dst, comp.Box(24, 115, g.w-48, 1), t.Border)
 	comp.RoundedRect(dst, comp.Box(24, 12, 32, 32), 9, t.Accent)
 	p.Text(dst, "Z", 34, 15, 21, t.AccentText)
 	p.Text(dst, "Zapp", 68, 13, 22, t.Text)

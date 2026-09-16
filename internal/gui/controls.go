@@ -40,7 +40,7 @@ func (g *editor) controls() []comp.Button {
 		{Bounds: comp.Box(g.w-412, 12, 36, 36), Ghost: true, Label: "Redo", Icon: comp.IconRedo, IconOnly: true, Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.history(true) })},
 		{Bounds: comp.Box(g.w-240, 12, 104, 36), Ghost: true, Label: "Save", Icon: comp.IconSave, OnClick: func() { g.save() }},
 		{Bounds: comp.Box(g.w-368, 12, 120, 36), Ghost: true, Label: "Validate", Icon: comp.IconCheck, OnClick: g.validate},
-		{Bounds: comp.Box(g.w-128, 12, 104, 36), Ghost: true, Label: "Build", Icon: comp.IconPlay, Primary: true, Disabled: g.build != nil, OnClick: g.startBuild},
+		{Bounds: comp.Box(g.w-128, 12, 104, 36), Label: "Build", Icon: comp.IconPlay, Primary: true, Disabled: g.build != nil, OnClick: g.startBuild},
 	}
 	if g.tab == tabDMG && g.enabled() {
 		items := g.itemsPanel().Bounds
