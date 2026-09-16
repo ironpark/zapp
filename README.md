@@ -1,16 +1,18 @@
 # ZAPP
+
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fironpark%2Fzapp.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fironpark%2Fzapp?ref=badge_shield&issueType=license)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ironpark/zapp)](https://goreportcard.com/report/github.com/ironpark/zapp)
 [![GitHub Repo stars](https://img.shields.io/github/stars/ironpark/zapp)](https://github.com/ironpark/zapp/stargazers)
 
-
 🌐 [**English**](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-cn.md) | [繁體中文](README.zh-tw.md)
 
-![asd](/docs/demo.gif)
+![Zapp packaging a macOS application](docs/demo.gif)
 
 **Simplify your macOS App deployment**
 
-`zapp` is a powerful CLI tool designed to streamline and automate the deployment process for macOS applications. It handles all stages of deployment in one tool, from dependency bundling to DMG/PKG creation, code signing, and notarization.
+`zapp` is a CLI and Go library for packaging and distributing macOS applications. Bundle dependencies, create DMG/PKG installers, sign, and notarize with one `.zapp.yaml`, or run individual commands as needed.
+
+[Installation](#installation) · [Quick start](#quick-start) · [Configuration](#project-configuration) · [Usage](#-usage) · [Go library](#go-library)
 
 ## ✨ Features
 
@@ -20,10 +22,11 @@
 - [x] Notarization / Stapling
 - [x] Modify plist (version)
 - [x] Auto binary dependencies bundling
-- [ ] Support GitHub Actions
+- [x] Declarative project configuration and Go library API
 
-## ⚡️ Quick start
-#### Install with a script
+## Installation
+
+### Install with a script
 
 **macOS / Linux**
 
@@ -41,19 +44,174 @@ Installs the latest published release after SHA-256 verification. macOS/Linux: `
 
 Set `ZAPP_VERSION` to a release tag to pin a version, or `ZAPP_INSTALL_DIR` to an absolute installation directory.
 
-#### 🍺 Using Homebrew
+### 🍺 Using Homebrew
+
 ```bash
 brew tap ironpark/zapp
 brew install --cask zapp
 ```
 
-#### 🛠️ Build from source code
+### 🛠️ Build from source code
 
 ```bash
 go install github.com/ironpark/zapp/cmd/zapp@latest
 ```
 
+Source builds require Go 1.27.0 or later. Use the command above on macOS. For Linux/Windows builds with signing support, follow the [platform build instructions](docs/signing.md#building).
+
+## Quick start
+
+Start in a directory containing an already-built `dist/MyApp.app`. Zapp does not compile your application. `init` creates DMG and PKG sections; `build` writes both installers to `dist` by default.
+
+Use one `.zapp.yaml` for dependency bundling, DMG/PKG packaging, signing, and notarization.
+
+```sh
+zapp init --app dist/MyApp.app
+zapp config show
+zapp build                  # Run configured steps
+zapp build dmg pkg          # Skip dep; configured signing/notarization still run
+zapp dmg --title "MyApp"     # overrides project title
+zapp pkg --no-sign --no-notarize
+```
+
+The generated configuration has this shape. Add `dep`, `sign`, or `notarize` to enable those steps.
+
+```yaml
+version: 1
+app: dist/MyApp.app
+out: dist
+# dep: {libs: [/opt/homebrew/lib]}
+
+dmg: {}
+pkg: {}
+```
+
+## Project configuration
+
+Define shared paths and build steps in `.zapp.yaml`. See the [annotated example](examples/zapp.yaml) for the full set of options.
+
+### Select a configuration file
+
+`dmg`, `pkg`, and `dep` search for `.zapp.yaml` from the current directory upward.
+
+```sh
+zapp dmg                              # Discover .zapp.yaml
+zapp dmg --config release/.zapp.yaml   # Choose a configuration file
+zapp dmg --no-config --app MyApp.app   # Run without a configuration file
+zapp config show                      # Inspect the effective configuration
+```
+
+`zapp init` creates a starter configuration. Overwriting an existing file requires `--force`.
+
+### Override values
+
+When an option is set in more than one place, the leftmost source wins:
+
+**CLI flags → `ZAPP_*` environment variables → configuration file → defaults**
+
+To derive an environment variable name, uppercase the flag, replace hyphens with underscores, and add `ZAPP_`.
+
+| CLI flag | Environment variable | Example value |
+| --- | --- | --- |
+| `--app` | `ZAPP_APP` | `dist/MyApp.app` |
+| `--title` | `ZAPP_TITLE` | `MyApp` |
+| `--out` | `ZAPP_OUT` | `dist/MyApp.dmg` (for `dmg`) |
+| `--window-width` | `ZAPP_WINDOW_WIDTH` | `720` |
+| `--libs` | `ZAPP_LIBS` | `/usr/local/lib,/opt/homebrew/lib` |
+
+### Resolve paths
+
+| Where a path is set | Relative to |
+| --- | --- |
+| Configuration file | The configuration file's directory |
+| CLI flag or environment variable | The current working directory |
+
+Top-level `out` is an **output directory**; `dmg.out` and `pkg.out` are **output file paths**.
+
+```yaml
+version: 1
+app: dist/MyApp.app
+out: dist
+
+dmg:
+  out: dist/MyApp-installer.dmg
+pkg:
+  out: dist/MyApp-installer.pkg
+```
+
+### Use variables
+
+The following variables work in string values and `contents` keys:
+
+| Variable | Value |
+| --- | --- |
+| `${app}` | App path |
+| `${app.name}` | App name |
+| `${app.version}` | App version |
+| `${env:NAME}` | Environment variable `NAME`; fails if unset |
+
+```yaml
+dmg:
+  title: ${app.name}
+  out: dist/${app.name}-${app.version}.dmg
+```
+
+### Enable signing and notarization
+
+Adding a `sign:` or `notarize:` section enables that step. This example uses a macOS keychain profile:
+
+```yaml
+sign:
+  identity: ${env:ZAPP_IDENTITY}
+notarize:
+  profile: my-profile
+  staple: true
+```
+
+- Skip a step for an individual run with `--no-sign` or `--no-notarize`.
+- Existing `--sign --notarize --profile ... --staple` flags also work.
+- Supply passwords through `ZAPP_P12_PASSWORD`, `ZAPP_PASSWORD`, or their CLI flags. Configuration files cannot contain `sign.p12Password` or `notarize.password`.
+- `zapp config show` omits passwords.
+
+See [signing and notarization](docs/signing.md) for platform-specific certificates and authentication.
+
+### Advanced configuration
+
+<details>
+<summary>PKG configuration forms</summary>
+
+| Form | Purpose and fields |
+| --- | --- |
+| Short | Package one app with `identifier`, `version`, `installLocation`, `scripts`, `minOS`, and `license` |
+| Full | Define multiple `components` and a `distribution`, with selectable `choices` |
+
+Short and full fields cannot be mixed.
+
+- Identifier and version default to the app's Info.plist values.
+- `license` accepts a file path or a language map such as `{default: license.txt, en: license-en.txt}`.
+- `type: component` creates a single component without product installer UI.
+
+See the [PKG engine documentation](pkg/macpkg/README.md) for details.
+
+</details>
+
+<details>
+<summary>Migrate a legacy DMG configuration</summary>
+
+Flat DMG configurations still work, with a deprecation warning:
+
+```sh
+zapp dmg --config examples/dmg/layout.yaml --out release.dmg
+```
+
+Their output paths remain relative to the working directory. To migrate to a project configuration, move layout fields under `dmg:` and keep shared `app` at the root.
+
+</details>
+
 ## 📖 Usage
+
+`dep`, `dmg`, and `pkg` accept `--sign --notarize --profile "profile" --staple`. With signing enabled, Zapp signs the app before packaging and signs the generated installers. Notarization and stapling apply to the resulting artifacts. The keychain examples below are for macOS; see [signing and notarization](docs/signing.md) for Linux/Windows certificates and API keys.
+
 ### 🔏 Code Signing
 
 > [!TIP]
@@ -61,43 +219,41 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 > If the `--identity` flag is not used to select a certificate, Zapp will automatically select an available certificate from the current keychain.
 
 ```bash
-zapp sign --target="path/to/target.(app,dmg,pkg)"
+zapp sign --target="path/to/MyApp.app"
 ```
 ```bash
-zapp sign --identity="Developer ID Application" --target="path/to/target.(app,dmg,pkg)"
+zapp sign --identity="Developer ID Application" --target="path/to/MyApp.app"
 ```
 
 ### 🏷️ Notarization & Stapling
+
 > [!NOTE]
 >
 > When executing the notarize command, if Zapp receives an app bundle path, it automatically compresses the app bundle and attempts to notarize it.
 
 ```bash
-zapp notarize --profile="key-chain-profile" --target="path/to/target.(app,dmg,pkg)" --staple
+zapp notarize --profile="key-chain-profile" --target="path/to/MyApp.app" --staple
 ```
 
 ```bash
-zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" --target="path/to/target.(app,dmg,pkg)" --staple
+zapp notarize --apple-id="your@email.com" --password="pswd" --team-id="XXXXX" --target="path/to/MyApp.app" --staple
 ```
 
 ### 🔗 Dependency Bundling
+
 > [!NOTE]
-> 
+>
 > This process inspects the dependencies of the application executable, includes the necessary libraries within `/Contents/Frameworks` and modifies the link paths to enable standalone execution.
 
 ```bash
 zapp dep --app="path/to/target.app"
 ```
-#### additional paths to search for libraries
+#### Additional library search paths
+
 ```bash
 zapp dep --app="path/to/target.app" --libs="/usr/local/lib" --libs="/opt/homebrew/Cellar/ffmpeg/7.0.2/lib"
 ```
-#### with sign & notarize & staple
-> [!TIP]
->
-> `dep`, `dmg`, `pkg` commands can be used with the `--sign`, `--notarize`, and `--staple` flags.
-> - The `--sign` flag will automatically sign the app bundle after bundling the dependencies.
-> - The `--notarize` flag will automatically notarize the app bundle after signing.
+#### Sign, notarize, and staple
 
 ```bash
 zapp dep --app="path/to/target.app" --sign --notarize --profile "profile" --staple
@@ -140,10 +296,10 @@ zapp dmg --app="path/to/target.app"
 ```
 
 ```bash
-zapp dmg --title="My App" \ 
+zapp dmg --title="My App" \
   --app="path/to/target.app" \
   --icon="path/to/icon.icns" \
-  --bg="path/to/background.png" \ 
+  --bg="path/to/background.png" \
   --out="MyApp.dmg"
 ```
 
@@ -153,64 +309,74 @@ creates `MyApp.dmg`; signing and notarization use that same path.
 
 #### Custom layouts
 
-Use `--config dmg.yaml` (or JSON with the same fields) to include files,
-directories, and symbolic links at explicit icon positions. For example:
+Define files and icon positions in `dmg.contents` in `.zapp.yaml`. This example places the app, an Applications link, and a guide in the image.
 
 ```yaml
 version: 1
-title: MyApp
-window: {width: 720, height: 460}
-iconSize: 96
-labelSize: 14
-contents:
-  dist/MyApp.app:
-    x: 180
-    y: 200
-  /Applications:
-    link: true
-    x: 540
-    y: 200
-  docs/README.pdf:
-    name: Guide.pdf
-    x: 360
-    y: 350
+app: dist/MyApp.app
+
+dmg:
+  title: MyApp
+  window:
+    width: 720
+    height: 460
+  iconSize: 96
+  labelSize: 14
+  contents:
+    dist/MyApp.app:
+      x: 180
+      y: 200
+    /Applications:
+      link: true
+      x: 540
+      y: 200
+    docs/README.pdf:
+      name: Guide.pdf
+      x: 360
+      y: 350
 ```
 
 ```sh
-zapp dmg --config dmg.yaml --out dist/MyApp.dmg
-# Adjust the two default icons without a config file:
-zapp dmg --app MyApp.app --app-position 180,200 --applications-position 540,200
+zapp dmg --config .zapp.yaml --out dist/MyApp.dmg
 ```
 
+**Item fields**
+
+Each `contents` key is a source path. Explicit `contents` replaces the default app and Applications layout, so include every item you need.
+
+| Field | Description |
+| --- | --- |
+| `x`, `y` | Nonnegative icon-center coordinates from the top-left of the Finder content area |
+| `link` | `true` creates a symbolic link; omit to copy a file or directory |
+| `name` | Name inside the image; defaults to the source name |
+
+File and directory paths are relative to the configuration file. Link targets are preserved literally. The CLI `--out` path is relative to the working directory.
+
+**Move only the default icons**
+
+To reposition the app and Applications link, run without `contents`:
+
+```sh
+zapp dmg --app MyApp.app \
+  --app-position 180,200 \
+  --applications-position 540,200
+```
+
+<details>
+<summary>Additional options and constraints</summary>
+
+- `--app-position` and `--applications-position` cannot be combined with explicit `contents`.
+- Without `contents`, `app` is required. With `contents`, `app` supplies the default title and disk icon. Set `dmg.title` when omitting `app`.
+- Set `dmg.icon` to ICNS or PNG artwork and `dmg.background` to a background image. Filesystem, compression, signing, and notarization options also work with custom layouts.
 - Set `version: 1`. Unknown fields and duplicate keys are rejected.
-- Explicit CLI options override config values; omitted fields use CLI defaults.
-- Input paths (`app`, `icon`, `background`, and file/directory keys in `contents`) are relative
-  to the config file. CLI paths and `out` are relative to the working directory.
-  Link targets are preserved literally, including relative targets.
-- `contents` replaces the default app and Applications link. Each key is a source path, with
-  `x` and `y` coordinates in its value. Set `link: true` for a symbolic link;
-  otherwise the source is detected as a file or directory. Optional `name` changes
-  its name inside the image. Names must be unique ignoring case and Unicode
-  normalization, and must not use reserved DMG metadata names.
-- Coordinates are nonnegative icon centers measured from the top-left of the
-  Finder content area. `--app-position` and `--applications-position` apply only
-  to the default two-item layout and cannot be combined with explicit `contents`.
-- Without `contents`, provide `app` or `--app`. With explicit `contents`, `app`
-  is optional and is used only to derive the default title and disk icon. Without
-  `app`, provide `title`; omit `icon` for no custom disk icon.
-- Other config fields: `out`, `app`, `icon`, `background`, `fs`, and `format`.
-  PNG icon conversion and signing/notarization flags also work with `--config`.
-- Layouts exceeding the current single-node `.DS_Store` capacity fail with an
-  error; reduce the number of items or shorten names.
+- Image names must be unique ignoring case and Unicode normalization, and cannot use reserved DMG metadata names.
+- If the layout exceeds `.DS_Store` capacity, reduce the item count or shorten names.
 
-See [the layout example](examples/dmg/layout.yaml).
+See the [project example](examples/zapp.yaml) for a complete configuration, or the [migration notes](#advanced-configuration) for legacy flat layouts.
 
-#### with sign & notarize & staple
-> [!TIP]
->
-> `dep`, `dmg`, `pkg` commands can be used with the `--sign`, `--notarize`, and `--staple` flags.
-> - The `--sign` flag will automatically sign the app bundle after bundling the dependencies.
-> - The `--notarize` flag will automatically notarize the app bundle after signing.
+</details>
+
+#### Sign, notarize, and staple
 
 ```bash
 zapp dmg --app="path/to/target.app" --sign --notarize --profile "profile" --staple
@@ -221,10 +387,11 @@ PKG generation uses the pure Go [macpkg package](pkg/macpkg/README.md), with no
 `pkgbuild` or `productbuild` dependency. Signing and notarization use the existing backends.
 
 > [!TIP]
-> 
+>
 > If the `--version` and `--identifier` flags are not set, these values will be automatically retrieved from the Info.plist file of the provided app bundle
 
 #### Create a PKG file from the app bundle
+
 ```bash
 zapp pkg --app="path/to/target.app"
 ```
@@ -238,14 +405,9 @@ zapp pkg --out="MyApp.pkg" --version="1.2.3" --identifier="com.example.myapp" --
 Include End User License Agreement (EULA) files in multiple languages:
 
 ```bash
-zapp pkg --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt --app="path/to/target.app" 
+zapp pkg --eula=en:eula_en.txt,es:eula_es.txt,fr:eula_fr.txt --app="path/to/target.app"
 ```
-#### with sign & notarize & staple
-> [!TIP]
->
-> `dep`, `dmg`, `pkg` commands can be used with the `--sign`, `--notarize`, and `--staple` flags.
-> - The `--sign` flag will automatically sign the app bundle after bundling the dependencies.
-> - The `--notarize` flag will automatically notarize the app bundle after signing.
+#### Sign, notarize, and staple
 
 ```bash
 zapp pkg --app="path/to/target.app" --sign --notarize --profile "profile" --staple
@@ -255,7 +417,8 @@ zapp pkg --app="path/to/target.app" --sign --notarize --profile "profile" --stap
 
 `zapp plist` reads and edits a `.plist` file, or the `Info.plist` inside a `.app`
 bundle. The file is rewritten in the format it was read in, so a binary
-`Info.plist` stays binary and the enclosing bundle's signature is not disturbed.
+`Info.plist` stays binary. Editing signed bundle contents requires signing the
+app again; make plist changes before signing.
 
 ```bash
 zapp plist get "path/to/target.app" CFBundleVersion
@@ -267,6 +430,7 @@ A key keeps the type it already has, so a boolean stays a boolean:
 
 ```bash
 # writes <false/>, not the string "false", which macOS would read as true
+
 zapp plist set "path/to/target.app" LSUIElement false
 ```
 
@@ -296,22 +460,27 @@ wants. `--major`, `--minor` and `--patch` raise that component and reset the
 ones after it.
 
 ### Full Example
+
 The following is a complete example showing how to use `zapp` to dependency bundling, codesign, packaging, notarize, and staple `MyApp.app`:
 
 ```bash
 # Dependency bundling
+
 zapp dep --app="MyApp.app"
 
 # Codesign / notarize / staple
+
 zapp sign --target="MyApp.app"
 zapp notarize --profile="key-chain-profile" --target="MyApp.app" --staple
 
 # Create pkg/dmg file
+
 zapp pkg --app="MyApp.app" --out="MyApp.pkg"
 zapp dmg --app="MyApp.app" --out="MyApp.dmg"
 
 # Codesign / notarize / staple for pkg/dmg
-zapp sign --target="MyApp.app"
+
+zapp sign --target="MyApp.dmg"
 zapp sign --target="MyApp.pkg"
 
 zapp notarize --profile="key-chain-profile" --target="MyApp.pkg" --staple
@@ -319,16 +488,40 @@ zapp notarize --profile="key-chain-profile" --target="MyApp.dmg" --staple
 ```
 or just use the shorthand command
 ```bash
-zapp dep --app="MyApp.app" --sign --notarize --staple
+zapp dep --app="MyApp.app" --sign --notarize --profile="key-chain-profile" --staple
 
-zapp pkg --out="MyApp.pkg" --app="MyApp.app" \ 
+zapp pkg --out="MyApp.pkg" --app="MyApp.app" \
   --sign --notarize --profile="key-chain-profile" --staple
 
 zapp dmg --out="MyApp.dmg" --app="MyApp.app" \
   --sign --notarize --profile="key-chain-profile" --staple
 ```
 
+## Go library
+
+Import `github.com/ironpark/zapp` to load a project and build DMG/PKG installers.
+
+```go
+project, err := zapp.Load(".zapp.yaml")
+if err != nil {
+	return err
+}
+
+plan, err := project.Resolve()
+if err != nil {
+	return err
+}
+
+artifacts, err := plan.Build(ctx, zapp.StepDMG, zapp.StepPKG)
+if err != nil {
+	return err
+}
+```
+
+You can also construct `zapp.Project` directly or run individual operations with `BuildDMG`, `BuildPKG`, and other methods. Output paths are available in `artifacts.DMG` and `artifacts.PKG`.
+
 ## License
+
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fironpark%2Fzapp.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fironpark%2Fzapp?ref=badge_large&issueType=license)
 
 Zapp is released under the [MIT License](LICENSE).
@@ -336,47 +529,3 @@ Zapp is released under the [MIT License](LICENSE).
 ## Support
 
 If you encounter any issues or have questions, please file an issue on the [GitHub issue tracker](https://github.com/ironpark/zapp/issues).
-
-## Project files and library API
-
-Use one `.zapp.yaml` for dependency bundling, DMG/PKG packaging, signing, and notarization.
-
-```sh
-go install github.com/ironpark/zapp/cmd/zapp@latest
-zapp init --app dist/MyApp.app
-zapp config show
-zapp build                  # dep → sign(app) → dmg/pkg → sign → notarize → staple
-zapp build dmg pkg          # select packaging steps
-zapp dmg --title "MyApp"     # overrides project title
-zapp pkg --no-sign --no-notarize
-```
-
-```yaml
-version: 1
-app: dist/MyApp.app
-out: dist
-# dep: {libs: [/opt/homebrew/lib]}
-dmg: {}
-pkg: {}
-```
-
-`dmg`, `pkg`, and `dep` discover `.zapp.yaml` by walking up from the working directory. Use `--config path` to select a file or `--no-config` to ignore files. Precedence is **CLI flags > `ZAPP_*` environment > file > defaults**. Flag names become uppercase environment names with underscores, e.g. `ZAPP_APP`, `ZAPP_TITLE`, `ZAPP_OUT`, `ZAPP_WINDOW_WIDTH`, `ZAPP_LIBS` (comma-separated). File paths are relative to the configuration directory; CLI and environment paths are relative to the working directory. Shared `out` is a directory; `dmg.out` and `pkg.out` are filenames.
-
-`${env:NAME}`, `${app}`, `${app.name}`, and `${app.version}` work in string values and content keys. Unset environment references fail. `sign:` and `notarize:` enable their steps automatically; `--no-sign` and `--no-notarize` skip them. Existing `--sign --notarize --profile ... --staple` scripts continue to work. Password keys (`sign.p12Password`, `notarize.password`) are forbidden in files: supply `ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` or their CLI flags. `config show` omits passwords. `init` refuses to overwrite a file without `--force`.
-
-PKG short form supports `identifier`, `version`, `installLocation`, `scripts`, `minOS`, and `license` (a path or `{default: path, en: path, ...}`). Identifier/version default from Info.plist. Full form supports `components` and `distribution` with selectable `choices`; short and full fields cannot be mixed. `type: component` builds a single component without product UI. See the [annotated project example](examples/zapp.yaml) and [PKG engine documentation](pkg/macpkg/README.md).
-
-Legacy flat DMG files remain accepted by `zapp dmg --config examples/dmg/layout.yaml --out release.dmg`, with a deprecation warning. Their output remains relative to the working directory. Migrate by moving layout fields under `dmg:` and keeping shared `app` at the root.
-
-The module root is now importable; the executable moved to `cmd/zapp`:
-
-```go
-project, err := zapp.Load(".zapp.yaml")
-if err != nil { return err }
-project.DMG.Title = "MyApp"
-plan, err := project.Resolve(zapp.WithClock(time.Unix(1700000000, 0)))
-if err != nil { return err }
-artifacts, err := plan.Build(ctx, zapp.StepDMG, zapp.StepPKG)
-```
-
-Import `github.com/ironpark/zapp`. You can also construct `zapp.Project` directly. `Plan.BundleDeps`, `BuildDMG`, `BuildPKG`, `Sign`, and `Notarize` run individual operations. Logging is silent unless `WithLogger` is supplied. Failures wrap `*zapp.StepError` and support `errors.As` / `errors.Is`. `WithClock` fixes generated DMG metadata and PKG timestamps; reproducible images also require stable source files and source metadata.
