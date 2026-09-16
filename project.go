@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-yaml"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 )
@@ -58,7 +59,7 @@ type DMGConfig struct {
 	Background           string             `json:"background,omitempty"`
 	FS                   string             `json:"fs,omitempty"`
 	Format               string             `json:"format,omitempty"`
-	Window               Window             `json:"window,omitempty"`
+	Window               Window             `json:"window"`
 	IconSize             int                `json:"iconSize,omitempty"`
 	LabelSize            int                `json:"labelSize,omitempty"`
 	Out                  string             `json:"out,omitempty"`
@@ -138,7 +139,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	var keys map[string]interface{}
+	var keys map[string]any
 	decoder := yaml.NewDecoder(bytes.NewReader(data), yaml.Strict())
 	if err = decoder.Decode(&keys); err != nil {
 		return nil, err
@@ -151,7 +152,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 		return nil, fmt.Errorf("config must contain exactly one document")
 	}
 
-	if pkg, ok := keys["pkg"].(map[string]interface{}); ok {
+	if pkg, ok := keys["pkg"].(map[string]any); ok {
 		_, components := pkg["components"]
 		_, distribution := pkg["distribution"]
 		if components || distribution {
@@ -164,7 +165,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	}
 	// Zero is meaningful in coordinates but invalid in explicitly supplied sizes.
 	layout := keys
-	if v, ok := keys["dmg"].(map[string]interface{}); ok {
+	if v, ok := keys["dmg"].(map[string]any); ok {
 		layout = v
 	}
 	for _, key := range []string{"iconSize", "labelSize"} {
@@ -172,7 +173,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 			return nil, fmt.Errorf("%s must be positive", key)
 		}
 	}
-	if w, ok := layout["window"].(map[string]interface{}); ok {
+	if w, ok := layout["window"].(map[string]any); ok {
 		for _, key := range []string{"width", "height"} {
 			if v, ok := w[key]; ok && fmt.Sprint(v) == "0" {
 				return nil, fmt.Errorf("window.%s must be positive", key)
@@ -289,9 +290,7 @@ func (p *Project) Clone() *Project {
 		q.DMG = &x
 		if x.Contents != nil {
 			x.Contents = make(map[string]Content)
-			for k, v := range p.DMG.Contents {
-				x.Contents[k] = v
-			}
+			maps.Copy(x.Contents, p.DMG.Contents)
 		}
 	}
 	if p.PKG != nil {
@@ -300,9 +299,7 @@ func (p *Project) Clone() *Project {
 		x.Components = append([]Component(nil), x.Components...)
 		if x.License != nil {
 			x.License = License{}
-			for k, v := range p.PKG.License {
-				x.License[k] = v
-			}
+			maps.Copy(x.License, p.PKG.License)
 		}
 		if x.Distribution != nil {
 			d := *x.Distribution

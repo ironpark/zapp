@@ -15,7 +15,7 @@ func TestDarwinDoesNotLinkRcodesign(t *testing.T) {
 	if err != nil {
 		t.Skipf("go list unavailable: %v", err)
 	}
-	for _, dep := range strings.Fields(string(out)) {
+	for dep := range strings.FieldsSeq(string(out)) {
 		if dep == "github.com/ironpark/zapp/pkg/signing/rcodesign" {
 			t.Fatal("macOS binary must not include rcodesign")
 		}

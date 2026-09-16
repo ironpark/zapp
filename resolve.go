@@ -23,8 +23,8 @@ func expand(s string, values map[string]string) (string, error) {
 	var failure error
 	result := variable.ReplaceAllStringFunc(s, func(token string) string {
 		key := token[2 : len(token)-1]
-		if strings.HasPrefix(key, "env:") {
-			v, ok := os.LookupEnv(strings.TrimPrefix(key, "env:"))
+		if after, ok := strings.CutPrefix(key, "env:"); ok {
+			v, ok := os.LookupEnv(after)
 			if !ok {
 				failure = fmt.Errorf("environment variable %s is not set", strings.TrimPrefix(key, "env:"))
 			}
