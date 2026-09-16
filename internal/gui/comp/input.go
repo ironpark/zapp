@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -36,6 +37,7 @@ func lineWindow(s string, start, count int) []string {
 
 type InputSpec struct {
 	Boolean            bool
+	Secret             bool
 	Syntax             string
 	Height             int
 	Label, Value, Hint string
@@ -354,7 +356,8 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 					end++
 				}
 				indent = string(i.buffer[start:end])
-				if strings.HasSuffix(strings.TrimSpace(string(i.buffer[start:i.cursor])), ":") {
+				line := strings.TrimSpace(string(i.buffer[start:i.cursor]))
+				if strings.HasSuffix(line, ":") || (i.Spec.Syntax == "json" && (strings.HasSuffix(line, "{") || strings.HasSuffix(line, "["))) {
 					indent += "  "
 				}
 			}
@@ -371,6 +374,17 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 
 // Draw uses bounds for the editable box; its label sits 25px above and its hint
 // 4px below. Form supplies consistent spacing and clips the complete row.
+// maskRunes backs the secret-field mask so redrawing a password does not
+// allocate a new string on every frame.
+const maskRunes = "••••••••••••••••••••••••••••••••"
+
+func mask(n int) string {
+	if width := n * len("•"); width <= len(maskRunes) {
+		return maskRunes[:width]
+	}
+	return strings.Repeat("•", n)
+}
+
 func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focused bool) {
 	t := p.Theme
 	p.Text(dst, p.Fit(i.Spec.Label, bounds.Dx(), 14), bounds.Min.X, bounds.Min.Y-25, 14, t.Text)
@@ -433,6 +447,9 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	}
 	if focused {
 		value = i.Text()
+	}
+	if i.Spec.Secret {
+		value = mask(utf8.RuneCountInString(value))
 	}
 	if value == "" && i.Spec.Placeholder != "" {
 		placeholderY := bounds.Min.Y + 6

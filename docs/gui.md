@@ -25,15 +25,37 @@ migrated to the version 1 project format first.
 
 Each step can be enabled or disabled. Disabled sections are omitted from the
 saved project. Their values are retained while toggling within the same editor
-session. Lists, license mappings, explicit DMG contents and full-form PKG data
-use JSON text fields. For PKG, **Switch package form** changes between short and
-full forms after incompatible fields have been cleared.
+session. Tab dots show enabled/disabled steps; an error dot identifies the step
+that needs attention. Non-DMG settings use a width-limited form with a **Help**
+button to open or hide the step guide.
+
+**PKG** has a **Single app / Components** selector. Basic settings appear first;
+**Advanced settings** reveals scripts, minimum OS, licenses and distribution.
+Components have an add/remove list and a detail form. **Form / JSON** switches
+to a highlighted source editor; valid edits apply before switching. Removing a
+component referenced by distribution choices is blocked until those references
+are removed. Switching back to a single app requires custom components and
+distribution settings to be cleared; the generated default component can be
+switched back directly.
+
+**Dependencies** provides a path list with Browse and remove controls. Use the
+empty row to type another path, or **Add directory** to choose one. **Text** mode
+edits one directory per line; spaces within paths are preserved. Both modes edit
+the same list and support Undo. Leave the list empty for automatic discovery;
+disable Dependencies when the app has no external libraries to bundle.
 
 Relative paths remain relative to the configuration file. Expressions such as
 `${app.name}` and `${env:ZAPP_IDENTITY}` are preserved. The GUI edits the file's
 values; build-time `ZAPP_*` option overrides are not copied into the project.
-Passwords are not entered or saved in the GUI; supply them through the existing
-CLI environment variables or supported credential files when building.
+**Signing** selects Keychain, PKCS#12 or PEM credentials. **Notarization** selects
+Profile, Apple ID or API key credentials. Only the selected method contributes
+credentials to the project; switching methods retains previous input within the
+current session. Keychain/Profile/Apple ID use macOS tools; certificate files
+and API key JSON use rcodesign on Windows/Linux.
+
+Apple ID authentication includes a masked app-specific password input. Its value
+is session-only and never serialized into the project; reopening requires entering
+it again. PKCS#12 can use a password file. **Staple** is a one-click toggle.
 
 Use **Browse** beside app, image, icon, certificate and output path fields to
 open the system picker. Selected paths are stored relative to the configuration
@@ -74,7 +96,8 @@ images are limited to 8192 pixels per side and 32 million pixels in total.
 
 ## Editing and saving
 
-- **Enter** applies a single-line field. **Ctrl/Cmd+Enter** applies a JSON field.
+- **Enter** applies a single-line field. **Ctrl/Cmd+Enter** applies a multiline field. JSON/YAML use Tab for indentation;
+  Shift+Tab moves to the previous field.
 - **Tab / Shift+Tab** applies the current field and focuses the next/previous one.
 - **Ctrl/Cmd+A**, **C**, **X**, **V** select all, copy, cut and paste within a field.
   Arrow keys move the cursor; multiline fields also support Up/Down.
@@ -96,7 +119,8 @@ are not present yet. **Validate** resolves the project and checks build inputs
 without building, signing or submitting anything. Invalid edits show an error
 below the input and keep the draft for correction. Validation moves to the
 relevant field for missing or invalid path inputs; other errors appear in the
-status bar. Saving rewrites formatting and
+status bar. **Go to issue** returns to the relevant tab/field, including hidden
+advanced settings. Saving rewrites formatting and
 comments; YAML stays YAML and `.json` stays JSON. File permissions are retained.
 If the file changed externally after opening, saving reports a conflict instead
 of overwriting those edits; reopen the editor to load them.
@@ -113,7 +137,8 @@ building does not save or rewrite the project file.
 
 A progress dialog shows build messages and supports **Cancel build**. Editing
 and duplicate builds are blocked while the job runs. Completion shows output
-paths or the error; closing the window during a build cancels it and waits for
+paths or the error. A failed build offers **Go to issue** to review the relevant
+settings. Closing the window during a build cancels it and waits for
 cleanup before continuing the normal unsaved-changes flow.
 
 ## Desktop requirements
@@ -140,7 +165,7 @@ for automatic numeric values and stays within the field's supported range.
 As with typed edits, Enter or leaving the field applies the draft; Escape cancels it.
 
 The tab bar groups step actions on its right: **Enabled** and DMG
-**Default layout**, or PKG **Switch package form**. **Add file** stays in Contents
+**Default layout**, or PKG **Single app / Components**. **Add file** stays in Contents
 and **Remove from DMG** in Item details. The settings
 column adjusts to the window width to leave more room for the preview. Contents
 shows the item count, type and source path; hover a row or path input to read its

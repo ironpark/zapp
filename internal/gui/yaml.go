@@ -55,7 +55,7 @@ func (g *editor) switchLayoutView(index int) {
 
 func (g *editor) segmentedControls() []comp.Segmented {
 	if g.tab != tabDMG || !g.enabled() {
-		return nil
+		return g.workflowSegments()
 	}
 	preview, settings := g.previewPanel().Bounds, g.settingsPanel().Bounds
 	view, mode := 0, 0

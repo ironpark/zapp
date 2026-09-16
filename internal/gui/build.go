@@ -106,6 +106,11 @@ drain:
 			j.message = "Built: " + strings.Join(paths, " · ")
 		}
 		g.report(result.err, j.message)
+		if result.err != nil && !errors.Is(result.err, context.Canceled) {
+			g.locateValidationError(result.err)
+		} else {
+			g.issue = nil
+		}
 		// Builds can change app resources; refresh the preview on the next rebuild.
 		g.previewSig = ""
 		if j.closeRequested {
@@ -148,5 +153,9 @@ func (g *editor) buildDialog() comp.Dialog {
 			title = "Build cancelled"
 		}
 	}
-	return comp.Dialog{Visible: true, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 600, 220), Title: title, Message: j.message, OnCancel: g.dismissBuild, Actions: []comp.Button{{Label: action, Disabled: j.cancelling && !j.finished, OnClick: g.dismissBuild}}}
+	actions := []comp.Button{{Label: action, Disabled: j.cancelling && !j.finished, OnClick: g.dismissBuild}}
+	if j.finished && j.err != nil && g.issue != nil {
+		actions = append(actions, comp.Button{Label: "Go to issue", Primary: true, OnClick: func() { g.dismissBuild(); g.goToIssue() }})
+	}
+	return comp.Dialog{Visible: true, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 600, 220), Title: title, Message: j.message, OnCancel: g.dismissBuild, Actions: actions}
 }

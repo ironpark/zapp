@@ -73,6 +73,7 @@ func (g *editor) history(redo bool) {
 		g.s.Undo()
 		message = "Undo applied."
 	}
+	g.issue = nil
 	g.rebuild()
 	g.report(nil, message)
 }
@@ -241,6 +242,9 @@ func (g *editor) updateDrag(in tick) {
 func (g *editor) scrollForm(in tick) {
 	_, wheel := ebiten.Wheel()
 	delta := -int(wheel * 38)
+	if delta != 0 && g.scrollComponents(in.mouse, -int(wheel)) {
+		return
+	}
 	if g.tab == tabDMG && g.enabled() {
 		if in.mouse.In(g.itemsPanel().Content()) {
 			g.itemScroll = max(0, min(g.itemScroll+delta, g.itemListLimit()))
@@ -252,6 +256,20 @@ func (g *editor) scrollForm(in tick) {
 		}
 	}
 	if in.mouse.In(g.form.Bounds) {
+		if g.tab != tabDMG && delta != 0 {
+			index, hit := g.form.Hit(in.mouse)
+			if hit && g.fields[index].Syntax != "" {
+				if g.active != index {
+					if !g.commit() {
+						return
+					}
+					g.focus(index)
+					g.input.SetCursor(0)
+				}
+				g.input.ScrollLines(-int(wheel*3), g.form.FieldBounds(index))
+				return
+			}
+		}
 		if g.tab == tabDMG && g.dmgYAML && g.enabled() && delta != 0 {
 			if g.active != 0 {
 				if !g.commit() {

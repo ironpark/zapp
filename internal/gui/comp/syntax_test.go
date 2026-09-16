@@ -62,3 +62,21 @@ func TestSegmentedSelection(t *testing.T) {
 		t.Fatal("outside click consumed")
 	}
 }
+
+func TestJSONHighlightAndIndent(t *testing.T) {
+	line := `{"id":"app","selected":true,"size":42}`
+	var source strings.Builder
+	kinds := map[string]bool{}
+	for _, token := range yamlTokens(line) {
+		source.WriteString(token.text)
+		kinds[token.kind] = true
+	}
+	if source.String() != line || !kinds["key"] || !kinds["string"] || !kinds["literal"] || !kinds["number"] {
+		t.Fatal("JSON tokens lost source or colors")
+	}
+	i := NewInput(InputSpec{Multiline: true, Syntax: "json", Value: "["})
+	i.Handle(Keyboard{Pressed: []ebiten.Key{ebiten.KeyEnter}}, nil)
+	if i.Text() != "[\n  " {
+		t.Fatalf("JSON indentation: %q", i.Text())
+	}
+}

@@ -13,6 +13,7 @@ func TestDependencyLinesCommitAndUndo(t *testing.T) {
 	g := testEditor(t)
 	g.s.Project.Dep = &zapp.DepConfig{}
 	g.tab = tabDep
+	g.depRaw = true
 	g.rebuild()
 	g.focus(0)
 	g.input.SetText(" vendor/My Libraries \r\n\n/opt/lib\n")
@@ -34,7 +35,7 @@ func TestStapleToggleAndUndo(t *testing.T) {
 	g.s.Project.Notarize = &zapp.NotarizeConfig{}
 	g.tab = tabNotarize
 	g.rebuild()
-	g.focus(4)
+	g.focus(len(g.fields) - 1)
 	g.openChoice()
 	if !g.s.Project.Notarize.Staple || g.choiceOpen {
 		t.Fatal("toggle opened a menu or did not apply")

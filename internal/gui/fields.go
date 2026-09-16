@@ -17,6 +17,9 @@ type field struct {
 	comp.InputSpec
 	set    func(string) error
 	picker pickMode
+	// pickerTitle overrides the dialog title for fields whose label reads badly
+	// in one ("Directory 3"). Blank falls back to "Choose <label>".
+	pickerTitle string
 	// mayNotExist marks a path the build creates, so Validate does not require
 	// it to be on disk already.
 	mayNotExist bool
@@ -79,7 +82,7 @@ func jsonField[T any](label string, value *T, hint string) field {
 	if text == "null" {
 		text = ""
 	}
-	return field{Label: label, Value: text, Placeholder: "Optional · JSON", Hint: hint, Multiline: true, set: func(s string) error {
+	return field{Label: label, Value: text, Placeholder: "Optional · JSON", Hint: hint, Multiline: true, Syntax: "json", set: func(s string) error {
 		var next T
 		if strings.TrimSpace(s) == "" {
 			*value = next
@@ -241,6 +244,16 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 	return fields
 }
 
+// payloadDetailFields are the advanced settings a payload carries, whether it is
+// the short form's single app or one component of a product. One definition
+// keeps the labels in step with fieldPlaceholders and the validation lookups.
+func payloadDetailFields(scripts, minOS *string) []field {
+	return []field{
+		pathField("Scripts directory", scripts, "Installer scripts", pickFolder),
+		stringField("Minimum macOS", minOS, "For example 10.13"),
+	}
+}
+
 func (g *editor) pkgFields() []field {
 	c := g.s.Project.PKG
 	fields := []field{
@@ -248,25 +261,109 @@ func (g *editor) pkgFields() []field {
 		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
 	if !c.HasFullForm() {
+		version := stringField("Version", &c.Version, "Blank reads the app Info.plist")
+		version.SameRow = true
 		fields = append(fields,
 			stringField("Identifier", &c.Identifier, "Blank reads the app Info.plist"),
-			stringField("Version", &c.Version, "Blank reads the app Info.plist"),
-			stringField("Install location", &c.InstallLocation, "For example /Applications"),
-			pathField("Scripts directory", &c.Scripts, "Installer scripts", pickFolder),
-			stringField("Minimum macOS", &c.MinOS, "For example 10.13"),
-			jsonField("Licenses", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`),
-		)
-		fields[3].SameRow = true // Identifier and version.
-		fields[6].SameRow = true // Scripts and minimum macOS.
+			version,
+			stringField("Install location", &c.InstallLocation, "Blank uses /Applications"))
+		if g.pkgAdvanced {
+			fields = append(fields, payloadDetailFields(&c.Scripts, &c.MinOS)...)
+			fields = append(fields, jsonField("Licenses", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`))
+		}
 		return fields
 	}
-	return append(fields,
-		jsonField("Components", &c.Components, "Full-form package components"),
-		jsonField("Distribution", &c.Distribution, "Installer title, resources, license and choices"),
-	)
+	if g.pkgRaw {
+		components := jsonField("Components", &c.Components, "JSON array · Ctrl/Cmd+Enter: apply")
+		components.Height = 180
+		setComponents := components.set
+		components.set = func(value string) error {
+			if strings.TrimSpace(value) == "" {
+				value = "[]"
+			}
+			return setComponents(value)
+		}
+		fields = append(fields, components)
+	} else if len(c.Components) > 0 {
+		g.componentIndex = max(0, min(g.componentIndex, len(c.Components)-1))
+		component := &c.Components[g.componentIndex]
+		version := stringField("Version", &component.Version, "Package version")
+		version.SameRow = true
+		install := stringField("Install location", &component.InstallLocation, "Destination on the target Mac")
+		install.SameRow = true
+		fields = append(fields,
+			stringField("Component ID", &component.ID, "Unique package identifier"),
+			version,
+			pathField("Root directory", &component.Root, "Directory containing the payload", pickFolder),
+			stringField("Entry", &component.Entry, "Optional path within the root"),
+			install)
+		if g.pkgAdvanced {
+			fields = append(fields, payloadDetailFields(&component.Scripts, &component.MinOS)...)
+		}
+	}
+	if g.pkgAdvanced {
+		fields = append(fields, jsonField("Distribution", &c.Distribution, "Installer title, resources, license and choices"))
+	}
+	return fields
 }
 
 func (g *editor) depFields() []field {
+	if g.depRaw {
+		return g.depTextFields()
+	}
+	c := g.s.Project.Dep
+	fields := make([]field, 0, len(c.Libs)+1)
+	for i := 0; i <= len(c.Libs); i++ {
+		value := ""
+		label := "Add search directory"
+		hint := "Type a path or Browse to add a directory"
+		if i < len(c.Libs) {
+			value = c.Libs[i]
+			label = fmt.Sprintf("Directory %d", i+1)
+			hint = "Relative to the project directory"
+		}
+		f := field{InputSpec: comp.InputSpec{Label: label, Value: value, Hint: hint, Placeholder: "Choose a directory", Browse: true}, picker: pickFolder, pickerTitle: "Choose library directory"}
+		f.set = func(value string) error {
+			value = strings.TrimSpace(value)
+			if i == len(c.Libs) {
+				if value != "" {
+					c.Libs = append(c.Libs, value)
+				}
+			} else {
+				c.Libs[i] = value
+			}
+			return nil
+		}
+		fields = append(fields, f)
+	}
+	return fields
+}
+func (g *editor) signFields() []field {
+	fields := g.signAllFields()
+	switch g.signMethod() {
+	case 1:
+		return []field{fields[1], fields[3]}
+	case 2:
+		return []field{fields[2]}
+	default:
+		return fields[:1]
+	}
+}
+func (g *editor) notarizeFields() []field {
+	fields := g.notaryAllFields()
+	switch g.notaryMethod() {
+	case 1:
+		password := stringField("App-specific password", &g.s.Project.Notarize.Password, "Session only · never saved to the project")
+		password.Secret = true
+		return []field{fields[1], fields[2], password, fields[4]}
+	case 2:
+		return []field{fields[3], fields[4]}
+	default:
+		return []field{fields[0], fields[4]}
+	}
+}
+
+func (g *editor) depTextFields() []field {
 	c := g.s.Project.Dep
 	return []field{{Label: "Library search paths", Value: strings.Join(c.Libs, "\n"),
 		Multiline: true, Height: 180, Placeholder: "/opt/homebrew/lib", Hint: "One directory per line; blank uses automatic discovery",
@@ -282,7 +379,7 @@ func (g *editor) depFields() []field {
 		}}}
 }
 
-func (g *editor) signFields() []field {
+func (g *editor) signAllFields() []field {
 	c := g.s.Project.Sign
 	return []field{
 		stringField("Signing identity", &c.Identity, "macOS Keychain certificate name or ${env:ZAPP_IDENTITY}"),
@@ -292,7 +389,7 @@ func (g *editor) signFields() []field {
 	}
 }
 
-func (g *editor) notarizeFields() []field {
+func (g *editor) notaryAllFields() []field {
 	c := g.s.Project.Notarize
 	return []field{
 		stringField("Keychain profile", &c.Profile, "macOS: saved notarytool credentials (recommended)"),

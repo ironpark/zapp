@@ -19,7 +19,11 @@ func (g *editor) tooltipAt(point image.Point) string {
 				case "100%":
 					return "Actual size · Space + drag to pan"
 				case "Form":
-					return "Edit settings with fields. Valid YAML edits are applied when switching."
+					return "Edit with fields. Valid source edits are applied when switching."
+				case "JSON":
+					return "Edit JSON · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: indent"
+				case "Text":
+					return "One search directory per line · Ctrl/Cmd+Enter: apply"
 				case "YAML":
 					return "Edit DMG YAML · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: indent"
 				}
@@ -35,6 +39,9 @@ func (g *editor) tooltipAt(point image.Point) string {
 				if sections[i].Enabled(g.s.Project) {
 					state = "Enabled in this project"
 				}
+			}
+			if g.issueOn(i) {
+				state = "Needs attention: " + g.issue.message
 			}
 			return fmt.Sprintf("%s · Ctrl/Cmd+%d", state, i+1)
 		}
@@ -73,6 +80,7 @@ func (g *editor) tooltipAt(point image.Point) string {
 			if field.Number != nil {
 				return "Up / Down: step by 1 · Shift: step by 10 · Enter: apply · Esc: cancel"
 			}
+			return field.Hint
 		}
 	}
 	if g.tab == tabDMG {

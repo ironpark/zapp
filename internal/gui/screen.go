@@ -30,7 +30,10 @@ func (g *editor) Draw(dst *ebiten.Image) {
 			g.drawPreview(dst)
 			g.drawItems(dst, pointer)
 		} else {
-			g.drawHelp(dst)
+			g.drawComponentList(dst)
+			if g.helpOpen {
+				g.drawHelp(dst)
+			}
 		}
 	}
 	footerTop := g.h - footerHeight
@@ -42,6 +45,9 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	}
 	comp.RoundedRect(dst, comp.Box(24, footerTop+(footerHeight-5)/2, 5, 5), 2, statusColor)
 	statusWidth := g.w - 64
+	if g.issue != nil {
+		statusWidth -= g.w - goToIssueBounds(g.w, g.h).Min.X
+	}
 	p.Text(dst, p.Fit(g.status, statusWidth, 12), 40, p.TextY(comp.Box(0, footerTop, 0, footerHeight), 12), 12, statusColor)
 	// Keep long validation messages readable without a permanent tall footer.
 	if pointer.In(comp.Box(24, footerTop+1, g.w-48, footerHeight-1)) && p.Measure(g.status, 12) > statusWidth {

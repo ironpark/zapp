@@ -59,7 +59,11 @@ func (g *editor) browse(index int) {
 	}
 	f := g.fields[index]
 	initial := pickerDirectory(g.s.Path, f.Value, f.picker)
-	g.startPicker(index, f.picker, "Choose "+f.Label, initial)
+	title := f.pickerTitle
+	if title == "" {
+		title = "Choose " + f.Label
+	}
+	g.startPicker(index, f.picker, title, initial)
 }
 
 const addItemPicker = -1

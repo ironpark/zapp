@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
@@ -20,6 +21,15 @@ func (g *editor) tabs() comp.Tabs {
 	items := make([]comp.Tab, len(sections))
 	for i, s := range sections {
 		items[i] = comp.Tab{Label: s.Name}
+		if s.Optional() {
+			items[i].Status = comp.StatusDisabled
+			if s.Enabled(g.s.Project) {
+				items[i].Status = comp.StatusEnabled
+			}
+		}
+		if g.issueOn(i) {
+			items[i].Status = comp.StatusError
+		}
 	}
 	var measure func(string, int) int
 	if g.ui != nil {
@@ -87,14 +97,8 @@ func (g *editor) controls() []comp.Button {
 			}
 		})})
 	}
-	if g.tab == tabPKG && g.enabled() {
-		label := "Use multiple components"
-		if g.s.Project.PKG.HasFullForm() {
-			label = "Use single app"
-		}
-		buttons = append(buttons, comp.Button{Bounds: comp.Box(g.w-376, 74, 220, 32), Label: label, OnClick: g.guard(g.switchPackageForm)})
-	}
-	return buttons
+
+	return append(buttons, g.workflowButtons()...)
 }
 func (g *editor) switchPackageForm() {
 	p := g.s.Project.PKG
@@ -104,9 +108,9 @@ func (g *editor) switchPackageForm() {
 			return
 		}
 		g.s.checkpoint()
-		p.Components = []zapp.Component{{ID: "app", Root: g.s.Project.App, InstallLocation: "/Applications"}}
+		p.Components = []zapp.Component{g.defaultComponent()}
 	} else {
-		defaultComponent := len(p.Components) == 1 && p.Components[0] == (zapp.Component{ID: "app", Root: g.s.Project.App, InstallLocation: "/Applications"})
+		defaultComponent := len(p.Components) == 1 && p.Components[0] == g.defaultComponent()
 		if (len(p.Components) > 0 && !defaultComponent) || p.Distribution != nil {
 			g.report(fmt.Errorf("clear components and distribution before switching to short form"), "")
 			return
@@ -128,4 +132,13 @@ func (g *editor) closeDialog() comp.Dialog {
 		{Label: "Discard changes", OnClick: func() { g.quit = true }},
 		{Label: "Keep editing", OnClick: func() { g.confirmClose = false }},
 	}}
+}
+
+func (g *editor) defaultComponent() zapp.Component {
+	c := zapp.Component{ID: "app", InstallLocation: "/Applications"}
+	if g.s.Project.App != "" {
+		c.Root = filepath.Dir(g.s.Project.App)
+		c.Entry = filepath.Base(g.s.Project.App)
+	}
+	return c
 }

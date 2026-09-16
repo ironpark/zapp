@@ -12,6 +12,14 @@ import (
 )
 
 type editor struct {
+	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
+	componentIndex, componentScroll       int
+	signMode, notaryMode                  int
+	signModeSet, notaryModeSet            bool
+	signStash                             zapp.SignConfig
+	notaryStash                           zapp.NotarizeConfig
+	issue                                 *validationIssue
+
 	dmgYAML                                  bool
 	appIconResults                           chan appIconResult
 	appIconPending                           map[string]bool
@@ -152,6 +160,9 @@ func (g *editor) commit() bool {
 		return false
 	}
 	g.s.push(before)
+	if g.issueOn(g.tab) && g.issue.label == f.Label {
+		g.issue = nil
+	}
 	g.rebuild()
 	g.report(nil, "Unsaved changes")
 	return true
@@ -166,6 +177,7 @@ func (g *editor) save() bool {
 	return err == nil
 }
 func (g *editor) validate() {
+	g.issue = nil
 	if !g.commit() {
 		return
 	}
@@ -176,6 +188,9 @@ func (g *editor) validate() {
 	if err != nil {
 		g.locateValidationError(err)
 	}
+	if err == nil {
+		g.rebuild()
+	}
 	g.report(err, "Build inputs are valid. No files were built, signed or submitted.")
 }
 
@@ -185,20 +200,44 @@ const workspaceTop = 128
 func (g *editor) contentBottom() int { return g.h - footerHeight - 16 }
 
 func (g *editor) settingsPanel() comp.Panel {
-	width := min(696, g.w-364)
+	width := min(760, g.w-48)
+	x := (g.w - width) / 2
+	if g.helpOpen {
+		width = min(760, g.w-384)
+		x = 24
+	}
+	if g.componentListVisible() {
+		x = 240
+		width = min(760, g.w-x-24)
+		if g.helpOpen {
+			width = min(width, g.w-x-360)
+		}
+	}
 	title := g.section().Name + " settings"
 	if g.tab == tabDMG {
+		x = 24
 		width = min(364, max(320, g.w/3-56))
 		title = "Layout settings"
 	}
-	panel := comp.Panel{Bounds: comp.Box(24, workspaceTop, width, g.contentBottom()-workspaceTop), Title: title}
+	panel := comp.Panel{Bounds: comp.Box(x, workspaceTop, width, g.contentBottom()-workspaceTop), Title: title}
 	if g.tab == tabDMG {
 		panel.TitleInset = 132
+	} else {
+		panel.TitleInset = 80
+		if g.tab == tabDep || g.componentListVisible() || (g.tab == tabPKG && g.pkgRaw) {
+			panel.TitleInset = 220
+		}
 	}
 	return panel
 }
 func (g *editor) formArea() image.Rectangle {
 	area := g.settingsPanel().Content()
+	if g.tab == tabSign || g.tab == tabNotarize {
+		area.Min.Y += 48
+	}
+	if g.tab == tabPKG || (g.tab == tabDep && !g.depRaw) {
+		area.Max.Y -= 44
+	}
 	if g.tab == tabDMG && !g.dmgYAML {
 		area.Max.Y -= 44
 	}

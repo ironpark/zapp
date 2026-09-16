@@ -96,6 +96,7 @@ func (g *editor) section() section { return sections[g.tab] }
 func (g *editor) enabled() bool    { return g.section().Enabled(g.s.Project) }
 
 func (g *editor) toggle() {
+	g.clearIssue(g.tab)
 	g.s.checkpoint()
 	// Disabled values stay in g.disabled so toggling a section back on restores
 	// its fields. Only enabled sections are persisted.
