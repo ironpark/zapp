@@ -9,6 +9,7 @@ type Button struct {
 	Bounds             image.Rectangle
 	Label              string
 	Selected, Disabled bool
+	Primary            bool
 	OnClick            func()
 }
 
@@ -38,7 +39,13 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 		bg = t.Hover
 	}
 	if b.Selected {
+		bg, fg = t.Selection, t.Text
+	}
+	if b.Primary {
 		bg, fg = t.Accent, t.AccentText
+		if pointer.In(b.Bounds) {
+			bg = t.Text
+		}
 	}
 	if b.Disabled {
 		bg, fg = t.Disabled, t.DisabledText

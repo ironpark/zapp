@@ -100,9 +100,10 @@ func TestClipboardFailureDoesNotDestroySelection(t *testing.T) {
 
 func TestChoiceIsDraftUntilApplied(t *testing.T) {
 	i := NewInput(InputSpec{Value: "", Choices: []string{"", "udzo", "ulfo"}})
-	if r := i.Handle(key(ebiten.KeyEnter), nil); r.Intent != InputSubmit || i.Text() != "udzo" || i.Spec.Value != "" {
-		t.Fatal("choice was not returned as a draft")
+	if r := i.Handle(key(ebiten.KeyEnter), nil); r.Intent != InputOpenChoice || i.Text() != "" || i.Spec.Value != "" {
+		t.Fatal("opening choices changed the value")
 	}
+	i.SetText("udzo")
 	i.NextChoice()
 	if i.Text() != "ulfo" {
 		t.Fatal("next choice failed")
@@ -110,5 +111,53 @@ func TestChoiceIsDraftUntilApplied(t *testing.T) {
 	i.NextChoice()
 	if i.Text() != "" {
 		t.Fatal("choice did not wrap")
+	}
+}
+
+func TestNumberKeyboardStepping(t *testing.T) {
+	i := NewInput(InputSpec{Value: "0", Number: &NumberSpec{Min: 16, Max: 128, Step: 1, Default: 64}})
+	i.Handle(key(ebiten.KeyArrowUp), nil)
+	if i.Text() != "65" {
+		t.Fatalf("default step: %s", i.Text())
+	}
+	i.Handle(Keyboard{Shift: true, Repeated: []ebiten.Key{ebiten.KeyArrowDown}}, nil)
+	if i.Text() != "55" {
+		t.Fatalf("shift repeat: %s", i.Text())
+	}
+	i.SetText("128")
+	i.Handle(key(ebiten.KeyArrowUp), nil)
+	if i.Text() != "128" {
+		t.Fatal("exceeded maximum")
+	}
+	i.SetText("16")
+	i.Handle(key(ebiten.KeyArrowDown), nil)
+	if i.Text() != "16" {
+		t.Fatal("below minimum")
+	}
+	i.SetText("invalid")
+	i.Handle(key(ebiten.KeyArrowUp), nil)
+	if i.Text() != "invalid" {
+		t.Fatal("invalid draft silently replaced")
+	}
+	i.SetText("")
+	i.StepNumber(-1, false)
+	if i.Text() != "63" {
+		t.Fatalf("empty default: %s", i.Text())
+	}
+	if i.Spec.Value != "0" {
+		t.Fatal("stepping mutated committed value")
+	}
+	if i.Handle(key(ebiten.KeyEscape), nil).Intent != InputCancel {
+		t.Fatal("cannot cancel step")
+	}
+}
+func TestPlaceholderIsNotAValue(t *testing.T) {
+	i := NewInput(InputSpec{Placeholder: "MyApp.app"})
+	if i.Text() != "" || i.Dirty() {
+		t.Fatal("placeholder became input value")
+	}
+	i.Handle(Keyboard{Text: "test.app"}, nil)
+	if i.Text() != "test.app" {
+		t.Fatal("placeholder affected typing")
 	}
 }

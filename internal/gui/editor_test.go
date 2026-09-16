@@ -120,7 +120,7 @@ func TestDefaultIconInspectorDoesNotMutateOnSelection(t *testing.T) {
 		t.Fatal("selecting an icon must not materialize contents")
 	}
 	for i, f := range g.fields {
-		if f.Label == "Selected item X" {
+		if f.Label == "X" {
 			g.focus(i)
 			g.input.SetText("210")
 			if !g.commit() {
@@ -135,7 +135,7 @@ func TestDefaultIconInspectorDoesNotMutateOnSelection(t *testing.T) {
 	t.Fatal("missing default icon inspector")
 }
 
-func TestAdvancedChoiceAndAddFileFocus(t *testing.T) {
+func TestAdvancedChoice(t *testing.T) {
 	g := testEditor(t)
 	g.tab = 1
 	g.rebuild()
@@ -148,17 +148,16 @@ func TestAdvancedChoiceAndAddFileFocus(t *testing.T) {
 	g.rebuild()
 	for i, f := range g.fields {
 		if f.Label == "Filesystem" {
-			g.cycleChoice(i)
+			g.focus(i)
+			g.openChoice()
+			g.choose(1)
 			break
 		}
 	}
 	if g.s.Project.DMG.FS != "hfsplus" {
 		t.Fatal("choice did not apply")
 	}
-	g.addFile()
-	if g.active != 0 || g.fields[0].Label != "New item path" {
-		t.Fatal("Add file should focus its path field")
-	}
+
 }
 
 func TestActualPreviewPanPreservesProjectAndCoordinates(t *testing.T) {

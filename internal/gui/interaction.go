@@ -83,15 +83,43 @@ func (g *editor) handleClick(in tick) bool {
 	if g.tabs().Click(in.mouse) || (g.section().Optional() && g.stepToggle().Click(in.mouse)) || comp.ClickButtons(g.controls(), in.mouse) {
 		return true
 	}
-	if i, ok := g.form.Hit(in.mouse); ok {
+	if g.enabled() {
+		for i := range g.fields {
+			form, local := g.fieldForm(i)
+			if in.mouse.In(form.BrowseBounds(local).Intersect(form.Bounds)) {
+				g.browse(i)
+				return true
+			}
+		}
+	}
+	if g.tab == tabDMG && g.enabled() && g.selectListItem(in.mouse) {
+		return true
+	}
+	index, hit := g.form.Hit(in.mouse)
+	if !hit && g.tab == tabDMG && g.enabled() {
+		if local, ok := g.inspector.Hit(in.mouse); ok {
+			index, hit = local+g.inspectorStart, true
+		}
+	}
+	if i, ok := index, hit; ok {
 		if g.active != i {
 			if !g.commit() {
 				return true
 			}
 			g.focus(i)
 		}
+		if g.active >= 0 && g.input.Spec.Number != nil {
+			form, local := g.fieldForm(i)
+			for _, direction := range []int{1, -1} {
+				if in.mouse.In(comp.StepBounds(form.FieldBounds(local), direction)) {
+					g.input.StepNumber(direction, ebiten.IsKeyPressed(ebiten.KeyShift))
+					g.clearFieldError()
+					return true
+				}
+			}
+		}
 		if g.active >= 0 && len(g.input.Spec.Choices) > 0 {
-			g.cycleChoice(g.active)
+			g.openChoice()
 		}
 		return true
 	}
@@ -124,7 +152,7 @@ func (g *editor) selectPreviewItem(in tick) {
 		}
 	}
 	g.rebuild()
-	g.form.ScrollTo(0)
+	g.revealItem()
 }
 
 // startPan begins a space-drag pan, which is only offered at actual size.
@@ -174,13 +202,24 @@ func (g *editor) updateDrag(in tick) {
 }
 
 func (g *editor) scrollForm(in tick) {
+	if g.tab == tabDMG && g.enabled() {
+		if in.mouse.In(g.itemsPanel().Content()) {
+			_, wheel := ebiten.Wheel()
+			g.itemScroll = max(0, min(g.itemScroll-int(wheel*38), g.itemListLimit()))
+			return
+		}
+		if in.mouse.In(g.inspector.Bounds) {
+			_, wheel := ebiten.Wheel()
+			g.inspector.ScrollBy(-int(wheel * 38))
+			return
+		}
+	}
 	if in.mouse.In(g.form.Bounds) {
 		_, wheel := ebiten.Wheel()
 		g.form.ScrollBy(-int(wheel * 38))
 	}
 }
 
-func (g *editor) cycleChoice(i int) { g.focus(i); g.input.NextChoice(); g.commit() }
 func (g *editor) nudgeSelected() {
 	if g.tab != tabDMG || g.s.Project.DMG == nil || g.selected == "" {
 		return

@@ -1,14 +1,10 @@
 package gui
 
 import (
-	"fmt"
 	"image"
-	"os"
-	"strconv"
-	"strings"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
@@ -18,42 +14,45 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	mx, my := comp.PointerPosition(g.w, g.h)
 	pointer := image.Pt(mx, my)
 	dst.Fill(t.Background)
-	p.Text(dst, "ZAPP", 24, 19, 26, t.Accent)
-	state := "Saved"
-	if !g.s.exists {
-		state = "New project"
-	}
-	if g.dirty() {
-		state = "Unsaved changes"
-	}
-	comp.Badge{Bounds: comp.Box(118, 25, 150, 28), Label: state, Highlight: g.dirty()}.Draw(dst, p)
-	p.Text(dst, p.Fit(g.s.Path, g.w-48, 12), 24, 62, 12, t.Muted)
-	// The toolbar and panels share the selected tab's continuous surface.
-	comp.Rect(dst, comp.Box(24, 127, g.w-48, g.h-217), t.Panel)
-	comp.Border(dst, comp.Box(24, 127, g.w-48, g.h-217), t.Border)
+	g.drawHeader(dst)
 	g.tabs().Draw(dst, p, pointer)
 	if g.tab == tabProject {
-		p.Text(dst, "Project workspace", 40, 148, 22, t.Text)
+		p.Text(dst, "Project workspace", 40, 145, 20, t.Text)
 	}
 	if !g.enabled() {
-		comp.Panel{Bounds: comp.Box(40, 195, g.w-80, 180), Title: g.section().Name + " is disabled", Description: "Enable this step above to include it in your project."}.Draw(dst, p)
-		p.Text(dst, "Your settings are retained while you work. Disabled steps are omitted from the saved configuration.", 56, 285, 14, t.Muted)
+		comp.Panel{Bounds: comp.Box(24, 195, g.w-48, 180), Title: g.section().Name + " is disabled", Description: "Enable this step above to include it in your project."}.Draw(dst, p)
+		p.Wrapped(dst, g.section().Description, 40, 285, g.w-80, 15, t.Text, 2)
+		p.Text(dst, "Settings are retained during this session. Enable the step when you are ready to configure it.", 40, 338, 13, t.Muted)
 	} else {
 		g.settingsPanel().Draw(dst, p)
-		g.form.Draw(dst, p, g.active, &g.input)
+		mainActive := g.active
+		if mainActive >= g.inspectorStart {
+			mainActive = -1
+		}
+		g.form.Draw(dst, p, mainActive, &g.input, pointer)
 		if g.tab == tabDMG {
 			g.drawPreview(dst)
+			g.drawItems(dst, pointer)
 		} else {
 			g.drawHelp(dst)
 		}
 	}
-	comp.Rect(dst, comp.Box(0, g.h-76, g.w, 76), t.Panel)
+	footerTop := g.h - footerHeight
+	comp.Rect(dst, comp.Box(0, footerTop, g.w, footerHeight), t.Panel)
+	comp.Rect(dst, comp.Box(0, footerTop, g.w, 1), t.Border)
 	statusColor := t.Muted
 	if g.failed {
 		statusColor = t.Error
 	}
-	p.Wrapped(dst, g.status, 24, g.h-62, g.w-200, 13, statusColor, 2)
-	p.Text(dst, "Ctrl/Cmd+S Save  ·  Ctrl/Cmd+1–6 Tabs  ·  Tab Next field  ·  Esc Cancel edit", 24, g.h-23, 11, t.Muted)
+	comp.RoundedRect(dst, comp.Box(24, footerTop+17, 5, 5), 2, statusColor)
+	statusWidth := g.w - 190
+	p.Text(dst, p.Fit(g.status, statusWidth, 12), 40, footerTop+11, 12, statusColor)
+	// Keep long validation messages readable without a permanent tall footer.
+	if pointer.In(comp.Box(24, footerTop+1, g.w-170, footerHeight-1)) && p.Measure(g.status, 12) > statusWidth {
+		box := comp.Box(24, footerTop-136, g.w-48, 124)
+		comp.Surface(dst, box, comp.Radius, t.Panel, t.Border)
+		p.Wrapped(dst, g.status, box.Min.X+16, box.Min.Y+14, box.Dx()-32, 13, statusColor, 5)
+	}
 	// Every control is drawn exactly once, after its panel background.
 	for _, button := range g.controls() {
 		button.Draw(dst, p, pointer)
@@ -61,9 +60,45 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	if g.section().Optional() {
 		g.stepToggle().Draw(dst, p, pointer)
 	}
+	if g.choiceOpen {
+		g.drawChoice(dst, pointer)
+	}
+	if g.picking != nil {
+		comp.Dialog{Visible: true, Bounds: comp.Center(dst.Bounds(), 460, 170), Title: "Choose a path", Message: "Use the system file picker to select a path, or cancel to keep the current value."}.Draw(dst, p, pointer)
+	}
 	if g.confirmClose {
 		g.closeDialog().Draw(dst, p, pointer)
 	}
+}
+
+// drawHeader keeps project identity together and reserves the right side for
+// save state and actions. Long paths cannot intrude into the toolbar.
+func (g *editor) drawHeader(dst *ebiten.Image) {
+	p, t := g.ui, g.ui.Theme
+	comp.RoundedRect(dst, comp.Box(24, 24, 32, 32), 9, t.Accent)
+	p.Text(dst, "Z", 34, 27, 21, t.AccentText)
+	p.Text(dst, "Zapp", 68, 25, 22, t.Text)
+	comp.Rect(dst, comp.Box(144, 24, 1, 32), t.Border)
+
+	state := "Saved"
+	if !g.s.exists {
+		state = "New project"
+	}
+	if g.dirty() {
+		state = "Unsaved changes"
+	}
+	stateWidth := p.Measure(state, 12) + 30
+	stateX := g.w - 358 - stateWidth
+	projectWidth := max(0, stateX-192)
+	p.Text(dst, p.Fit(filepath.Base(g.s.Path), projectWidth, 16), 168, 19, 16, t.Text)
+	p.Text(dst, p.Fit(filepath.Dir(g.s.Path), projectWidth, 12), 168, 43, 12, t.Muted)
+	stateColor := t.Muted
+	if g.dirty() {
+		stateColor = t.Accent
+	}
+	comp.RoundedRect(dst, comp.Box(stateX, 29, stateWidth, 24), 12, t.Panel)
+	comp.RoundedRect(dst, comp.Box(stateX+10, 39, 5, 5), 2, stateColor)
+	p.Text(dst, state, stateX+21, 32, 12, stateColor)
 }
 
 // The help section tables are fixed copy read every frame, so they live here
@@ -83,7 +118,7 @@ var (
 
 func (g *editor) drawHelp(dst *ebiten.Image) {
 	x := g.settingsPanel().Bounds.Max.X + 16
-	panel := comp.Panel{Bounds: comp.Box(x, 195, g.w-x-40, g.h-301), Title: "About this step"}
+	panel := comp.Panel{Bounds: comp.Box(x, 195, g.w-x-24, g.contentBottom()-195), Title: "About this step"}
 	panel.Draw(dst, g.ui)
 	area := panel.Content()
 	g.ui.Wrapped(dst, g.section().Description, area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
@@ -100,35 +135,4 @@ func (g *editor) drawHelp(dst *ebiten.Image) {
 		g.ui.Wrapped(dst, entry[1], area.Min.X, y+25, area.Dx(), 13, g.ui.Theme.Muted, 3)
 		y += 110
 	}
-}
-
-func (g *editor) addFile() {
-	key := strings.TrimSpace(g.newPath)
-	if key == "" {
-		g.adding = true
-		g.form.ScrollTo(0)
-		g.rebuild()
-		g.focus(0)
-		g.report(nil, "Enter a file or folder path, then click Add file again.")
-		return
-	}
-	if _, err := os.Stat(g.assetPath(key)); err != nil {
-		g.report(err, "")
-		return
-	}
-	if _, ok := layout(g.s.Project.DMG, g.s.Project.App).find(key); ok {
-		g.report(fmt.Errorf("that path is already in the layout"), "")
-		return
-	}
-	g.s.checkpoint()
-	g.s.materialize()
-	l := layout(g.s.Project.DMG, g.s.Project.App)
-	x, y := l.W/2, l.H/2
-	g.s.Project.DMG.Contents[key] = zapp.Content{X: &x, Y: &y}
-	g.selected = key
-	g.newPath = ""
-	g.adding = false
-	g.form.ScrollTo(0)
-	g.rebuild()
-	g.report(nil, "Added "+strconv.Quote(key)+". Drag its icon to position it.")
 }

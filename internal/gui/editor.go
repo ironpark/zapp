@@ -20,17 +20,23 @@ type editor struct {
 	active                                   int
 	input                                    comp.Input
 	form                                     comp.Form
+	inspector                                comp.Form
+	inspectorStart, itemScroll               int
+	picking                                  <-chan pickResult
 	ui                                       *comp.Painter
 	status                                   string
 	failed, confirmClose, quit, projectDirty bool
-	selected, newPath                        string
+	selected                                 string
 	drag                                     string
 	dragX, dragY                             float64
 	dragMoved                                bool
 	assets                                   map[string]*ebiten.Image
+	itemKinds                                map[string]string
 	previewError                             string
 	previewSig                               string
-	dmgAdvanced, adding                      bool
+	dmgAdvanced                              bool
+	choiceOpen                               bool
+	choiceIndex                              int
 	previewActual, panning                   bool
 	panX, panY, panStartX, panStartY         int
 	panOriginX, panOriginY                   int
@@ -78,6 +84,10 @@ func (g *editor) Layout(w, h int) (int, int) {
 	g.w = w
 	g.h = h
 	g.form.SetBounds(g.formArea())
+	g.inspector.SetBounds(g.inspectorPanel().Content())
+	if g.choiceOpen {
+		g.revealField(g.active)
+	}
 	return w, h
 }
 func (g *editor) report(err error, success string) {
@@ -106,7 +116,7 @@ func (g *editor) commit() bool {
 	}
 	before := g.s.Project.Clone()
 	if err := f.set(value); err != nil {
-		g.report(err, "")
+		g.fieldError(err)
 		return false
 	}
 	if err := g.s.validateLayout(); err != nil {
@@ -115,7 +125,7 @@ func (g *editor) commit() bool {
 		g.rebuild()
 		g.focus(index)
 		g.input = draft
-		g.report(err, "")
+		g.fieldError(err)
 		return false
 	}
 	g.s.push(before)
@@ -136,9 +146,20 @@ func (g *editor) validate() {
 	if !g.commit() {
 		return
 	}
+	if !g.validatePaths() {
+		return
+	}
 	_, err := g.s.Project.Resolve()
+	if err != nil {
+		g.locateValidationError(err)
+	}
 	g.report(err, "Build inputs are valid. No files were built, signed or submitted.")
 }
+
+const footerHeight = 40
+
+func (g *editor) contentBottom() int { return g.h - footerHeight - 16 }
+
 func (g *editor) settingsPanel() comp.Panel {
 	width := min(696, g.w-364)
 	title := g.section().Name + " settings"
@@ -146,16 +167,24 @@ func (g *editor) settingsPanel() comp.Panel {
 		width = 364
 		title = "Layout settings"
 	}
-	return comp.Panel{Bounds: comp.Box(40, 195, width-16, g.h-301), Title: title}
+	return comp.Panel{Bounds: comp.Box(24, 195, width, g.contentBottom()-195), Title: title}
 }
-func (g *editor) formArea() image.Rectangle { return g.settingsPanel().Content() }
+func (g *editor) formArea() image.Rectangle {
+	area := g.settingsPanel().Content()
+	if g.choiceOpen && g.active >= 0 {
+		area.Max.Y -= len(g.input.Spec.Choices)*choiceRowHeight + 8
+	}
+	return area
+}
 func (g *editor) syncForm() {
 	specs := make([]comp.InputSpec, len(g.fields))
 	for i, f := range g.fields {
 		specs[i] = f.InputSpec
 	}
 	g.form.SetBounds(g.formArea())
-	g.form.SetInputs(specs)
+	g.form.SetInputs(specs[:g.inspectorStart])
+	g.inspector.SetBounds(g.inspectorPanel().Content())
+	g.inspector.SetInputs(specs[g.inspectorStart:])
 }
 func (g *editor) focus(i int) {
 	if len(g.fields) == 0 {
@@ -165,16 +194,23 @@ func (g *editor) focus(i int) {
 	i = max(0, min(i, len(g.fields)-1))
 	g.active = i
 	g.input = comp.NewInput(g.fields[i].InputSpec)
-	g.form.Reveal(i)
+	g.revealField(i)
 }
 func (g *editor) editInput() {
+	before := g.input.Text()
 	result := g.input.Handle(comp.CaptureKeyboard(), comp.SystemClipboard{})
+	if before != g.input.Text() {
+		g.clearFieldError()
+	}
 	if result.Err != nil {
 		g.report(result.Err, "")
 		return
 	}
 	switch result.Intent {
+	case comp.InputOpenChoice:
+		g.openChoice()
 	case comp.InputCancel:
+		g.clearFieldError()
 		g.active = -1
 	case comp.InputSubmit:
 		g.commit()
@@ -207,6 +243,10 @@ func (g *editor) Update() error {
 	if err := g.ctx.Err(); err != nil {
 		return err
 	}
+	if g.picking != nil {
+		g.pollPicker()
+		return nil
+	}
 	if ebiten.IsWindowBeingClosed() {
 		if !g.dirty() {
 			return ebiten.Termination
@@ -215,6 +255,15 @@ func (g *editor) Update() error {
 	}
 	in := captureTick(g.w, g.h)
 	if g.confirmClose && g.closeDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
+		return nil
+	}
+	if g.choiceOpen {
+		g.handleChoice(in, comp.CaptureKeyboard())
+		return nil
+	}
+	if files := ebiten.DroppedFiles(); files != nil {
+		x, y := ebiten.CursorPosition()
+		g.dropFiles(files, image.Pt(x, y))
 		return nil
 	}
 	if g.handleShortcuts() {

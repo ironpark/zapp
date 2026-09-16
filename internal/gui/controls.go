@@ -27,19 +27,23 @@ func (g *editor) tabs() comp.Tabs {
 	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 84, g.w-48, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
 }
 func (g *editor) stepToggle() comp.Toggle {
-	return comp.Toggle{Bounds: comp.Box(24, 145, 250, 34), Label: "Enable " + g.section().Name, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
+	label := g.section().Name + " disabled"
+	if g.enabled() {
+		label = g.section().Name + " enabled"
+	}
+	return comp.Toggle{Bounds: comp.Box(32, 145, 250, 34), Label: label, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
 }
 func (g *editor) controls() []comp.Button {
 	buttons := []comp.Button{
-		{Bounds: comp.Box(g.w-338, 22, 84, 36), Label: "Undo", Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.s.Undo(); g.rebuild() })},
-		{Bounds: comp.Box(g.w-246, 22, 84, 36), Label: "Redo", Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.s.Redo(); g.rebuild() })},
-		{Bounds: comp.Box(g.w-154, 22, 130, 36), Label: "Save", Selected: true, OnClick: func() { g.save() }},
-		{Bounds: comp.Box(g.w-154, g.h-61, 130, 36), Label: "Validate", OnClick: g.validate},
+		{Bounds: comp.Box(g.w-338, 24, 84, 36), Label: "Undo", Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.s.Undo(); g.rebuild() })},
+		{Bounds: comp.Box(g.w-246, 24, 84, 36), Label: "Redo", Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.s.Redo(); g.rebuild() })},
+		{Bounds: comp.Box(g.w-154, 24, 130, 36), Label: "Save project", Primary: true, OnClick: func() { g.save() }},
+		{Bounds: comp.Box(g.w-130, g.h-footerHeight+6, 106, 28), Label: "Validate", OnClick: g.validate},
 	}
 	if g.tab == tabDMG && g.enabled() {
 		buttons = append(buttons,
-			comp.Button{Bounds: comp.Box(g.w-196, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.panX = 0; g.panY = 0 }},
-			comp.Button{Bounds: comp.Box(g.w-120, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.panX = 0; g.panY = 0 }},
+			comp.Button{Bounds: comp.Box(g.w-440, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.panX = 0; g.panY = 0 }},
+			comp.Button{Bounds: comp.Box(g.w-364, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.panX = 0; g.panY = 0 }},
 			comp.Button{Bounds: comp.Box(404, 145, 104, 34), Label: "Add file", OnClick: g.guard(g.addFile)},
 			comp.Button{Bounds: comp.Box(518, 145, 142, 34), Label: "Remove selected", Disabled: g.selected == "", OnClick: g.guard(func() {
 				g.s.checkpoint()
@@ -78,7 +82,7 @@ func (g *editor) switchPackageForm() {
 }
 func (g *editor) closeDialog() comp.Dialog {
 	return comp.Dialog{Visible: g.confirmClose, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 500, 190), Title: "Save changes before closing?", Message: "Your project has unsaved edits.", OnCancel: func() { g.confirmClose = false }, Actions: []comp.Button{
-		{Label: "Save & close", Selected: true, OnClick: func() {
+		{Label: "Save & close", Primary: true, OnClick: func() {
 			if g.save() {
 				g.quit = true
 			} else {

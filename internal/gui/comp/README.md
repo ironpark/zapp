@@ -7,8 +7,8 @@ import Zapp's project model or packaging code.
 | --- | --- |
 | `Button` | Bounds, label, selected/disabled styling, hit testing and activation |
 | `Tabs` | Tab layout and selection requests, using the same bounds for drawing and input |
-| `Input` / `InputSpec` | Draft text, Unicode cursor editing, clipboard, choices and submit/focus intents |
-| `Form` | Input rows, clipping, scrolling and revealing the focused field |
+| `Input` / `InputSpec` | Draft text, Unicode cursor editing, clipboard, choice-opening intents, inline errors and submit/focus intents |
+| `Form` | Shared input rows, browse-button bounds, clipping, scrolling and focus reveal |
 | `Dialog` | Modal layout, action buttons, cancellation and blocking background input |
 | `Painter` / `Theme` | Shared font cache, text measurement, clipping helpers and colors |
 
@@ -36,5 +36,4 @@ methods can also be driven directly in unit tests without a window.
 
 `Panel` groups content with shared title/inset geometry; `Badge` displays a
 non-interactive state. `Toggle` requests a boolean change through `OnChange`,
-letting the owner validate before applying it. Tabs use label-sized widths and an open bottom border to connect the active
-tab to its content surface. Supply the painter’s Measure method for exact sizing.
+letting the owner validate before applying it. Tabs use label-sized widths and an underline to identify the active tab. Supply the painter’s Measure method for exact sizing.

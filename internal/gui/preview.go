@@ -29,7 +29,9 @@ type previewTransform struct {
 func (t previewTransform) content(x, y float64) (float64, float64) {
 	return (x - t.x) / t.scale, (y - t.y) / t.scale
 }
-func (g *editor) previewArea() image.Rectangle { return comp.Box(420, 267, g.w-476, g.h-427) }
+func (g *editor) previewArea() image.Rectangle {
+	return comp.Box(420, 267, g.w-720, g.contentBottom()-321)
+}
 func (g *editor) clampPan() {
 	l := layout(g.s.Project.DMG, g.s.Project.App)
 	area := g.previewArea()
@@ -227,7 +229,8 @@ func (g *editor) pruneAssets() {
 }
 
 func (g *editor) drawPreview(dst *ebiten.Image) {
-	comp.Panel{Bounds: comp.Box(404, 195, g.w-444, g.h-301), Title: "DMG preview", Description: "Drag icons to arrange · Space + drag to pan at 100%"}.Draw(dst, g.ui)
+	g.previewPanel().Draw(dst, g.ui)
+	comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
 	c := g.s.Project.DMG
 	l := layout(c, g.s.Project.App)
 	size, label, items := l.IconSize, l.LabelSize, l.Items
@@ -319,9 +322,9 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
 	dst = full
-	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%  ·  Drag icons to arrange", l.W, l.H, t.scale*100), 420, g.h-148, 13, g.ui.Theme.Muted)
+	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%", l.W, l.H, t.scale*100), 420, g.contentBottom()-42, 13, g.ui.Theme.Muted)
 	if len(items) == 0 {
-		g.ui.Wrapped(canvas, "Set the app path in Project, or add contents in DMG settings.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)
+		g.ui.Wrapped(canvas, "Drop files or folders here, or set the app path in Project.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)
 	}
 	message := "Layout approximation; Finder fonts and generic file icons may differ."
 	if g.selected != "" {
@@ -334,5 +337,5 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	if g.previewError != "" {
 		message = g.previewError
 	}
-	g.ui.Text(dst, g.ui.Fit(message, g.w-476, 12), 420, g.h-126, 12, g.ui.Theme.Muted)
+	g.ui.Text(dst, g.ui.Fit(message, g.previewArea().Dx(), 12), 420, g.contentBottom()-20, 12, g.ui.Theme.Muted)
 }

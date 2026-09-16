@@ -15,14 +15,15 @@ import (
 // field binds reusable input presentation to a project-specific setter.
 type field struct {
 	comp.InputSpec
-	set func(string) error
+	set    func(string) error
+	picker pickMode
 }
 
 func stringField(label string, value *string, hint string) field {
-	return field{Label: label, Value: *value, Hint: hint, set: func(s string) error { *value = s; return nil }}
+	return field{Label: label, Value: *value, Hint: hint, Placeholder: fieldPlaceholder(label), set: func(s string) error { *value = s; return nil }}
 }
 func choiceField(label string, value *string, choices ...string) field {
-	f := stringField(label, value, "Click to cycle options, or Tab then Enter")
+	f := stringField(label, value, "Click to choose, or press Enter")
 	f.Choices = choices
 	if *value == "" {
 		f.DisplayValue = "Default"
@@ -60,7 +61,7 @@ func boolField(label string, value *bool, hint string) field {
 	}}
 }
 func intField(label string, value *int, low, high int, hint string, displayZero ...int) field {
-	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, set: func(s string) error {
+	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &comp.NumberSpec{Min: low, Max: high, Step: 1}, set: func(s string) error {
 		n, err := strconv.Atoi(strings.TrimSpace(s))
 		if err != nil || n < low || n > high {
 			return fmt.Errorf("%s must be %d–%d", label, low, high)
@@ -68,6 +69,15 @@ func intField(label string, value *int, low, high int, hint string, displayZero 
 		*value = n
 		return nil
 	}}
+	if len(displayZero) > 0 {
+		f.Number.Default = displayZero[0]
+		if label == "Icon size" {
+			f.Number.Min = dmg.MinIconSize
+		}
+		if label == "Label size" {
+			f.Number.Min = dmg.MinLabelSize
+		}
+	}
 	if *value == 0 && len(displayZero) > 0 {
 		f.DisplayValue = strconv.Itoa(displayZero[0]) + " (default)"
 	}
@@ -97,17 +107,25 @@ func (g *editor) rebuild() {
 	g.projectDirty = g.s.Dirty()
 	g.fields = nil
 	g.active = -1
+	g.choiceOpen = false
 	if g.enabled() {
 		g.fields = g.section().fields(g)
 	}
+	g.inspectorStart = len(g.fields)
+	if g.tab == tabDMG && g.enabled() {
+		if item, ok := g.selectedContent(); ok {
+			g.fields = append(g.fields, g.selectedItemFields(g.s.Project.DMG, item)...)
+		}
+	}
 	g.refreshPreview()
+	g.refreshItemKinds()
 }
 
 func (g *editor) projectFields() []field {
 	p := g.s.Project
 	return []field{
-		stringField("App bundle", &p.App, "Path to MyApp.app; relative to the configuration"),
-		stringField("Output directory", &p.Out, "Directory used by DMG and PKG"),
+		pathField("App bundle", &p.App, "Path to MyApp.app; relative to the configuration", pickApp),
+		pathField("Output directory", &p.Out, "Directory used by DMG and PKG", pickFolder),
 	}
 }
 
@@ -115,26 +133,22 @@ func (g *editor) dmgFields() []field {
 	p := g.s.Project
 	c := p.DMG
 	var fields []field
-	if g.adding {
-		fields = append(fields, stringField("New item path", &g.newPath, "File or folder path; click Add file to add"))
-	}
-	if item, ok := g.selectedContent(); ok {
-		fields = append(fields, g.selectedItemFields(c, item)...)
-	}
+	height := intField("Window height", &c.Window.Height, 0, 32768, fmt.Sprintf("0 = default %d", zapp.DefaultWindowHeight), zapp.DefaultWindowHeight)
+	height.SameRow = true
 	fields = append(fields,
 		stringField("Title", &c.Title, "Blank uses the app name"),
-		stringField("Background image", &c.Background, "PNG or JPEG; drawn at its native size"),
+		pathField("Background image", &c.Background, "PNG or JPEG; drawn at its native size", pickFile),
 		intField("Window width", &c.Window.Width, 0, 32768, fmt.Sprintf("0 = default %d", zapp.DefaultWindowWidth), zapp.DefaultWindowWidth),
-		intField("Window height", &c.Window.Height, 0, 32768, fmt.Sprintf("0 = default %d", zapp.DefaultWindowHeight), zapp.DefaultWindowHeight),
+		height,
 		intField("Icon size", &c.IconSize, 0, dmg.MaxIconSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultIconSize, dmg.MinIconSize, dmg.MaxIconSize), zapp.DefaultIconSize),
 		intField("Label size", &c.LabelSize, 0, dmg.MaxLabelSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultLabelSize, dmg.MinLabelSize, dmg.MaxLabelSize), zapp.DefaultLabelSize),
 	)
 	if g.dmgAdvanced {
 		fields = append(fields,
-			stringField("Disk icon", &c.Icon, "ICNS or PNG; not the app icon"),
+			pathField("Disk icon", &c.Icon, "ICNS or PNG; not the app icon", pickFile),
 			choiceField("Filesystem", &c.FS, "", "hfsplus", "apfs", "apfs-case-sensitive"),
 			choiceField("Compression", &c.Format, "", "udzo", "ulfo"),
-			stringField("Output file", &c.Out, "Blank uses the project output directory"),
+			pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 			jsonField("Contents (JSON)", &c.Contents, "null = automatic app + Applications layout"),
 		)
 	}
@@ -161,7 +175,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
 	key := g.selected
-	fields := []field{{Label: "Selected item name", Value: item.Name, Hint: "Blank uses the source filename", set: func(v string) error {
+	fields := []field{{Label: "Name", Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
 		g.s.materialize()
 		i := c.Contents[key]
 		i.Name = v
@@ -171,7 +185,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 	// Both coordinates go through Session.move, so a typed value is clamped to
 	// the window exactly like a dragged one.
 	for _, axis := range contentAxes {
-		fields = append(fields, field{Label: "Selected item " + axis.name, Value: strconv.Itoa(coord(axis.of(item))), Hint: "Icon center in Finder content coordinates", set: func(v string) error {
+		fields = append(fields, field{Label: axis.name, Value: strconv.Itoa(coord(axis.of(item))), Hint: "Icon center (px)", Number: &comp.NumberSpec{Min: 0, Max: int(dmg.MaxCoordinate), Step: 1}, set: func(v string) error {
 			n, err := strconv.Atoi(v)
 			if err != nil || n < 0 || uint64(n) > dmg.MaxCoordinate {
 				return fmt.Errorf("coordinate must be a nonnegative 32-bit integer")
@@ -183,6 +197,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 			return nil
 		}})
 	}
+	fields[2].SameRow = true
 	return fields
 }
 
@@ -190,14 +205,14 @@ func (g *editor) pkgFields() []field {
 	c := g.s.Project.PKG
 	fields := []field{
 		choiceField("Package type", &c.Type, "", "product", "component"),
-		stringField("Output file", &c.Out, "Blank uses the project output directory"),
+		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
 	if c.Components == nil && c.Distribution == nil {
 		return append(fields,
 			stringField("Identifier", &c.Identifier, "Blank reads the app Info.plist"),
 			stringField("Version", &c.Version, "Blank reads the app Info.plist"),
 			stringField("Install location", &c.InstallLocation, "For example /Applications"),
-			stringField("Scripts directory", &c.Scripts, "Installer scripts"),
+			pathField("Scripts directory", &c.Scripts, "Installer scripts", pickFolder),
 			stringField("Minimum macOS", &c.MinOS, "For example 10.13"),
 			jsonField("Licenses (JSON)", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`),
 		)
@@ -216,9 +231,9 @@ func (g *editor) signFields() []field {
 	c := g.s.Project.Sign
 	return []field{
 		stringField("Signing identity", &c.Identity, "Certificate name or ${env:ZAPP_IDENTITY}"),
-		stringField("PKCS#12 certificate", &c.P12File, "Path to .p12 certificate"),
-		stringField("PEM certificate", &c.PEMFile, "Path to PEM certificate"),
-		stringField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI"),
+		pathField("PKCS#12 certificate", &c.P12File, "Path to .p12 certificate", pickFile),
+		pathField("PEM certificate", &c.PEMFile, "Path to PEM certificate", pickFile),
+		pathField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
 	}
 }
 
@@ -228,7 +243,22 @@ func (g *editor) notarizeFields() []field {
 		stringField("Keychain profile", &c.Profile, "macOS notarytool profile"),
 		stringField("Apple ID", &c.AppleID, "Apple account email"),
 		stringField("Team ID", &c.TeamID, "Developer team identifier"),
-		stringField("API key file", &c.APIKeyFile, "Path to API key configuration"),
+		pathField("API key file", &c.APIKeyFile, "Path to API key configuration", pickFile),
 		boolField("Staple", &c.Staple, "Click to toggle stapling"),
 	}
+}
+
+func fieldPlaceholder(label string) string {
+	examples := map[string]string{
+		"App bundle": "MyApp.app", "Output directory": "dist",
+		"Title": "App name", "Background image": "background.png",
+		"Disk icon": "volume.icns", "Output file": "Automatic output path",
+		"Identifier": "com.example.myapp", "Version": "1.0.0",
+		"Install location": "/Applications", "Scripts directory": "scripts",
+		"Minimum macOS": "10.13", "Signing identity": "Developer ID Application: …",
+		"PKCS#12 certificate": "certificate.p12", "PEM certificate": "certificate.pem",
+		"Password file": "password.txt", "Keychain profile": "notary-profile",
+		"Apple ID": "name@example.com", "Team ID": "ABCDEFGHIJ", "API key file": "api-key.json",
+	}
+	return examples[label]
 }

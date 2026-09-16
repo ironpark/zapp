@@ -96,3 +96,50 @@ func TestFormScrollFocusAndResize(t *testing.T) {
 		t.Fatal("rebuild retained stale scroll")
 	}
 }
+
+func TestSharedRowHitAndScroll(t *testing.T) {
+	f := Form{Bounds: Box(20, 100, 317, 150), Inputs: []InputSpec{{Label: "Title"}, {Label: "Width"}, {Label: "Height", SameRow: true}, {Label: "Next"}}}
+	f.Reveal(2)
+	left, right := f.FieldBounds(1), f.FieldBounds(2)
+	if left.Min.Y != right.Min.Y || left.Max.X+12 != right.Min.X || right.Max.X != f.Bounds.Max.X {
+		t.Fatal("shared inputs are not aligned across the row")
+	}
+	for _, index := range []int{1, 2} {
+		r := f.FieldBounds(index)
+		if !r.In(f.Bounds) {
+			t.Fatal("revealing a shared row clipped its inputs")
+		}
+		if got, ok := f.Hit(r.Min.Add(image.Pt(2, 2))); !ok || got != index {
+			t.Fatal("shared input hit the wrong field")
+		}
+	}
+	if _, ok := f.Hit(image.Pt(left.Max.X+2, left.Min.Y+2)); ok {
+		t.Fatal("row gap accepted a hit")
+	}
+	if f.Limit() != 3*rowHeight-f.Bounds.Dy() {
+		t.Fatal("shared row counted twice in scroll height")
+	}
+	f.Reveal(3)
+	if !f.FieldBounds(3).In(f.Bounds) {
+		t.Fatal("field after shared row could not be revealed")
+	}
+}
+
+func TestBrowseAndInlineErrorGeometry(t *testing.T) {
+	f := Form{Bounds: Box(20, 20, 332, 150), Inputs: []InputSpec{{Label: "Path", Browse: true}, {Label: "Size", Error: "Enter a valid size"}}}
+	input, button := f.FieldBounds(0), f.BrowseBounds(0)
+	if input.Overlaps(button) || button.Max.X != f.Bounds.Max.X {
+		t.Fatal("browse button overlaps input")
+	}
+	if _, ok := f.Hit(button.Min.Add(image.Pt(2, 2))); ok {
+		t.Fatal("browse click incorrectly focused text")
+	}
+	if index, ok := f.Hit(input.Min.Add(image.Pt(2, 2))); !ok || index != 0 {
+		t.Fatal("path input not clickable")
+	}
+	f.Reveal(1)
+	errorBottom := f.FieldBounds(1).Max.Y + 36
+	if errorBottom > f.Bounds.Max.Y {
+		t.Fatal("error remained clipped after revealing field")
+	}
+}

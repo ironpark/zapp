@@ -3,6 +3,7 @@ package comp
 import (
 	"image"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -11,10 +12,52 @@ import (
 
 type InputSpec struct {
 	Label, Value, Hint string
+	Placeholder        string
+	Number             *NumberSpec
+	Error              string
+	Browse             bool
 	// DisplayValue replaces Value only while unfocused (e.g. "640 (default)").
 	DisplayValue string
 	Multiline    bool
 	Choices      []string
+	// SameRow places this input beside the previous input.
+	SameRow bool
+}
+
+// NumberSpec describes integer stepping. Zero may represent an automatic default.
+type NumberSpec struct {
+	Min, Max, Step int
+	Default        int
+}
+
+func (i *Input) StepNumber(direction int, large bool) {
+	n := i.Spec.Number
+	if n == nil {
+		return
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(i.Text()))
+	if err != nil && strings.TrimSpace(i.Text()) != "" {
+		return
+	}
+	if value == 0 && n.Default != 0 {
+		value = n.Default
+	}
+	step := max(1, n.Step)
+	if large {
+		step *= 10
+	}
+	value = max(n.Min, min(n.Max, value))
+	i.SetText(strconv.Itoa(max(n.Min, min(n.Max, value+direction*step))))
+}
+func StepBounds(bounds image.Rectangle, direction int) image.Rectangle {
+	bounds.Min.X = bounds.Max.X - 26
+	middle := (bounds.Min.Y + bounds.Max.Y) / 2
+	if direction > 0 {
+		bounds.Max.Y = middle
+	} else {
+		bounds.Min.Y = middle
+	}
+	return bounds
 }
 
 // Input owns a draft, not the application's committed value. Handle returns
@@ -33,6 +76,7 @@ const (
 	InputCancel
 	InputNext
 	InputPrevious
+	InputOpenChoice
 )
 
 type InputResult struct {
@@ -139,9 +183,11 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 		}
 		return InputResult{Intent: InputNext}
 	}
-	if len(i.Spec.Choices) > 0 && (k.JustPressed(ebiten.KeyEnter) || k.JustPressed(ebiten.KeySpace)) {
-		i.NextChoice()
-		return InputResult{Intent: InputSubmit}
+	if len(i.Spec.Choices) > 0 {
+		if k.JustPressed(ebiten.KeyEnter) || k.JustPressed(ebiten.KeySpace) || k.JustPressed(ebiten.KeyArrowDown) {
+			return InputResult{Intent: InputOpenChoice}
+		}
+		return InputResult{}
 	}
 	if k.Command {
 		if k.JustPressed(ebiten.KeyA) {
@@ -172,6 +218,14 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 	}
 	if k.Repeats(ebiten.KeyArrowRight) {
 		i.SetCursor(i.cursor + 1)
+	}
+	if i.Spec.Number != nil {
+		if k.Repeats(ebiten.KeyArrowUp) {
+			i.StepNumber(1, k.Shift)
+		}
+		if k.Repeats(ebiten.KeyArrowDown) {
+			i.StepNumber(-1, k.Shift)
+		}
 	}
 	if i.Spec.Multiline {
 		if k.Repeats(ebiten.KeyArrowUp) {
@@ -219,14 +273,37 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 // 4px below. Form supplies consistent spacing and clips the complete row.
 func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focused bool) {
 	t := p.Theme
-	p.Text(dst, i.Spec.Label, bounds.Min.X, bounds.Min.Y-25, 15, t.Text)
+	p.Text(dst, p.Fit(i.Spec.Label, bounds.Dx(), 14), bounds.Min.X, bounds.Min.Y-25, 14, t.Text)
 	border := t.Border
 	if focused {
 		border = t.Accent
+		Surface(dst, bounds.Inset(-2), Radius+2, t.Background, t.Selection)
+	}
+	if i.Spec.Error != "" {
+		border = t.Error
 	}
 	Surface(dst, bounds, Radius, t.Input, border)
-	p.Text(dst, p.Fit(i.Spec.Hint, bounds.Dx(), 11), bounds.Min.X, bounds.Max.Y+4, 11, t.Muted)
+	if i.Spec.Error != "" {
+		p.Wrapped(dst, i.Spec.Error, bounds.Min.X, bounds.Max.Y+4, bounds.Dx(), 11, t.Error, 2)
+	} else {
+		p.Text(dst, p.Fit(i.Spec.Hint, bounds.Dx(), 11), bounds.Min.X, bounds.Max.Y+4, 11, t.Muted)
+	}
+	textWidth := bounds.Dx()
+	if i.Spec.Number != nil {
+		for _, direction := range []int{1, -1} {
+			r := StepBounds(bounds, direction)
+			label := "+"
+			if direction < 0 {
+				label = "−"
+			}
+			p.Text(dst, label, r.Min.X+7, r.Min.Y-2, 14, t.Accent)
+		}
+		textWidth -= 28
+	}
 	clipped := bounds.Inset(5).Intersect(dst.Bounds())
+	if i.Spec.Number != nil {
+		clipped.Max.X = min(clipped.Max.X, bounds.Max.X-28)
+	}
 	if clipped.Empty() {
 		return
 	}
@@ -236,10 +313,21 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		value = i.Spec.DisplayValue
 	}
 	if len(i.Spec.Choices) > 0 {
-		p.Text(clip, "›", bounds.Max.X-20, bounds.Min.Y+5, 17, t.Accent)
+		p.Text(clip, "⌄", bounds.Max.X-20, bounds.Min.Y+5, 17, t.Accent)
+		textBounds := clipped
+		textBounds.Max.X = min(textBounds.Max.X, bounds.Max.X-26)
+		if textBounds.Empty() {
+			return
+		}
+		clip = dst.SubImage(textBounds).(*ebiten.Image)
+		// Choices have focus styling but no text-editing cursor.
+		focused = false
 	}
 	if focused {
 		value = i.Text()
+	}
+	if value == "" && i.Spec.Placeholder != "" {
+		p.Text(clip, p.Fit(i.Spec.Placeholder, textWidth-16, 14), bounds.Min.X+8, bounds.Min.Y+6, 14, t.Muted)
 	}
 	lines := strings.Split(value, "\n")
 	start := 0
@@ -258,7 +346,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		col := caretCol
 		if focused && n == caretLine {
 			rr := []rune(str)
-			for col > 0 && p.Measure(string(rr[:col]), 14) > bounds.Dx()-22 {
+			for col > 0 && p.Measure(string(rr[:col]), 14) > textWidth-22 {
 				rr = rr[1:]
 				col--
 			}

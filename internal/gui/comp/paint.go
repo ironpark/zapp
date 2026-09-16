@@ -26,12 +26,12 @@ type Theme struct {
 
 func DarkTheme() Theme {
 	return Theme{
-		Background: color.RGBA{17, 24, 36, 255}, Panel: color.RGBA{27, 36, 51, 255},
-		Text: color.RGBA{228, 234, 245, 255}, Muted: color.RGBA{147, 162, 187, 255},
-		Accent: color.RGBA{103, 220, 181, 255}, AccentText: color.RGBA{15, 38, 34, 255},
-		Border: color.RGBA{55, 69, 89, 255}, Hover: color.RGBA{45, 61, 79, 255},
-		Disabled: color.RGBA{23, 31, 44, 255}, DisabledText: color.RGBA{84, 97, 118, 255},
-		Input: color.RGBA{34, 45, 62, 255}, Selection: color.RGBA{53, 102, 111, 255},
+		Background: color.RGBA{19, 21, 26, 255}, Panel: color.RGBA{28, 31, 38, 255},
+		Text: color.RGBA{237, 239, 244, 255}, Muted: color.RGBA{161, 168, 183, 255},
+		Accent: color.RGBA{139, 165, 255, 255}, AccentText: color.RGBA{20, 27, 52, 255},
+		Border: color.RGBA{53, 58, 70, 255}, Hover: color.RGBA{40, 45, 57, 255},
+		Disabled: color.RGBA{25, 28, 34, 255}, DisabledText: color.RGBA{119, 128, 147, 255},
+		Input: color.RGBA{23, 26, 33, 255}, Selection: color.RGBA{57, 73, 121, 255},
 		Error: color.RGBA{255, 159, 151, 255}, Overlay: color.RGBA{0, 0, 0, 170},
 	}
 }
@@ -141,7 +141,7 @@ func Center(bounds image.Rectangle, w, h int) image.Rectangle {
 // Shared spacing keeps control interiors and grouped content consistent.
 const (
 	Padding = 16
-	Radius  = 5
+	Radius  = 8
 )
 
 // RoundedRect draws a subtly rounded surface with antialiased corners.

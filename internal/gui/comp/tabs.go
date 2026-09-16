@@ -45,42 +45,20 @@ func (t Tabs) Buttons() []Button {
 }
 func (t Tabs) Click(point image.Point) bool { return ClickButtons(t.Buttons(), point) }
 func (t Tabs) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
-	buttons := t.Buttons()
-	for _, b := range buttons {
-		bg, fg := p.Theme.Background, p.Theme.Muted
-		if pointer.In(b.Bounds) {
-			bg = p.Theme.Hover
+	for _, b := range t.Buttons() {
+		fg := p.Theme.Muted
+		if pointer.In(b.Bounds) && !b.Disabled {
+			RoundedRect(dst, b.Bounds.Inset(3), Radius, p.Theme.Hover)
 			fg = p.Theme.Text
 		}
 		if b.Selected {
-			bg = p.Theme.Panel
-			fg = p.Theme.Accent
+			fg = p.Theme.Text
+			Rect(dst, Box(b.Bounds.Min.X+12, b.Bounds.Max.Y-3, b.Bounds.Dx()-24, 3), p.Theme.Accent)
 		}
 		if b.Disabled {
 			fg = p.Theme.DisabledText
 		}
-		surface := b.Bounds
-		if !b.Selected {
-			surface.Max.Y--
-		}
-		Rect(dst, surface, bg)
 		label := p.Fit(b.Label, b.Bounds.Dx()-20, 14)
-		p.Text(dst, label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, b.Bounds.Min.Y+9, 14, fg)
-		if b.Selected {
-			// Draw only three edges: no bottom stroke needs painting over.
-			Rect(dst, Box(b.Bounds.Min.X, b.Bounds.Min.Y, b.Bounds.Dx(), 1), p.Theme.Border)
-			Rect(dst, Box(b.Bounds.Min.X, b.Bounds.Min.Y, 1, b.Bounds.Dy()), p.Theme.Border)
-			Rect(dst, Box(b.Bounds.Max.X-1, b.Bounds.Min.Y, 1, b.Bounds.Dy()), p.Theme.Border)
-		}
+		p.Text(dst, label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
 	}
-	// Paint the baseline last, with exactly one opening for the active tab.
-	left, right := t.Bounds.Min.X, t.Bounds.Max.X
-	for _, b := range buttons {
-		if b.Selected {
-			Rect(dst, Box(left, t.Bounds.Max.Y-1, b.Bounds.Min.X-left+1, 1), p.Theme.Border)
-			left = b.Bounds.Max.X - 1
-			break
-		}
-	}
-	Rect(dst, Box(left, t.Bounds.Max.Y-1, right-left, 1), p.Theme.Border)
 }
