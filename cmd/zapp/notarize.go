@@ -1,19 +1,18 @@
-package notarize
+package main
 
 import (
 	"context"
 	"fmt"
-	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/cmd/zapp/internal/cli"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/urfave/cli/v3"
 )
 
-var Command = &cli.Command{
+var notarizeCommand = &cli.Command{
 	Name:  "notarize",
 	Usage: "Notarization & Stapling for macOS app/dmg/pkg",
 	Flags: []cli.Flag{
@@ -67,17 +66,17 @@ var Command = &cli.Command{
 			Name:  "staple",
 			Usage: "Perform stapling after notarization",
 		},
-		cmd.NotaryKeyFlag(),
+		notaryKeyFlag(),
 	},
-	Action: action,
+	Action: notarizeAction,
 }
 
-func action(ctx context.Context, c *cli.Command) error {
-	return Run(ctx, cmd.NewAppLogger(c.Root()), c.String("target"), Credentials(c), c.Bool("staple"))
+func notarizeAction(ctx context.Context, c *cli.Command) error {
+	return runNotarize(ctx, newAppLogger(c.Root()), c.String("target"), notarizeCredentials(c), c.Bool("staple"))
 }
 
-// Credentials returns the notarization credentials a command's flags describe.
-func Credentials(c *cli.Command) signing.Credentials {
+// notarizeCredentials returns the notarization credentials a command's flags describe.
+func notarizeCredentials(c *cli.Command) signing.Credentials {
 	return signing.Credentials{
 		Profile:    c.String("profile"),
 		AppleID:    c.String("apple-id"),
@@ -87,10 +86,10 @@ func Credentials(c *cli.Command) signing.Credentials {
 	}
 }
 
-// Run notarizes target, optionally stapling the ticket afterwards. It is
+// runNotarize notarizes target, optionally stapling the ticket afterwards. It is
 // exported so other commands can notarize what they just produced without
 // re-entering the CLI parser.
-func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signing.Credentials, staple bool) error {
+func runNotarize(ctx context.Context, logger *appLogger, target string, creds signing.Credentials, staple bool) error {
 	pl, err := (&zapp.Project{Notarize: &zapp.NotarizeConfig{Profile: creds.Profile, AppleID: creds.AppleID, TeamID: creds.TeamID, Password: creds.Password, APIKeyFile: creds.APIKeyFile, Staple: staple}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err

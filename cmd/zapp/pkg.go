@@ -1,19 +1,18 @@
-package pkg
+package main
 
 import (
 	"context"
+
 	"github.com/ironpark/zapp"
-	cmd "github.com/ironpark/zapp/cmd/zapp/internal/cli"
-	"github.com/ironpark/zapp/cmd/zapp/internal/cli/project"
 	"github.com/urfave/cli/v3"
 )
 
-var Command = &cli.Command{Name: "pkg", Usage: "Create a PKG installer", Action: func(ctx context.Context, c *cli.Command) error {
-	p, err := project.Load(c, "pkg")
+var pkgCommand = &cli.Command{Name: "pkg", Usage: "Create a PKG installer", Action: func(ctx context.Context, c *cli.Command) error {
+	p, err := loadProject(c, "pkg")
 	if err != nil {
 		return err
 	}
-	pl, err := p.Resolve(zapp.WithLogger(cmd.NewAppLogger(c.Root())))
+	pl, err := p.Resolve(zapp.WithLogger(newAppLogger(c.Root())))
 	if err != nil {
 		return err
 	}
@@ -54,5 +53,5 @@ var Command = &cli.Command{Name: "pkg", Usage: "Create a PKG installer", Action:
 			Usage:   "Path to the license (EULA) file, optionally per language (e.g., eula.txt or en:en_eula.txt,ko:ko_eula.txt)",
 			Aliases: []string{"eula"},
 		},
-	}, append(cmd.CreateSubTaskFlags(), project.Flags()...)...),
+	}, append(subTaskFlags(), projectFileFlags()...)...),
 }

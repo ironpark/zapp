@@ -15,11 +15,12 @@ before:
 
 builds:
   - main: ./cmd/zapp
+    binary: zapp
     env:
       - CGO_ENABLED=0
     goos:
       - darwin
-    ldflags: '-s -w -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.Version={{.Version}} -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.Commit={{.Commit}} -X github.com/ironpark/zapp/cmd/zapp/internal/cli/info.BuildDate={{.Date}}'
+    ldflags: '-s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}'
 
 release:
   extra_files:

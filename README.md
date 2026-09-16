@@ -44,7 +44,7 @@ Set `ZAPP_VERSION` to a release tag to pin a version, or `ZAPP_INSTALL_DIR` to a
 #### 🍺 Using Homebrew
 ```bash
 brew tap ironpark/zapp
-brew install zapp
+brew install --cask zapp
 ```
 
 #### 🛠️ Build from source code

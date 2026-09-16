@@ -1,4 +1,4 @@
-package plist
+package main
 
 import (
 	"os"

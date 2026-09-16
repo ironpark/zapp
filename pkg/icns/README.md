@@ -80,7 +80,7 @@ PNG fixtures, exercise every supported type, malformed data, I/O failures,
 unknown-element preservation, and fuzz the parser and RLE codec.
 
 ```sh
-go test ./pkg/icns ./cmd/zapp/internal/cli/dmg
+go test ./pkg/icns ./cmd/zapp
 go test ./pkg/icns -run '^$' -fuzz '^FuzzDecode$' -fuzztime 10s
 go test ./pkg/icns -run '^$' -fuzz '^FuzzRLE$' -fuzztime 10s
 ```

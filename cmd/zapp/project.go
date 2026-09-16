@@ -1,4 +1,4 @@
-package project
+package main
 
 import (
 	"errors"
@@ -12,10 +12,10 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func Flags() []cli.Flag {
+func projectFileFlags() []cli.Flag {
 	return []cli.Flag{&cli.StringFlag{Name: "config", Usage: "Project YAML/JSON file (default: discover .zapp.yaml)"}, &cli.BoolFlag{Name: "no-config", Usage: "Ignore project files"}, &cli.BoolFlag{Name: "no-sign", Usage: "Skip signing"}, &cli.BoolFlag{Name: "no-notarize", Usage: "Skip notarization"}}
 }
-func Load(c *cli.Command, kind string) (*zapp.Project, error) {
+func loadProject(c *cli.Command, kind string) (*zapp.Project, error) {
 	if c.Bool("no-config") && c.IsSet("config") {
 		return nil, fmt.Errorf("--config and --no-config are mutually exclusive")
 	}
@@ -80,15 +80,15 @@ func Load(c *cli.Command, kind string) (*zapp.Project, error) {
 			p.Dep = &zapp.DepConfig{}
 		}
 	}
-	if err := Overlay(c, p, kind); err != nil {
+	if err := overlayProject(c, p, kind); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-// Overlay copies explicitly supplied values only. Env is applied first, then
+// overlayProject copies explicitly supplied values only. Env is applied first, then
 // command line flags, with both path sources interpreted relative to cwd.
-func Overlay(c *cli.Command, p *zapp.Project, kind string) error {
+func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 	value := func(flag string) (string, bool) {
 		if c.IsSet(flag) {
 			return c.String(flag), true

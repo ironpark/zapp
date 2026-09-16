@@ -26,7 +26,7 @@
 #### 🍺 使用 Homebrew
 ```bash
 brew tap ironpark/zapp
-brew install zapp
+brew install --cask zapp
 ```
 
 #### 🛠️ 從源碼建立
@@ -196,8 +196,8 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # dep → sign(app) → dmg/pkg → sign → notarize → staple
-zapp build dmg pkg          # select packaging steps
-zapp dmg --title "MyApp"     # overrides project title
+zapp build dmg pkg          # 只執行選定的打包步驟
+zapp dmg --title "MyApp"    # 覆寫專案標題
 zapp pkg --no-sign --no-notarize
 ```
 
@@ -210,15 +210,15 @@ dmg: {}
 pkg: {}
 ```
 
-`dmg`, `pkg`, and `dep` discover `.zapp.yaml` by walking up from the working directory. Use `--config path` to select a file or `--no-config` to ignore files. Precedence is **CLI flags > `ZAPP_*` environment > file > defaults**. Flag names become uppercase environment names with underscores, e.g. `ZAPP_APP`, `ZAPP_TITLE`, `ZAPP_OUT`, `ZAPP_WINDOW_WIDTH`, `ZAPP_LIBS` (comma-separated). File paths are relative to the configuration directory; CLI and environment paths are relative to the working directory. Shared `out` is a directory; `dmg.out` and `pkg.out` are filenames.
+`dmg`、`pkg` 與 `dep` 會從工作目錄逐層向上尋找 `.zapp.yaml`。使用 `--config 路徑` 指定檔案，或以 `--no-config` 忽略設定檔。優先順序為 **CLI 參數 > `ZAPP_*` 環境變數 > 設定檔 > 預設值**。將參數名稱改為大寫並把連字號換成底線即為環境變數名稱，例如 `ZAPP_APP`、`ZAPP_TITLE`、`ZAPP_OUT`、`ZAPP_WINDOW_WIDTH`、`ZAPP_LIBS`（以逗號分隔）。設定檔中的路徑相對於設定檔所在目錄，CLI 與環境變數中的路徑則相對於工作目錄。最上層的 `out` 是目錄，而 `dmg.out` 與 `pkg.out` 是檔名。
 
-`${env:NAME}`, `${app}`, `${app.name}`, and `${app.version}` work in string values and content keys. Unset environment references fail. `sign:` and `notarize:` enable their steps automatically; `--no-sign` and `--no-notarize` skip them. Existing `--sign --notarize --profile ... --staple` scripts continue to work. Password keys (`sign.p12Password`, `notarize.password`) are forbidden in files: supply `ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` or their CLI flags. `config show` omits passwords. `init` refuses to overwrite a file without `--force`.
+`${env:NAME}`、`${app}`、`${app.name}` 與 `${app.version}` 可用於字串值與 `contents` 的鍵。引用未設定的環境變數會發生錯誤。存在 `sign:` 與 `notarize:` 時會自動執行對應步驟，可用 `--no-sign` 與 `--no-notarize` 略過。現有的 `--sign --notarize --profile ... --staple` 指令稿仍可正常運作。設定檔中不允許出現密碼鍵（`sign.p12Password`、`notarize.password`），請透過 `ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` 或對應的 CLI 參數提供。`config show` 不會輸出密碼。未加 `--force` 時 `init` 不會覆寫既有檔案。
 
-PKG short form supports `identifier`, `version`, `installLocation`, `scripts`, `minOS`, and `license` (a path or `{default: path, en: path, ...}`). Identifier/version default from Info.plist. Full form supports `components` and `distribution` with selectable `choices`; short and full fields cannot be mixed. `type: component` builds a single component without product UI. See the [annotated project example](examples/zapp.yaml) and [PKG engine documentation](pkg/macpkg/README.md).
+PKG 簡寫形式支援 `identifier`、`version`、`installLocation`、`scripts`、`minOS` 與 `license`（路徑，或 `{default: 路徑, en: 路徑, ...}`）。識別碼與版本預設取自 Info.plist。完整形式支援 `components`，以及帶有可選項 `choices` 的 `distribution`；簡寫欄位與完整形式欄位不能混用。`type: component` 只會產生單一元件，不含產品安裝畫面。請參閱[附註解的專案範例](examples/zapp.yaml)與 [PKG 引擎文件](pkg/macpkg/README.md)。
 
-Legacy flat DMG files remain accepted by `zapp dmg --config examples/dmg/layout.yaml --out release.dmg`, with a deprecation warning. Their output remains relative to the working directory. Migrate by moving layout fields under `dmg:` and keeping shared `app` at the root.
+舊的扁平 DMG 設定檔仍可透過 `zapp dmg --config examples/dmg/layout.yaml --out release.dmg` 使用，此時會顯示即將淘汰的警告。其輸出路徑同樣仍相對於工作目錄。將版面配置欄位移到 `dmg:` 之下，並把共用的 `app` 放在最上層，即可完成移轉。
 
-The module root is now importable; the executable moved to `cmd/zapp`:
+現在可以匯入模組根目錄，執行檔已移至 `cmd/zapp`：
 
 ```go
 project, err := zapp.Load(".zapp.yaml")
@@ -229,4 +229,4 @@ if err != nil { return err }
 artifacts, err := plan.Build(ctx, zapp.StepDMG, zapp.StepPKG)
 ```
 
-Import `github.com/ironpark/zapp`. You can also construct `zapp.Project` directly. `Plan.BundleDeps`, `BuildDMG`, `BuildPKG`, `Sign`, and `Notarize` run individual operations. Logging is silent unless `WithLogger` is supplied. Failures wrap `*zapp.StepError` and support `errors.As` / `errors.Is`. `WithClock` fixes generated DMG metadata and PKG timestamps; reproducible images also require stable source files and source metadata.
+請匯入 `github.com/ironpark/zapp`。你也可以直接建構 `zapp.Project`。`Plan.BundleDeps`、`BuildDMG`、`BuildPKG`、`Sign` 與 `Notarize` 可分別執行各項作業。除非提供 `WithLogger`，否則不會輸出任何紀錄。失敗會被包裝為 `*zapp.StepError`，並支援 `errors.As` / `errors.Is`。`WithClock` 會固定產生的 DMG 中繼資料與 PKG 時間戳記；不過要取得可重現的映像檔，來源檔案及其中繼資料也必須保持一致。

@@ -25,7 +25,7 @@
 #### 🍺 Homebrewを使用
 ```bash
 brew tap ironpark/zapp
-brew install zapp
+brew install --cask zapp
 ```
 
 #### 🛠️ ソースコードからビルド
@@ -194,8 +194,8 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # dep → sign(app) → dmg/pkg → sign → notarize → staple
-zapp build dmg pkg          # select packaging steps
-zapp dmg --title "MyApp"     # overrides project title
+zapp build dmg pkg          # パッケージ手順だけを選んで実行
+zapp dmg --title "MyApp"    # プロジェクトのタイトルを上書き
 zapp pkg --no-sign --no-notarize
 ```
 
@@ -208,15 +208,15 @@ dmg: {}
 pkg: {}
 ```
 
-`dmg`, `pkg`, and `dep` discover `.zapp.yaml` by walking up from the working directory. Use `--config path` to select a file or `--no-config` to ignore files. Precedence is **CLI flags > `ZAPP_*` environment > file > defaults**. Flag names become uppercase environment names with underscores, e.g. `ZAPP_APP`, `ZAPP_TITLE`, `ZAPP_OUT`, `ZAPP_WINDOW_WIDTH`, `ZAPP_LIBS` (comma-separated). File paths are relative to the configuration directory; CLI and environment paths are relative to the working directory. Shared `out` is a directory; `dmg.out` and `pkg.out` are filenames.
+`dmg`、`pkg`、`dep` は作業ディレクトリから上位へさかのぼって `.zapp.yaml` を探します。`--config パス` でファイルを指定し、`--no-config` で設定ファイルを無視します。優先順位は **CLI フラグ > `ZAPP_*` 環境変数 > 設定ファイル > 既定値** です。フラグ名を大文字にしてハイフンをアンダースコアに置き換えたものが環境変数名になります。たとえば `ZAPP_APP`、`ZAPP_TITLE`、`ZAPP_OUT`、`ZAPP_WINDOW_WIDTH`、`ZAPP_LIBS`（カンマ区切り）です。設定ファイル内のパスは設定ファイルのあるディレクトリ基準、CLI と環境変数のパスは作業ディレクトリ基準です。最上位の `out` はディレクトリで、`dmg.out` と `pkg.out` はファイル名です。
 
-`${env:NAME}`, `${app}`, `${app.name}`, and `${app.version}` work in string values and content keys. Unset environment references fail. `sign:` and `notarize:` enable their steps automatically; `--no-sign` and `--no-notarize` skip them. Existing `--sign --notarize --profile ... --staple` scripts continue to work. Password keys (`sign.p12Password`, `notarize.password`) are forbidden in files: supply `ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` or their CLI flags. `config show` omits passwords. `init` refuses to overwrite a file without `--force`.
+`${env:NAME}`、`${app}`、`${app.name}`、`${app.version}` は文字列の値と `contents` のキーで使えます。未設定の環境変数を参照するとエラーになります。`sign:` と `notarize:` があるとその手順が自動的に実行され、`--no-sign` と `--no-notarize` で省略できます。既存の `--sign --notarize --profile ... --staple` を使ったスクリプトはそのまま動作します。パスワードのキー（`sign.p12Password`、`notarize.password`）は設定ファイルに書けません。`ZAPP_P12_PASSWORD` / `ZAPP_PASSWORD` か対応する CLI フラグで渡してください。`config show` はパスワードを出力しません。`init` は `--force` なしに既存ファイルを上書きしません。
 
-PKG short form supports `identifier`, `version`, `installLocation`, `scripts`, `minOS`, and `license` (a path or `{default: path, en: path, ...}`). Identifier/version default from Info.plist. Full form supports `components` and `distribution` with selectable `choices`; short and full fields cannot be mixed. `type: component` builds a single component without product UI. See the [annotated project example](examples/zapp.yaml) and [PKG engine documentation](pkg/macpkg/README.md).
+PKG の短縮形は `identifier`、`version`、`installLocation`、`scripts`、`minOS`、`license`（パス、または `{default: パス, en: パス, ...}`）に対応します。識別子とバージョンは Info.plist から既定値を取得します。完全形は `components` と、選択可能な `choices` を持つ `distribution` に対応し、短縮形と完全形のフィールドを混在させることはできません。`type: component` は製品インストーラの画面を持たない単一コンポーネントを作成します。[注釈付きのプロジェクト例](examples/zapp.yaml)と [PKG エンジンのドキュメント](pkg/macpkg/README.md)を参照してください。
 
-Legacy flat DMG files remain accepted by `zapp dmg --config examples/dmg/layout.yaml --out release.dmg`, with a deprecation warning. Their output remains relative to the working directory. Migrate by moving layout fields under `dmg:` and keeping shared `app` at the root.
+従来のフラットな DMG 設定ファイルも `zapp dmg --config examples/dmg/layout.yaml --out release.dmg` の形で引き続き使用できますが、非推奨の警告が表示されます。出力先も従来どおり作業ディレクトリ基準です。レイアウトの項目を `dmg:` の下へ移し、共通の `app` を最上位に置けば移行は完了です。
 
-The module root is now importable; the executable moved to `cmd/zapp`:
+モジュールのルートをインポートできるようになり、実行ファイルは `cmd/zapp` へ移動しました。
 
 ```go
 project, err := zapp.Load(".zapp.yaml")
@@ -227,4 +227,4 @@ if err != nil { return err }
 artifacts, err := plan.Build(ctx, zapp.StepDMG, zapp.StepPKG)
 ```
 
-Import `github.com/ironpark/zapp`. You can also construct `zapp.Project` directly. `Plan.BundleDeps`, `BuildDMG`, `BuildPKG`, `Sign`, and `Notarize` run individual operations. Logging is silent unless `WithLogger` is supplied. Failures wrap `*zapp.StepError` and support `errors.As` / `errors.Is`. `WithClock` fixes generated DMG metadata and PKG timestamps; reproducible images also require stable source files and source metadata.
+`github.com/ironpark/zapp` をインポートしてください。`zapp.Project` をコードから直接組み立てることもできます。`Plan.BundleDeps`、`BuildDMG`、`BuildPKG`、`Sign`、`Notarize` は各操作を個別に実行します。`WithLogger` を渡さない限りログは出力されません。失敗は `*zapp.StepError` でラップされ、`errors.As` / `errors.Is` に対応します。`WithClock` は生成される DMG のメタデータと PKG のタイムスタンプを固定します。ただし再現可能なイメージにするには、元のファイルとそのメタデータも同一である必要があります。

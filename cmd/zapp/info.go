@@ -1,14 +1,15 @@
-package info
+package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/csv"
 	"fmt"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/urfave/cli/v3"
-	"strings"
 )
-import _ "embed"
 
 //go:embed 3rdparty.csv
 var thirdPartyLicensesCsv string
@@ -17,13 +18,13 @@ var Version string = "v0.2.4"
 var BuildDate string = "2024-10-16"
 var Commit string = "50261600d655ae526b7645d05d2bc573e3a8dee5"
 
-var Command = &cli.Command{
+var infoCommand = &cli.Command{
 	Name:   "info",
 	Usage:  "Display detailed information about the current ZAPP build",
-	Action: action,
+	Action: infoAction,
 }
 
-func action(ctx context.Context, c *cli.Command) error {
+func infoAction(ctx context.Context, c *cli.Command) error {
 	if err := printInfo(c.Root()); err != nil {
 		return err
 	}

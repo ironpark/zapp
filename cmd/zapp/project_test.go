@@ -1,4 +1,4 @@
-package project_test
+package main
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/cmd/zapp/internal/cli/app"
-	"github.com/ironpark/zapp/cmd/zapp/internal/cli/project"
 	"github.com/urfave/cli/v3"
 )
 
@@ -22,9 +20,9 @@ func TestOverlayPrecedence(t *testing.T) {
 	t.Setenv("ZAPP_P12_PASSWORD", "private")
 	for _, args := range [][]string{{}, {"--title", "Flag", "--window-width", "900", "--icon", "flag.icns"}} {
 		p := &zapp.Project{Version: 1, DMG: &zapp.DMGConfig{Title: "File", Window: zapp.Window{Width: 700}}, Sign: &zapp.SignConfig{Identity: "File identity"}, Notarize: &zapp.NotarizeConfig{Profile: "File profile"}}
-		c := app.BuildCommand()
+		c := buildCommand()
 		c.Writer, c.ErrWriter = io.Discard, io.Discard
-		c.Action = func(_ context.Context, c *cli.Command) error { return project.Overlay(c, p, "dmg") }
+		c.Action = func(_ context.Context, c *cli.Command) error { return overlayProject(c, p, "dmg") }
 		if err := c.Run(t.Context(), append([]string{"build"}, args...)); err != nil {
 			t.Fatal(err)
 		}
@@ -54,10 +52,10 @@ func TestDiscoveryNoConfigAndSkip(t *testing.T) {
 	}{
 		{nil, true, true, "Project"}, {[]string{"--no-sign", "--no-notarize"}, false, false, "Project"}, {[]string{"--no-config"}, false, false, ""}, {[]string{"--no-config", "--sign", "--notarize", "--profile", "test", "--staple"}, true, true, ""},
 	} {
-		c := app.BuildCommand()
+		c := buildCommand()
 		c.Writer, c.ErrWriter = io.Discard, io.Discard
 		c.Action = func(_ context.Context, c *cli.Command) error {
-			p, err := project.Load(c, "dmg")
+			p, err := loadProject(c, "dmg")
 			if err != nil {
 				return err
 			}
@@ -82,10 +80,10 @@ func TestCLIPathsRelativeToCwd(t *testing.T) {
 	if err := os.WriteFile(file, []byte("version: 1\ndmg: {title: Files, out: file.dmg, contents: {/Applications: {link: true, x: 0, y: 0}}}"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	c := app.BuildCommand()
+	c := buildCommand()
 	c.Writer, c.ErrWriter = io.Discard, io.Discard
 	c.Action = func(_ context.Context, c *cli.Command) error {
-		p, err := project.Load(c, "dmg")
+		p, err := loadProject(c, "dmg")
 		if err != nil {
 			return err
 		}
@@ -112,7 +110,7 @@ func TestInitAndConfigShow(t *testing.T) {
 		t.Fatal(err)
 	}
 	runInit := func(args ...string) error {
-		c := app.InitCommand()
+		c := initCommand()
 		c.Writer, c.ErrWriter = io.Discard, io.Discard
 		return c.Run(t.Context(), append([]string{"init", "--app", "Demo.app"}, args...))
 	}
@@ -133,7 +131,7 @@ func TestInitAndConfigShow(t *testing.T) {
 		t.Fatal(p)
 	}
 	var out strings.Builder
-	c := app.ConfigCommand()
+	c := configCommand()
 	c.Writer = &out
 	c.ErrWriter = io.Discard
 	if err = c.Run(t.Context(), []string{"config", "show"}); err != nil {
@@ -149,10 +147,10 @@ func TestInitAndConfigShow(t *testing.T) {
 }
 
 func TestNamedStepsWithoutFile(t *testing.T) {
-	c := app.BuildCommand()
+	c := buildCommand()
 	c.Writer, c.ErrWriter = io.Discard, io.Discard
 	c.Action = func(_ context.Context, c *cli.Command) error {
-		p, err := project.Load(c, "build")
+		p, err := loadProject(c, "build")
 		if err != nil {
 			return err
 		}

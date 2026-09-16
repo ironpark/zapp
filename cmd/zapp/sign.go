@@ -1,37 +1,36 @@
-package sign
+package main
 
 import (
 	"context"
 	"fmt"
-	"github.com/ironpark/zapp"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/ironpark/zapp/cmd/zapp/internal/cli"
+	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/urfave/cli/v3"
 )
 
 var (
-	identity string
-	target   string
+	signIdentity string
+	signTarget   string
 )
 
-var Command = &cli.Command{
+var signCommand = &cli.Command{
 	Name:        "sign",
 	Usage:       "Sign the app/dmg/pkg file",
 	UsageText:   "",
 	Description: "",
 	ArgsUsage:   "",
 	Action: func(ctx context.Context, c *cli.Command) error {
-		return Run(ctx, cmd.NewAppLogger(c.Root()), c.String("target"), Credentials(c))
+		return runSign(ctx, newAppLogger(c.Root()), c.String("target"), signCredentials(c))
 	},
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:        "target",
 			Usage:       "Path to the target(app,dmg,pkg) file",
-			Destination: &target,
+			Destination: &signTarget,
 			Required:    true,
 			Action: func(ctx context.Context, c *cli.Command, target string) error {
 				ext := strings.ToLower(filepath.Ext(target))
@@ -62,16 +61,16 @@ var Command = &cli.Command{
 			Name:        "identity",
 			Aliases:     []string{"i"},
 			Usage:       "Keychain identity to sign with (macOS)",
-			Destination: &identity,
+			Destination: &signIdentity,
 		},
-	}, cmd.CertificateFlags()...),
+	}, certificateFlags()...),
 	SkipFlagParsing: false,
 }
 
-// Credentials returns the signing credentials a command's flags describe.
+// signCredentials returns the signing credentials a command's flags describe.
 // Both toolchains read from the same set; which fields matter depends on which
 // backend ends up being selected.
-func Credentials(c *cli.Command) signing.Credentials {
+func signCredentials(c *cli.Command) signing.Credentials {
 	return signing.Credentials{
 		Identity:        c.String("identity"),
 		P12File:         c.String("p12-file"),
@@ -81,9 +80,9 @@ func Credentials(c *cli.Command) signing.Credentials {
 	}
 }
 
-// Run signs target. It is exported so other commands can sign what they just
+// runSign signs target. It is exported so other commands can sign what they just
 // produced without re-entering the CLI parser.
-func Run(ctx context.Context, logger *cmd.AppLogger, target string, creds signing.Credentials) error {
+func runSign(ctx context.Context, logger *appLogger, target string, creds signing.Credentials) error {
 	pl, err := (&zapp.Project{Sign: &zapp.SignConfig{Identity: creds.Identity, P12File: creds.P12File, PEMFile: creds.PEMFile, P12Password: creds.P12Password, P12PasswordFile: creds.P12PasswordFile}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err

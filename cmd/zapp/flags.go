@@ -1,10 +1,10 @@
-package cmd
+package main
 
 import (
 	"github.com/urfave/cli/v3"
 )
 
-func CreateSubTaskFlags() []cli.Flag {
+func subTaskFlags() []cli.Flag {
 	return append([]cli.Flag{
 		&cli.BoolFlag{
 			Category: "[with --notarize (default: false)]",
@@ -48,13 +48,13 @@ func CreateSubTaskFlags() []cli.Flag {
 			Name:     "identity",
 			Usage:    "Identity to use for signing",
 		},
-	}, append(CertificateFlags(), NotaryKeyFlag())...)
+	}, append(certificateFlags(), notaryKeyFlag())...)
 }
 
-// CertificateFlags name a signing certificate by file. Away from macOS there is
+// certificateFlags name a signing certificate by file. Away from macOS there is
 // no keychain to take an identity from, so these are how a certificate is
 // supplied. macOS always uses Apple's tools and a keychain identity.
-func CertificateFlags() []cli.Flag {
+func certificateFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "p12-file",
@@ -75,9 +75,9 @@ func CertificateFlags() []cli.Flag {
 	}
 }
 
-// NotaryKeyFlag names an App Store Connect API key, which is how rcodesign
+// notaryKeyFlag names an App Store Connect API key, which is how rcodesign
 // authenticates to the notary service.
-func NotaryKeyFlag() cli.Flag {
+func notaryKeyFlag() cli.Flag {
 	return &cli.StringFlag{
 		Name:  "api-key-file",
 		Usage: "App Store Connect API key JSON to notarize with",

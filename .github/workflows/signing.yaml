@@ -102,7 +102,7 @@ jobs:
         env:
           CGO_ENABLED: '0'
         run: |
-          go test -count=1 ./pkg/signing/... ./cmd/zapp/internal/cli/sign
+          go test -count=1 ./pkg/signing/... ./cmd/zapp
           go build -o "$RUNNER_TEMP/zapp" ./cmd/zapp
           if go list -deps ./cmd/zapp | grep -q '^github.com/ironpark/zapp/pkg/signing/rcodesign$'; then
             echo 'macOS binary must not include rcodesign'
