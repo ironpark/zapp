@@ -92,6 +92,20 @@ Define shared paths and build steps in `.zapp.yaml`. See the [annotated example]
 
 ### Select a configuration file
 
+You can also edit the project in the Ebitengine desktop GUI:
+
+```sh
+zapp gui
+zapp gui --config release/.zapp.yaml
+```
+
+Tabs cover project, DMG, PKG, dependencies, signing and notarization settings.
+The DMG tab previews backgrounds and app icons and lets you drag icons into
+position. Save the configuration, then build with the existing CLI commands.
+See the [GUI guide](docs/gui.md) for shortcuts, JSON fields and desktop requirements.
+Saving preserves relative paths and variable expressions but rewrites formatting
+and comments.
+
 `dmg`, `pkg`, and `dep` search for `.zapp.yaml` from the current directory upward.
 
 ```sh

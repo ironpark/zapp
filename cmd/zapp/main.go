@@ -13,6 +13,7 @@ func newApp() *cli.Command {
 	app := &cli.Command{
 		Name: "zapp",
 		Commands: []*cli.Command{
+			guiCommand(),
 			infoCommand,
 			dmgCommand,
 			buildCommand(), initCommand(), configCommand(),

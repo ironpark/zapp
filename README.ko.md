@@ -89,6 +89,22 @@ pkg: {}
 
 `.zapp.yaml`에 공통 경로와 실행할 작업을 정의합니다. 전체 옵션은 [주석이 달린 예제](examples/zapp.yaml)를 참고하세요.
 
+### GUI로 설정 편집
+
+```sh
+zapp gui                       # 프로젝트 자동 탐색 또는 새 초안
+zapp gui --config .zapp.yaml    # 지정한 YAML/JSON 설정 열기
+```
+
+Ebitengine 기반 GUI에서 프로젝트, DMG, PKG, 의존성, 서명, 공증을 탭으로
+편집합니다. DMG 탭에서는 배경과 앱 아이콘을 미리 보고, 아이콘을 드래그해
+배치할 수 있습니다. **Save**로 설정을 저장한 뒤 기존 `zapp build`나 `zapp dmg`로
+빌드하세요. **Validate**는 빌드 없이 입력을 검사합니다.
+
+상대 경로와 환경 변수 표현은 유지하며, 저장 시 YAML 서식과 주석은 다시 작성됩니다.
+목록과 PKG 고급 설정은 JSON 입력란으로 편집합니다. 단축키, 지원 범위와 데스크톱
+요구 사항은 [GUI 안내](docs/gui.md)를 참고하세요.
+
 ### 설정 파일 선택
 
 `dmg`, `pkg`, `dep`는 현재 디렉터리부터 상위 디렉터리까지 `.zapp.yaml`을 찾습니다.
