@@ -34,16 +34,18 @@ func (s Segmented) Click(point image.Point) bool {
 }
 func (s Segmented) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	Surface(dst, s.Bounds, Radius, p.Theme.Input, p.Theme.Border)
-	for _, b := range s.Buttons() {
+	// Drawing never dispatches a click, so lay the segments out directly rather
+	// than building a Button with a closure per segment on every frame.
+	for i, r := range SplitRow(s.Bounds.Inset(3), len(s.Labels), 2) {
 		fg := p.Theme.Muted
-		if b.Selected {
-			RoundedRect(dst, b.Bounds, Radius-2, p.Theme.Selection)
+		if i == s.Selected {
+			RoundedRect(dst, r, Radius-2, p.Theme.Selection)
 			fg = p.Theme.Text
-		} else if pointer.In(b.Bounds) {
-			RoundedRect(dst, b.Bounds, Radius-2, p.Theme.Hover)
+		} else if pointer.In(r) {
+			RoundedRect(dst, r, Radius-2, p.Theme.Hover)
 			fg = p.Theme.Text
 		}
-		label := p.Fit(b.Label, b.Bounds.Dx()-12, 12)
-		p.Text(dst, label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 12))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-16)/2, 12, fg)
+		label := p.Fit(s.Labels[i], r.Dx()-12, 12)
+		p.Text(dst, label, r.Min.X+(r.Dx()-p.Measure(label, 12))/2, r.Min.Y+(r.Dy()-16)/2, 12, fg)
 	}
 }

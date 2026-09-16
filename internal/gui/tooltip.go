@@ -58,8 +58,6 @@ func (g *editor) tooltipAt(point image.Point) string {
 				return "Replace custom contents with the app and Applications link. Undo restores the previous layout."
 			case "Remove from DMG":
 				return "Remove the selected item from this DMG · Delete / Backspace. The source file stays on disk."
-			case "100%":
-				return "Actual size · Space + drag to pan"
 			}
 		}
 	}
@@ -102,10 +100,11 @@ func (g *editor) drawTooltip(dst *ebiten.Image, pointer image.Point) {
 		return
 	}
 	p := g.ui
-	width := min(g.w-48, 600, p.Measure(message, 12)+24)
+	measured := p.Measure(message, 12)
+	width := min(g.w-48, 600, measured+24)
 	x := min(pointer.X+12, g.w-24-width)
 	height := 76
-	if p.Measure(message, 12) <= width-24 {
+	if measured <= width-24 {
 		height = 36
 	}
 	y := min(pointer.Y+24, g.h-footerHeight-height-12)

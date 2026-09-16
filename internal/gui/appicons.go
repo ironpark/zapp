@@ -14,6 +14,10 @@ type appIconResult struct {
 	png  []byte
 }
 
+// nativeAppIconKey names the cache slot holding the icon the OS extracted for a
+// bundle, so the writer and the reader cannot spell it differently.
+func nativeAppIconKey(path string) string { return assetCachePrefix + "native-app:" + path }
+
 func (g *editor) loadAppIcon(key, path string) {
 	if bundle, err := appbundle.Open(path); err == nil {
 		if icon, err := bundle.IconFilePath(); err == nil {
@@ -41,7 +45,7 @@ func (g *editor) loadAppIcon(key, path string) {
 		return
 	}
 	g.appIconPaths[key] = path
-	cache := assetCachePrefix + "native-app:" + path
+	cache := nativeAppIconKey(path)
 	if img := g.assets[cache]; img != nil {
 		g.assets[key] = img
 		return
@@ -86,7 +90,7 @@ func (g *editor) pollAppIcons() {
 				continue
 			}
 			texture := ebiten.NewImageFromImage(img)
-			g.assets[assetCachePrefix+"native-app:"+result.path] = texture
+			g.assets[nativeAppIconKey(result.path)] = texture
 			for _, key := range keys {
 				g.assets[key] = texture
 			}

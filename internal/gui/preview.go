@@ -226,9 +226,9 @@ func (g *editor) refreshPreview() {
 		if g.assets[key] == nil {
 			g.assets[key] = g.defaultFileIcon(fileIconForPath(path))
 		}
-		if item.Link {
-			g.assets["badge:alias"] = g.defaultFileIcon("alias")
-		}
+	}
+	if slices.ContainsFunc(items, func(item layoutItem) bool { return item.Link }) {
+		g.assets["badge:alias"] = g.defaultFileIcon("alias")
 	}
 	g.pruneAssets()
 }
@@ -305,30 +305,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 			comp.Rect(canvas, r.Inset(-5), color.RGBA{77, 153, 241, 55})
 			comp.Border(canvas, r.Inset(-5), color.RGBA{53, 132, 226, 255})
 		}
-		if icon := g.assets["item:"+item.Path]; icon != nil {
-			ratio := side / float64(max(icon.Bounds().Dx(), icon.Bounds().Dy()))
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(ratio, ratio)
-			op.GeoM.Translate(x-float64(icon.Bounds().Dx())*ratio/2, y-float64(icon.Bounds().Dy())*ratio/2)
-			op.Filter = ebiten.FilterLinear
-			canvas.DrawImage(icon, op)
-		} else {
-			// Generic artwork is intentional for files without an extractable
-			// icon. It does not claim to reproduce Finder's per-file thumbnails.
-			body := r.Inset(max(1, int(side/8)))
-			if item.Link || g.itemKinds[item.Path] == "Folder" {
-				comp.Rect(canvas, comp.Box(body.Min.X, body.Min.Y, body.Dx()/2, max(3, body.Dy()/6)), color.RGBA{144, 205, 240, 255})
-				comp.Rect(canvas, comp.Box(body.Min.X, body.Min.Y+body.Dy()/8, body.Dx(), body.Dy()*7/8), color.RGBA{112, 178, 223, 255})
-			} else {
-				comp.Rect(canvas, body, color.RGBA{253, 254, 255, 255})
-				comp.Border(canvas, body, color.RGBA{163, 184, 204, 255})
-				fold := max(3, body.Dx()/4)
-				comp.Rect(canvas, comp.Box(body.Max.X-fold, body.Min.Y, fold, fold), color.RGBA{203, 221, 237, 255})
-				for row := range 3 {
-					comp.Rect(canvas, comp.Box(body.Min.X+body.Dx()/5, body.Min.Y+body.Dy()/2+row*max(3, body.Dy()/9), body.Dx()*3/5, max(1, body.Dy()/35)), color.RGBA{157, 179, 200, 255})
-				}
-			}
-		}
+		drawFileIcon(canvas, g.assets["item:"+item.Path], r)
 		if item.Link {
 			drawFileIcon(canvas, g.assets["badge:alias"], r)
 		}
@@ -358,12 +335,8 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	if g.previewActual {
 		message = "Space + drag to pan · Fit shows the whole window"
 	}
-	if g.selected != "" {
-		for _, item := range items {
-			if item.Path == g.selected {
-				message = "Arrows: move · Shift: 10 px · Delete: remove"
-			}
-		}
+	if slices.ContainsFunc(items, func(item layoutItem) bool { return item.Path == g.selected }) {
+		message = "Arrows: move · Shift: 10 px · Delete: remove"
 	}
 	if g.previewError != "" {
 		message = g.previewError

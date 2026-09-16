@@ -15,6 +15,14 @@ import (
 //go:embed assets/fileicons/*.png
 var fileIconFiles embed.FS
 
+// itemKindNames maps the icon kinds above to the labels the inspector shows.
+var itemKindNames = map[string]string{
+	"app": "App", "folder": "Folder", "applications": "Folder", "file": "File",
+	"text": "Text", "pdf": "PDF", "image": "Image", "audio": "Audio", "video": "Video",
+	"archive": "Archive", "disk": "Disk image", "package": "Package", "font": "Font",
+	"script": "Script", "source": "Source", "executable": "Executable",
+}
+
 func fileIconType(path string, directory bool) string {
 	if filepath.Clean(path) == "/Applications" {
 		return "applications"

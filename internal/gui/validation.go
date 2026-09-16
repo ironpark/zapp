@@ -42,6 +42,16 @@ func (g *editor) showFieldError(tab int, label string, err error) {
 	g.report(err, "")
 }
 
+// pathFields returns the fields a section declares for validation. The DMG tab
+// substitutes the whole form for a YAML editor field when dmgYAML is set, so
+// validation always asks for the underlying form fields instead.
+func (g *editor) pathFields(tab int, section section) []field {
+	if tab == tabDMG {
+		return g.dmgFormFields()
+	}
+	return section.fields(g)
+}
+
 // Validate checks build inputs, while Save continues to permit unfinished drafts.
 func (g *editor) validatePaths() bool {
 	if g.s.Project.DMG != nil {
@@ -53,8 +63,8 @@ func (g *editor) validatePaths() bool {
 				g.tab = tabDMG
 				g.selected = path
 				g.rebuild()
-				if len(g.inspector.Inputs) > 3 {
-					g.focus(g.inspectorStart + 3)
+				if len(g.inspector.Inputs) > itemIconFieldIndex {
+					g.focus(g.inspectorStart + itemIconFieldIndex)
 					g.fieldError(err)
 				} else {
 					g.report(err, "")
@@ -67,10 +77,7 @@ func (g *editor) validatePaths() bool {
 		if !section.Enabled(g.s.Project) {
 			continue
 		}
-		fields := section.fields(g)
-		if tab == tabDMG {
-			fields = g.dmgFormFields()
-		}
+		fields := g.pathFields(tab, section)
 		for _, f := range fields {
 			if f.picker == "" || f.picker == pickSave || f.mayNotExist || f.Value == "" || strings.Contains(f.Value, "${") {
 				continue
@@ -110,10 +117,7 @@ func (g *editor) locateValidationError(err error) {
 			if !section.Enabled(g.s.Project) {
 				continue
 			}
-			fields := section.fields(g)
-			if tab == tabDMG {
-				fields = g.dmgFormFields()
-			}
+			fields := g.pathFields(tab, section)
 			for _, f := range fields {
 				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
 					g.showFieldError(tab, f.Label, err)

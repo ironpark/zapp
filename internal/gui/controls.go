@@ -59,16 +59,13 @@ func (g *editor) controls() []comp.Button {
 	}
 	if g.tab == tabDMG && g.enabled() && g.selected != "" {
 		item, ok := g.selectedContent()
-		if ok && item.Icon != "" && len(g.inspector.Inputs) > 3 {
-			field := g.inspector.FieldBounds(3)
+		if ok && item.Icon != "" && len(g.inspector.Inputs) > itemIconFieldIndex {
+			field := g.inspector.FieldBounds(itemIconFieldIndex)
 			bounds := comp.Box(g.inspector.Bounds.Max.X-26, field.Min.Y-25, 24, 22)
 			if bounds.In(g.inspector.Bounds) {
 				buttons = append(buttons, comp.Button{Bounds: bounds, Label: "Reset item icon", Icon: comp.IconUndo, IconOnly: true, OnClick: g.guard(func() {
 					g.s.checkpoint()
-					g.s.materialize()
-					item := g.s.Project.DMG.Contents[g.selected]
-					item.Icon = ""
-					g.s.Project.DMG.Contents[g.selected] = item
+					g.editSelectedContent(func(c *zapp.Content) { c.Icon = "" })
 					g.rebuild()
 				})})
 			}

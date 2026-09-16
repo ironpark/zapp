@@ -96,18 +96,28 @@ func applyNodeIcon(node *imageNode, path string) error {
 		return err
 	}
 	carrier.ResourceFork = macfs.Bytes(fork)
-	flags := binary.BigEndian.Uint16(node.FinderInfo[8:])
-	binary.BigEndian.PutUint16(node.FinderInfo[8:], flags|hasCustomIcon)
+	flags := binary.BigEndian.Uint16(node.FinderInfo[finderFlagsOffset:])
+	binary.BigEndian.PutUint16(node.FinderInfo[finderFlagsOffset:], flags|hasCustomIcon)
 	if carrier != node {
-		binary.BigEndian.PutUint16(carrier.FinderInfo[8:], binary.BigEndian.Uint16(carrier.FinderInfo[8:])|0x4000)
+		carrierFlags := binary.BigEndian.Uint16(carrier.FinderInfo[finderFlagsOffset:])
+		binary.BigEndian.PutUint16(carrier.FinderInfo[finderFlagsOffset:], carrierFlags|isInvisible)
+	}
+	return nil
+}
+
+// linkIconError states the one policy that a symbolic link cannot carry a
+// custom icon, so layout and source validation cannot word it differently.
+func linkIconError(item Item) error {
+	if item.Type == Link && item.Icon != "" {
+		return fmt.Errorf("custom icons are not supported for symbolic links: %s", item.Path)
 	}
 	return nil
 }
 
 // Signed bundles reject Finder metadata; do not silently invalidate a signature.
 func validateItemIconTarget(item Item) error {
-	if item.Type == Link {
-		return fmt.Errorf("custom icons are not supported for symbolic links: %s", item.Path)
+	if err := linkIconError(item); err != nil {
+		return err
 	}
 	for _, relative := range []string{"Contents/_CodeSignature/CodeResources", "_CodeSignature/CodeResources"} {
 		_, err := os.Stat(filepath.Join(item.Path, relative))

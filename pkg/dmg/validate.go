@@ -46,8 +46,8 @@ func (c Config) ValidateLayout() error {
 		seen[strings.ToLower(name)] = true
 	}
 	for _, item := range c.Contents {
-		if item.Type == Link && item.Icon != "" {
-			return fmt.Errorf("custom icons are not supported for symbolic links: %s", item.Path)
+		if err := linkIconError(item); err != nil {
+			return err
 		}
 		name := item.ImageName()
 		if item.Path == "" || name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\:\x00") {

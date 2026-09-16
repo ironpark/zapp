@@ -76,17 +76,21 @@ func (p *Painter) Close() {
 	}
 	p.faces = nil
 }
-func (p *Painter) face(size int) font.Face {
+func (p *Painter) face(size int) font.Face { return cachedFace(p.font, p.faces, size) }
+
+// cachedFace memoizes one face per size so the UI and mono fonts share a single
+// construction path.
+func cachedFace(f *opentype.Font, cache map[int]font.Face, size int) font.Face {
 	size = max(1, size)
-	if f := p.faces[size]; f != nil {
-		return f
+	if face := cache[size]; face != nil {
+		return face
 	}
-	f, err := opentype.NewFace(p.font, &opentype.FaceOptions{Size: float64(size), DPI: 72, Hinting: font.HintingFull})
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{Size: float64(size), DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
 		panic(err)
 	} // The font and positive size were validated above.
-	p.faces[size] = f
-	return f
+	cache[size] = face
+	return face
 }
 func (p *Painter) Measure(s string, size int) int { return font.MeasureString(p.face(size), s).Ceil() }
 func (p *Painter) Text(dst *ebiten.Image, s string, x, y, size int, c color.Color) {

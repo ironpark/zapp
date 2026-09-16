@@ -188,6 +188,11 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 	return zapp.Content{Pos: &zapp.Position{x, y}, Name: i.Name, Link: i.Link, Icon: i.Icon}, true
 }
 
+// itemIconFieldIndex is the position of the "Item icon" field within
+// selectedItemFields, after Name, X and Y. Callers that focus or decorate that
+// field use this instead of a bare literal.
+const itemIconFieldIndex = 3
+
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
 	key := g.selected
 	fields := []field{{Label: "Name", Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {

@@ -291,12 +291,7 @@ func (g *editor) Update() error {
 		if ebiten.IsWindowBeingClosed() {
 			g.build.closeRequested = true
 			if g.build.finished {
-				g.build = nil
-				if g.dirty() {
-					g.confirmClose = true
-				} else {
-					g.quit = true
-				}
+				g.finishClose()
 				return nil
 			}
 			g.dismissBuild()

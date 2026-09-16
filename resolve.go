@@ -211,7 +211,7 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		d := &dmg.Config{FileName: c.Out, Title: c.Title, Icon: c.Icon, Background: c.Background, WindowWidth: c.Window.Width, WindowHeight: c.Window.Height, ContentsIconSize: c.IconSize, LabelSize: c.LabelSize, FileSystem: fs, Format: format, Created: o.clock}
 		if c.Contents != nil {
 			if c.AppPosition != nil || c.ApplicationsPosition != nil {
-				return nil, fmt.Errorf("position flags cannot be used with explicit contents; set contents[path].x and contents[path].y")
+				return nil, fmt.Errorf("position flags cannot be used with explicit contents; set contents[path].pos: [x, y]")
 			}
 			keys := make([]string, 0, len(c.Contents))
 			for k := range c.Contents {

@@ -72,6 +72,7 @@ func (g *editor) pollBuild() {
 	if j == nil || j.finished {
 		return
 	}
+drain:
 	for {
 		select {
 		case message := <-j.events:
@@ -80,10 +81,9 @@ func (g *editor) pollBuild() {
 				g.report(nil, message)
 			}
 		default:
-			goto result
+			break drain
 		}
 	}
-result:
 	select {
 	case result := <-j.done:
 		j.finished, j.err = true, result.err
@@ -109,14 +109,19 @@ result:
 		// Builds can change app resources; refresh the preview on the next rebuild.
 		g.previewSig = ""
 		if j.closeRequested {
-			g.build = nil
-			if g.dirty() {
-				g.confirmClose = true
-			} else {
-				g.quit = true
-			}
+			g.finishClose()
 		}
 	default:
+	}
+}
+
+// finishClose resolves the window close that was deferred while a build ran.
+func (g *editor) finishClose() {
+	g.build = nil
+	if g.dirty() {
+		g.confirmClose = true
+	} else {
+		g.quit = true
 	}
 }
 

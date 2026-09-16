@@ -14,9 +14,8 @@ import (
 
 type Icon string
 
-const IconPlay Icon = "play"
-
 const (
+	IconPlay        Icon = "play"
 	IconUndo        Icon = "undo"
 	IconRedo        Icon = "redo"
 	IconSave        Icon = "save"

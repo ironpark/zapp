@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
@@ -37,10 +38,7 @@ func (g *editor) toggleItemLink() {
 		return
 	}
 	g.s.checkpoint()
-	g.s.materialize()
-	item := g.s.Project.DMG.Contents[g.selected]
-	item.Link = !item.Link
-	g.s.Project.DMG.Contents[g.selected] = item
+	item := g.editSelectedContent(func(c *zapp.Content) { c.Link = !c.Link })
 	g.rebuild()
 	if item.Link {
 		g.report(nil, "Link enabled. The DMG will contain a symbolic link to this path.")
@@ -177,20 +175,26 @@ func (g *editor) drawItems(dst *ebiten.Image, pointer image.Point) {
 	}
 }
 
+// editSelectedContent materializes the contents map, applies f to the selected
+// entry and writes it back, so every mutation of a selected item follows one
+// path. Callers own checkpointing and rebuilding.
+func (g *editor) editSelectedContent(f func(*zapp.Content)) zapp.Content {
+	g.s.materialize()
+	item := g.s.Project.DMG.Contents[g.selected]
+	f(&item)
+	g.s.Project.DMG.Contents[g.selected] = item
+	return item
+}
+
 func (g *editor) refreshItemKinds() {
 	g.itemKinds = make(map[string]string)
 	if g.tab != tabDMG || !g.enabled() {
 		return
 	}
 	for _, item := range g.s.layout().Items {
-		kind := map[string]string{
-			"app": "App", "folder": "Folder", "applications": "Folder", "file": "File",
-			"text": "Text", "pdf": "PDF", "image": "Image", "audio": "Audio", "video": "Video",
-			"archive": "Archive", "disk": "Disk image", "package": "Package", "font": "Font",
-			"script": "Script", "source": "Source", "executable": "Executable",
-		}[fileIconForPath(g.assetPath(item.Path))]
-		if item.Link {
-			kind = "Link"
+		kind := "Link"
+		if !item.Link {
+			kind = itemKindNames[fileIconForPath(g.assetPath(item.Path))]
 		}
 		g.itemKinds[item.Path] = kind
 	}

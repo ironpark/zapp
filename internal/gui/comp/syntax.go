@@ -90,20 +90,15 @@ func (p *Painter) monoFace(size int) font.Face {
 		p.mono, _ = opentype.Parse(gomono.TTF)
 		p.monoFaces = make(map[int]font.Face)
 	}
-	if face := p.monoFaces[size]; face != nil {
-		return face
-	}
-	face, err := opentype.NewFace(p.mono, &opentype.FaceOptions{Size: float64(size), DPI: 72, Hinting: font.HintingFull})
-	if err != nil {
-		panic(err)
-	}
-	p.monoFaces[size] = face
-	return face
+	return cachedFace(p.mono, p.monoFaces, size)
 }
 
-func (p *Painter) codeRunes(s string, size int, draw func(rune, font.Face, fixed.Int26_6)) int {
+// codeRunes walks s in the mono face, falling back to the UI face for glyphs the
+// mono face lacks, and returns the advance reached after the last rune. Callers
+// chain segments by passing the previous return value as start.
+func (p *Painter) codeRunes(s string, size int, start fixed.Int26_6, draw func(rune, font.Face, fixed.Int26_6)) fixed.Int26_6 {
 	face := p.monoFace(size)
-	var advance fixed.Int26_6
+	advance := start
 	for _, r := range s {
 		f := face
 		a, ok := f.GlyphAdvance(r)
@@ -116,14 +111,35 @@ func (p *Painter) codeRunes(s string, size int, draw func(rune, font.Face, fixed
 		}
 		advance += a
 	}
-	return advance.Ceil()
+	return advance
 }
-func (p *Painter) codeMeasure(s string, size int) int { return p.codeRunes(s, size, nil) }
-func (p *Painter) codeText(dst *ebiten.Image, s string, x, y, size int, c color.Color) {
-	p.codeRunes(s, size, func(r rune, f font.Face, a fixed.Int26_6) { text.Draw(dst, string(r), f, x+a.Round(), y+size, c) })
+func (p *Painter) codeMeasure(s string, size int) int { return p.codeRunes(s, size, 0, nil).Ceil() }
+
+// codeText draws s starting at the given advance and returns the advance after
+// it. Runes sharing a face are batched into one draw call; only a fallback glyph
+// breaks the run.
+func (p *Painter) codeText(dst *ebiten.Image, s string, x, y, size int, start fixed.Int26_6, c color.Color) fixed.Int26_6 {
+	var run []rune
+	var runFace font.Face
+	var runAt fixed.Int26_6
+	flush := func() {
+		if len(run) > 0 {
+			text.Draw(dst, string(run), runFace, x+runAt.Round(), y+size, c)
+			run = run[:0]
+		}
+	}
+	end := p.codeRunes(s, size, start, func(r rune, f font.Face, a fixed.Int26_6) {
+		if f != runFace {
+			flush()
+			runFace, runAt = f, a
+		}
+		run = append(run, r)
+	})
+	flush()
+	return end
 }
 func (p *Painter) drawYAMLLine(dst *ebiten.Image, s string, x, y, size int) {
-	prefix := ""
+	var advance fixed.Int26_6
 	for _, token := range yamlTokens(s) {
 		c := p.Theme.Text
 		switch token.kind {
@@ -140,7 +156,6 @@ func (p *Painter) drawYAMLLine(dst *ebiten.Image, s string, x, y, size int) {
 		case "punctuation":
 			c = color.RGBA{178, 186, 204, 255}
 		}
-		p.codeText(dst, token.text, x+p.codeMeasure(prefix, size), y, size, c)
-		prefix += token.text
+		advance = p.codeText(dst, token.text, x, y, size, advance, c)
 	}
 }

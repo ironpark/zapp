@@ -29,6 +29,8 @@ const (
 
 	// hasCustomIcon is kHasCustomIcon, the flag SetFile -a C sets.
 	hasCustomIcon = 0x0400
+	// isInvisible is kIsInvisible, which hides the "Icon\r" carrier file.
+	isInvisible = 0x4000
 
 	// iconResourceID is kCustomIconResource, the well-known ID the Finder
 	// looks up in the 'icns' resource type.
