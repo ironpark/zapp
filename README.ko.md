@@ -328,16 +328,13 @@ dmg:
   labelSize: 14
   contents:
     dist/MyApp.app:
-      x: 180
-      y: 200
+      pos: [180, 200]
     /Applications:
       link: true
-      x: 540
-      y: 200
+      pos: [540, 200]
     docs/README.pdf:
       name: Guide.pdf
-      x: 360
-      y: 350
+      pos: [360, 350]
 ```
 
 ```sh
@@ -350,7 +347,8 @@ zapp dmg --config .zapp.yaml --out dist/MyApp.dmg
 
 | 필드 | 설명 |
 | --- | --- |
-| `x`, `y` | Finder 콘텐츠 영역 좌상단 기준 아이콘 중심 좌표. 0 이상 |
+| `pos: [x, y]` | Finder 콘텐츠 영역 좌상단 기준 아이콘 중심 좌표. 0 이상 |
+| `icon` | 복사할 아이템의 PNG/JPEG/ICNS 아이콘 경로. Link 및 서명된 코드에는 지원하지 않음 |
 | `link` | `true`이면 심볼릭 링크 생성. 생략하면 파일·디렉터리 복사 |
 | `name` | 이미지 안에서 사용할 이름. 생략하면 원본 이름 사용 |
 

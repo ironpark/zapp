@@ -65,7 +65,7 @@ func TestDropBatchCoordinatesDuplicatesAndUndo(t *testing.T) {
 		t.Fatal("drop lost existing items")
 	}
 	content := g.s.Project.DMG.Contents["Readme.txt"]
-	if content.X == nil || *content.X < 98 || *content.X > 101 {
+	if content.Pos == nil || content.Pos[0] < 98 || content.Pos[0] > 101 {
 		t.Fatalf("drop was not positioned in preview coordinates: %+v", content)
 	}
 	if n, err := g.addDroppedPaths([]string{file}, point); n != 0 || err != nil {

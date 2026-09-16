@@ -338,16 +338,13 @@ dmg:
   labelSize: 14
   contents:
     dist/MyApp.app:
-      x: 180
-      y: 200
+      pos: [180, 200]
     /Applications:
       link: true
-      x: 540
-      y: 200
+      pos: [540, 200]
     docs/README.pdf:
       name: Guide.pdf
-      x: 360
-      y: 350
+      pos: [360, 350]
 ```
 
 ```sh
@@ -360,7 +357,8 @@ Each `contents` key is a source path. Explicit `contents` replaces the default a
 
 | Field | Description |
 | --- | --- |
-| `x`, `y` | Nonnegative icon-center coordinates from the top-left of the Finder content area |
+| `pos: [x, y]` | Nonnegative icon-center coordinates from the top-left of the Finder content area |
+| `icon` | Optional PNG/JPEG/ICNS custom icon for copied items; unsupported for links or signed code |
 | `link` | `true` creates a symbolic link; omit to copy a file or directory |
 | `name` | Name inside the image; defaults to the source name |
 

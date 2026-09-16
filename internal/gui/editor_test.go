@@ -126,7 +126,7 @@ func TestDefaultIconInspectorDoesNotMutateOnSelection(t *testing.T) {
 			if !g.commit() {
 				t.Fatal("could not edit default icon")
 			}
-			if *g.s.Project.DMG.Contents["Demo.app"].X != 210 || !g.s.Project.DMG.Contents["/Applications"].Link {
+			if g.s.Project.DMG.Contents["Demo.app"].Pos[0] != 210 || !g.s.Project.DMG.Contents["/Applications"].Link {
 				t.Fatal("inspector lost layout")
 			}
 			return

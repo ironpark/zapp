@@ -37,3 +37,28 @@ methods can also be driven directly in unit tests without a window.
 `Panel` groups content with shared title/inset geometry; `Badge` displays a
 non-interactive state. `Toggle` requests a boolean change through `OnChange`,
 letting the owner validate before applying it. Tabs use label-sized widths and an underline to identify the active tab. Supply the painter’s Measure method for exact sizing.
+
+`Button.Icon` adds an embedded SVG icon beside the label; `IconOnly: true` centers
+just the icon while retaining `Label` for application tooltips. For example:
+
+```go
+comp.Button{Label: "Undo", Icon: comp.IconUndo, IconOnly: true, Bounds: bounds, OnClick: undo}
+comp.Button{Label: "Save", Icon: comp.IconSave, Primary: true, Bounds: bounds, OnClick: save}
+```
+
+Icons in `icons/*.svg` are original 24×24 white-stroke artwork embedded with
+`go:embed`. The painter rasterizes them once at 72×72 with oksvg/rasterx, caches
+the textures, and releases them in `Close`. Button drawing scales to 18×18 and
+tints icons with the current foreground color, including disabled and primary
+states. Add an SVG and an `Icon` constant to extend the set; no runtime asset files
+are required. This supports the SVG subset understood by oksvg.
+
+`Segmented` draws a shared track for mutually exclusive labeled toggles. Supply
+`Labels`, `Selected`, and `OnSelect`; clicking the selected segment is a no-op.
+`InputSpec.Syntax = "yaml"` enables tolerant syntax highlighting and a monospaced
+font with Unicode fallback. `Height` expands multiline editors. Code inputs support
+cursor hit testing, wheel scrolling via `ScrollLines`, and automatic indentation.
+
+`Button.Ghost` renders without a resting background or border. Hover and selected
+states receive a subtle fill; disabled buttons remain transparent. Combine with
+`Primary` for an accent-colored label/icon. Header actions use this style.

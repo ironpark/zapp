@@ -12,6 +12,11 @@ import (
 )
 
 type editor struct {
+	dmgYAML                                  bool
+	appIconResults                           chan appIconResult
+	appIconPending                           map[string]bool
+	appIconPaths                             map[string]string
+	build                                    *buildJob
 	ctx                                      context.Context
 	s                                        *Session
 	disabled                                 zapp.Project
@@ -34,6 +39,7 @@ type editor struct {
 	itemKinds                                map[string]string
 	previewError                             string
 	previewSig                               string
+	liveBase                                 *zapp.Project
 	dmgAdvanced                              bool
 	choiceOpen                               bool
 	choiceIndex                              int
@@ -41,6 +47,8 @@ type editor struct {
 	// pan is the actual-size view offset; panStart and panOrigin capture where
 	// the current drag began.
 	pan, panStart, panOrigin image.Point
+	hoverPoint               image.Point
+	hoverTicks               int
 }
 
 // systemFontPaths are probed in order for a Unicode-capable UI font. Absent
@@ -52,6 +60,8 @@ var systemFontPaths = []string{
 }
 
 func Run(ctx context.Context, s *Session) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	// Prefer a local Unicode font when available, with the bundled font as
 	// fallback. Only the chosen candidate is read and parsed; Arial Unicode
 	// alone is ~20 MB, so parsing every candidate would be wasteful.
@@ -85,7 +95,14 @@ func (g *editor) Layout(w, h int) (int, int) {
 	g.w = w
 	g.h = h
 	g.form.SetBounds(g.formArea())
-	g.inspector.SetBounds(g.inspectorPanel().Content())
+	if g.tab == tabDMG && g.dmgYAML && len(g.form.Inputs) > 0 {
+		g.form.Inputs[0].Height = g.yamlHeight()
+		g.fields[0].Height = g.yamlHeight()
+		if g.active == 0 {
+			g.input.Spec.Height = g.yamlHeight()
+		}
+	}
+	g.inspector.SetBounds(g.inspectorArea())
 	if g.choiceOpen {
 		g.revealField(g.active)
 	}
@@ -106,6 +123,11 @@ func (g *editor) dirty() bool {
 // The component owns the draft; applying it is a project transaction. A failed
 // validation restores the model while retaining the draft and cursor for repair.
 func (g *editor) commit() bool {
+	if g.liveBase != nil {
+		index, draft := g.active, g.input.Clone()
+		g.rebuild()
+		g.active, g.input = index, draft
+	}
 	if g.active < 0 {
 		return true
 	}
@@ -157,7 +179,8 @@ func (g *editor) validate() {
 	g.report(err, "Build inputs are valid. No files were built, signed or submitted.")
 }
 
-const footerHeight = 40
+const footerHeight = 28
+const workspaceTop = 128
 
 func (g *editor) contentBottom() int { return g.h - footerHeight - 16 }
 
@@ -165,13 +188,20 @@ func (g *editor) settingsPanel() comp.Panel {
 	width := min(696, g.w-364)
 	title := g.section().Name + " settings"
 	if g.tab == tabDMG {
-		width = 364
+		width = min(364, max(320, g.w/3-56))
 		title = "Layout settings"
 	}
-	return comp.Panel{Bounds: comp.Box(24, 195, width, g.contentBottom()-195), Title: title}
+	panel := comp.Panel{Bounds: comp.Box(24, workspaceTop, width, g.contentBottom()-workspaceTop), Title: title}
+	if g.tab == tabDMG {
+		panel.TitleInset = 132
+	}
+	return panel
 }
 func (g *editor) formArea() image.Rectangle {
 	area := g.settingsPanel().Content()
+	if g.tab == tabDMG && !g.dmgYAML {
+		area.Max.Y -= 44
+	}
 	if g.choiceOpen && g.active >= 0 {
 		area.Max.Y -= len(g.input.Spec.Choices)*choiceRowHeight + 8
 	}
@@ -184,7 +214,7 @@ func (g *editor) syncForm() {
 	}
 	g.form.SetBounds(g.formArea())
 	g.form.SetInputs(specs[:g.inspectorStart])
-	g.inspector.SetBounds(g.inspectorPanel().Content())
+	g.inspector.SetBounds(g.inspectorArea())
 	g.inspector.SetInputs(specs[g.inspectorStart:])
 }
 func (g *editor) focus(i int) {
@@ -202,6 +232,7 @@ func (g *editor) editInput() {
 	result := g.input.Handle(comp.CaptureKeyboard(), comp.SystemClipboard{})
 	if before != g.input.Text() {
 		g.clearFieldError()
+		g.previewInput()
 	}
 	if result.Err != nil {
 		g.report(result.Err, "")
@@ -211,8 +242,7 @@ func (g *editor) editInput() {
 	case comp.InputOpenChoice:
 		g.openChoice()
 	case comp.InputCancel:
-		g.clearFieldError()
-		g.active = -1
+		g.rebuild()
 	case comp.InputSubmit:
 		g.commit()
 	case comp.InputNext, comp.InputPrevious:
@@ -248,13 +278,38 @@ func (g *editor) Update() error {
 		g.pollPicker()
 		return nil
 	}
-	if ebiten.IsWindowBeingClosed() {
+	if ebiten.IsWindowBeingClosed() && g.build == nil {
 		if !g.dirty() {
 			return ebiten.Termination
 		}
 		g.confirmClose = true
 	}
+	g.pollAppIcons()
+	g.pollBuild()
+	if g.build != nil {
+		in := captureTick(g.w, g.h)
+		if ebiten.IsWindowBeingClosed() {
+			g.build.closeRequested = true
+			if g.build.finished {
+				g.build = nil
+				if g.dirty() {
+					g.confirmClose = true
+				} else {
+					g.quit = true
+				}
+				return nil
+			}
+			g.dismissBuild()
+		}
+		g.buildDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape))
+		return nil
+	}
 	in := captureTick(g.w, g.h)
+	if in.pos != g.hoverPoint || in.click {
+		g.hoverPoint, g.hoverTicks = in.pos, 0
+	} else {
+		g.hoverTicks = min(40, g.hoverTicks+1)
+	}
 	if g.confirmClose && g.closeDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
 		return nil
 	}

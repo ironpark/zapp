@@ -57,6 +57,7 @@ const (
 // Item is one entry placed in the disk image's window. Path names what to put
 // in the image, except for a link, where it is the target the link points at.
 type Item struct {
+	Icon string   `json:"icon,omitempty"`
 	Name string   `json:"name,omitempty"`
 	X    int      `json:"x"`
 	Y    int      `json:"y"`
@@ -167,6 +168,11 @@ func (c Config) buildVolume() (*volumeTree, error) {
 		node, err := c.nodeFor(item)
 		if err != nil {
 			return nil, err
+		}
+		if item.Icon != "" {
+			if err := applyNodeIcon(node, item.Icon); err != nil {
+				return nil, fmt.Errorf("icon for %q: %w", item.ImageName(), err)
+			}
 		}
 		root.Children = append(root.Children, node)
 	}

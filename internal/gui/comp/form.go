@@ -30,6 +30,9 @@ func rowSpan(f InputSpec) int {
 	height := rowHeight
 	if f.Multiline {
 		height = multiRowHeight
+		if f.Height > 0 {
+			height = f.Height + multiRowHeight - multiBox
+		}
 	}
 	if f.Error != "" {
 		height += 20
@@ -40,7 +43,7 @@ func rowSpan(f InputSpec) int {
 // boxSpan is the height of the editable area alone.
 func boxSpan(f InputSpec) int {
 	if f.Multiline {
-		return multiBox
+		return max(multiBox, f.Height)
 	}
 	return boxHeight
 }

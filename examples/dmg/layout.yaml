@@ -15,13 +15,10 @@ labelSize: 14
 # icon: assets/icon.png
 contents:
   ../../dist/MyApp.app:
-    x: 180
-    y: 200
+    pos: [180, 200]
   /Applications:
     link: true
-    x: 540
-    y: 200
+    pos: [540, 200]
   ../../README.md:
     name: Read Me.md
-    x: 360
-    y: 350
+    pos: [360, 350]

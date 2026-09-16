@@ -35,7 +35,7 @@ func syntheticApp(t *testing.T, dir string) string {
 func TestParseStrict(t *testing.T) {
 	for _, body := range []string{
 		"version: 1\n---\nversion: 1", "version: 2", "version: 1\nwat: true", "version: 1\nversion: 1", "version: 1\nsign: {p12Password: secret}", "version: 1\nnotarize: {password: secret}",
-		"version: 1\npkg: {components: [{id: a, typo: b}]}", "version: 1\npkg: {license: {en: a, en: b}}", "version: 1\ndmg: {contents: {a: {x: 0, y: 1}, a: {x: 1, y: 2}}}",
+		"version: 1\npkg: {components: [{id: a, typo: b}]}", "version: 1\npkg: {license: {en: a, en: b}}", "version: 1\ndmg: {contents: {a: {pos: [0, 1]}, a: {pos: [1, 2]}}}",
 		"version: 1\npkg: {identifier: a, components: [{id: b}]}", "version: 1\npkg: {distribution: {title: hi}}",
 		`{"version":1,"notarize":{"password":"secret"}}`, "version: 1\ndmg: {window: {width: 0}}",
 	} {
@@ -65,8 +65,8 @@ dmg:
   icon: ${env:ZAPP_TEST_ICON}
   out: ${app.name}-${app.version}.dmg
   contents:
-    ${app}: {x: 10, y: 20}
-    /Applications: {link: true, x: 300, y: 20}
+    ${app}: {pos: [10, 20]}
+    /Applications: {link: true, pos: [300, 20]}
 pkg:
   scripts: scripts
   license: {default: eula.txt, ko: ko.txt}
@@ -134,7 +134,7 @@ func TestDiscoverAndLoad(t *testing.T) {
 }
 func TestLegacy(t *testing.T) {
 	dir := t.TempDir()
-	p, err := Parse(strings.NewReader("version: 1\ntitle: Legacy\nout: legacy\ncontents: {relative: {link: true, x: 0, y: 0}}"), dir)
+	p, err := Parse(strings.NewReader("version: 1\ntitle: Legacy\nout: legacy\ncontents: {relative: {link: true, pos: [0, 0]}}"), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,5 +371,40 @@ func TestMetricsAppliesDocumentedDefaults(t *testing.T) {
 	set := &DMGConfig{Window: Window{Width: 800, Height: 600}, IconSize: 64, LabelSize: 11}
 	if w, h, icon, label = set.Metrics(); w != 800 || h != 600 || icon != 64 || label != 11 {
 		t.Errorf("explicit metrics = (%d,%d,%d,%d), want them preserved", w, h, icon, label)
+	}
+}
+
+func TestContentIconPathResolution(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("notes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	icon, err := os.ReadFile("iconfile.icns")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "custom.icns"), icon, 0644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Parse(strings.NewReader("version: 1\ndmg:\n  title: Icons\n  contents:\n    notes.txt: {pos: [0, 200], icon: custom.icns}\n"), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := p.Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.DMG.Contents[0].Icon != filepath.Join(dir, "custom.icns") {
+		t.Fatal("icon path not resolved relative to project")
+	}
+	if p.DMG.Contents["notes.txt"].Icon != "custom.icns" {
+		t.Fatal("resolution mutated editable path")
+	}
+	data, err := p.YAML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "icon: custom.icns") {
+		t.Fatal("icon path lost during serialization")
 	}
 }

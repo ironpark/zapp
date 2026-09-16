@@ -99,3 +99,25 @@ func TestAddFilePickerPreservesSettingsAndSupportsUndo(t *testing.T) {
 		t.Fatal("addition did not undo as one change")
 	}
 }
+
+func TestImagePickerFilters(t *testing.T) {
+	g := testEditor(t)
+	g.tab = tabDMG
+	g.dmgAdvanced = true
+	g.rebuild()
+	for _, f := range g.fields {
+		switch f.Label {
+		case "Background image":
+			if f.picker != pickImage || len(pickerExtensions(f.picker)) != 3 {
+				t.Fatal("missing PNG/JPEG filter")
+			}
+		case "Disk icon":
+			if f.picker != pickIcon || len(pickerExtensions(f.picker)) != 2 {
+				t.Fatal("missing ICNS/PNG filter")
+			}
+		}
+	}
+	if len(pickerExtensions(pickFile)) != 0 {
+		t.Fatal("generic file picker must stay unrestricted")
+	}
+}

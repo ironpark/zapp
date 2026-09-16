@@ -14,11 +14,28 @@ import (
 type pickMode string
 
 const (
-	pickFile   pickMode = "file"
-	pickFolder pickMode = "folder"
-	pickApp    pickMode = "app"
-	pickSave   pickMode = "save"
+	pickFile     pickMode = "file"
+	pickFolder   pickMode = "folder"
+	pickApp      pickMode = "app"
+	pickSave     pickMode = "save"
+	pickImage    pickMode = "image"
+	pickIcon     pickMode = "icon"
+	pickItemIcon pickMode = "item-icon"
 )
+
+func pickerExtensions(mode pickMode) []string {
+	switch mode {
+	case pickApp:
+		return []string{"app"}
+	case pickImage:
+		return []string{"png", "jpg", "jpeg"}
+	case pickItemIcon:
+		return []string{"icns", "png", "jpg", "jpeg"}
+	case pickIcon:
+		return []string{"icns", "png"}
+	}
+	return nil
+}
 
 type pickResult struct {
 	index int

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"image"
 
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
@@ -26,40 +25,73 @@ func (g *editor) tabs() comp.Tabs {
 	if g.ui != nil {
 		measure = g.ui.Measure
 	}
-	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 84, g.w-48, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
+	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 68, g.w-48-402, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
 }
 func (g *editor) stepToggle() comp.Toggle {
-	label := g.section().Name + " disabled"
+	label := "Disabled"
 	if g.enabled() {
-		label = g.section().Name + " enabled"
+		label = "Enabled"
 	}
-	return comp.Toggle{Bounds: comp.Box(32, 145, 250, 34), Label: label, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
+	return comp.Toggle{Bounds: comp.Box(g.w-148, 74, 124, 32), Label: label, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
 }
 func (g *editor) controls() []comp.Button {
 	buttons := []comp.Button{
-		{Bounds: comp.Box(g.w-338, 24, 84, 36), Label: "Undo", Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.s.Undo(); g.rebuild() })},
-		{Bounds: comp.Box(g.w-246, 24, 84, 36), Label: "Redo", Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.s.Redo(); g.rebuild() })},
-		{Bounds: comp.Box(g.w-154, 24, 130, 36), Label: "Save project", Primary: true, OnClick: func() { g.save() }},
-		{Bounds: comp.Box(g.w-130, g.h-footerHeight+6, 106, 28), Label: "Validate", OnClick: g.validate},
+		{Bounds: comp.Box(g.w-456, 12, 36, 36), Ghost: true, Label: "Undo", Icon: comp.IconUndo, IconOnly: true, Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.history(false) })},
+		{Bounds: comp.Box(g.w-412, 12, 36, 36), Ghost: true, Label: "Redo", Icon: comp.IconRedo, IconOnly: true, Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.history(true) })},
+		{Bounds: comp.Box(g.w-240, 12, 104, 36), Ghost: true, Label: "Save", Icon: comp.IconSave, OnClick: func() { g.save() }},
+		{Bounds: comp.Box(g.w-368, 12, 120, 36), Ghost: true, Label: "Validate", Icon: comp.IconCheck, OnClick: g.validate},
+		{Bounds: comp.Box(g.w-128, 12, 104, 36), Ghost: true, Label: "Build", Icon: comp.IconPlay, Primary: true, Disabled: g.build != nil, OnClick: g.startBuild},
 	}
 	if g.tab == tabDMG && g.enabled() {
+		items := g.itemsPanel().Bounds
+		inspector := g.inspectorPanel().Bounds
 		buttons = append(buttons,
-			comp.Button{Bounds: comp.Box(g.w-440, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.pan = image.Point{} }},
-			comp.Button{Bounds: comp.Box(g.w-364, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.pan = image.Point{} }},
-			comp.Button{Bounds: comp.Box(404, 145, 104, 34), Label: "Add file", OnClick: g.guard(g.addFile)},
-			comp.Button{Bounds: comp.Box(518, 145, 142, 34), Label: "Remove selected", Disabled: g.selected == "", OnClick: g.guard(func() {
+			comp.Button{Bounds: comp.Box(items.Max.X-48, items.Min.Y+10, 32, 28), Label: "Add file", Icon: comp.IconPlus, IconOnly: true, OnClick: g.guard(g.addFile)},
+			comp.Button{Bounds: comp.Box(inspector.Min.X+16, inspector.Max.Y-44, inspector.Dx()-32, 28), Label: "Remove from DMG", Icon: comp.IconTrash, Disabled: g.selected == "", OnClick: g.removeSelected},
+			comp.Button{Bounds: comp.Box(g.w-302, 74, 146, 32), Label: "Default layout", Disabled: g.s.Project.DMG.Contents == nil, OnClick: g.guard(func() {
 				g.s.checkpoint()
-				g.s.materialize()
-				delete(g.s.Project.DMG.Contents, g.selected)
+				g.s.Project.DMG.Contents = nil
 				g.selected = ""
 				g.rebuild()
+				g.report(nil, "Default layout restored. Undo restores your custom contents.")
 			})},
-			comp.Button{Bounds: comp.Box(670, 145, 146, 34), Label: "Default layout", Disabled: g.s.Project.DMG.Contents == nil, OnClick: g.guard(func() { g.s.checkpoint(); g.s.Project.DMG.Contents = nil; g.selected = ""; g.rebuild() })},
-			comp.Button{Bounds: comp.Box(826, 145, 120, 34), Label: "Advanced", Selected: g.dmgAdvanced, OnClick: g.guard(func() { g.dmgAdvanced = !g.dmgAdvanced; g.form.ScrollTo(0); g.rebuild() })},
 		)
 	}
+	if g.tab == tabDMG && g.enabled() && g.selected != "" {
+		item, ok := g.selectedContent()
+		if ok && item.Icon != "" && len(g.inspector.Inputs) > 3 {
+			field := g.inspector.FieldBounds(3)
+			bounds := comp.Box(g.inspector.Bounds.Max.X-26, field.Min.Y-25, 24, 22)
+			if bounds.In(g.inspector.Bounds) {
+				buttons = append(buttons, comp.Button{Bounds: bounds, Label: "Reset item icon", Icon: comp.IconUndo, IconOnly: true, OnClick: g.guard(func() {
+					g.s.checkpoint()
+					g.s.materialize()
+					item := g.s.Project.DMG.Contents[g.selected]
+					item.Icon = ""
+					g.s.Project.DMG.Contents[g.selected] = item
+					g.rebuild()
+				})})
+			}
+		}
+	}
+	if g.tab == tabDMG && g.enabled() && !g.dmgYAML {
+		panel := g.settingsPanel().Bounds
+		icon := comp.IconChevronDown
+		if g.dmgAdvanced {
+			icon = comp.IconChevronUp
+		}
+		buttons = append(buttons, comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Advanced settings", Icon: icon, Selected: g.dmgAdvanced, OnClick: g.guard(func() {
+			g.dmgAdvanced = !g.dmgAdvanced
+			g.rebuild()
+			if g.dmgAdvanced {
+				g.form.ScrollBy(g.form.FieldBounds(6).Min.Y - g.form.Bounds.Min.Y - 25)
+			} else {
+				g.form.ScrollTo(0)
+			}
+		})})
+	}
 	if g.tab == tabPKG && g.enabled() {
-		buttons = append(buttons, comp.Button{Bounds: comp.Box(294, 145, 220, 34), Label: "Switch package form", OnClick: g.guard(g.switchPackageForm)})
+		buttons = append(buttons, comp.Button{Bounds: comp.Box(g.w-376, 74, 220, 32), Label: "Switch package form", OnClick: g.guard(g.switchPackageForm)})
 	}
 	return buttons
 }

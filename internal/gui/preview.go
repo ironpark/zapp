@@ -17,7 +17,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
-	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/icns"
 )
 
@@ -30,7 +29,8 @@ func (t previewTransform) content(x, y float64) (float64, float64) {
 	return (x - t.x) / t.scale, (y - t.y) / t.scale
 }
 func (g *editor) previewArea() image.Rectangle {
-	return comp.Box(420, 267, g.w-720, g.contentBottom()-321)
+	panel := g.previewPanel().Bounds
+	return image.Rect(panel.Min.X+16, panel.Min.Y+76, panel.Max.X-16, panel.Max.Y-58)
 }
 func (g *editor) clampPan() {
 	l := g.s.layout()
@@ -95,6 +95,9 @@ func (g *editor) loadAsset(key, path string) error {
 			return e
 		}
 		img, err = family.ByResolution(256)
+		if err != nil {
+			img, err = family.HighestResolution()
+		}
 	} else {
 		config, _, e := image.DecodeConfig(file)
 		if e != nil {
@@ -137,6 +140,8 @@ func previewSignature(p *zapp.Project, items []layoutItem) string {
 	for _, i := range items {
 		b.WriteString(i.Path)
 		b.WriteByte(1)
+		b.WriteString(i.Icon)
+		b.WriteByte(1)
 		b.WriteString(i.Name)
 		b.WriteByte(1)
 		if i.Link {
@@ -154,6 +159,7 @@ func (g *editor) refreshPreview() {
 	c := g.s.Project.DMG
 	items := g.s.layout().Items
 	g.previewError = ""
+	g.appIconPaths = make(map[string]string)
 	// Drop the previous logical keys so items removed from the layout stop
 	// pinning their textures; the "file:" entries below survive as the cache.
 	maps.DeleteFunc(g.assets, func(k string, _ *ebiten.Image) bool {
@@ -161,8 +167,10 @@ func (g *editor) refreshPreview() {
 	})
 	bg := g.assetPath(c.Background)
 	paths := make([]string, len(items))
+	icons := make([]string, len(items))
 	for i, item := range items {
 		paths[i] = g.assetPath(item.Path)
+		icons[i] = g.assetPath(item.Icon)
 	}
 	// Resolve a copy with only DMG enabled, so missing signing/PKG settings do
 	// not prevent a layout preview. Keep the editable project's original paths.
@@ -176,20 +184,22 @@ func (g *editor) refreshPreview() {
 		// Without variables the lexical order of keys is unchanged by Resolve.
 		hasVariables := false
 		for _, item := range items {
-			hasVariables = hasVariables || strings.Contains(item.Path, "${")
+			hasVariables = hasVariables || (strings.Contains(item.Path, "${") || strings.Contains(item.Icon, "${"))
 		}
 		if !hasVariables && len(plan.DMG.Contents) == len(paths) {
 			for i, item := range plan.DMG.Contents {
 				paths[i] = item.Path
+				icons[i] = item.Icon
 			}
 		} else if hasVariables {
 			// Resolve clones internally, so one scratch project serves every item.
 			one := p.Clone()
 			for i, item := range items {
 				x, y := item.X, item.Y
-				one.DMG.Contents = map[string]zapp.Content{item.Path: {X: &x, Y: &y, Link: item.Link, Name: item.Name}}
+				one.DMG.Contents = map[string]zapp.Content{item.Path: {Pos: &zapp.Position{x, y}, Link: item.Link, Name: item.Name, Icon: item.Icon}}
 				if resolved, err := one.Resolve(); err == nil {
 					paths[i] = resolved.DMG.Contents[0].Path
+					icons[i] = resolved.DMG.Contents[0].Icon
 				}
 			}
 		}
@@ -204,16 +214,20 @@ func (g *editor) refreshPreview() {
 		key := "item:" + item.Path
 		g.assets[key] = nil
 		path := paths[i]
-		if strings.HasSuffix(path, ".app") {
-			if bundle, err := appbundle.Open(path); err == nil {
-				if icon, err := bundle.IconFilePath(); err == nil {
-					_ = g.loadAsset(key, icon)
-				}
+		if item.Icon != "" && !item.Link {
+			if err := g.loadAsset(key, icons[i]); err != nil {
+				g.previewError = "Item icon: " + err.Error()
 			}
-		} else if item.Link && item.Path == "/Applications" {
-			_ = g.loadAsset(key, "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ApplicationsFolderIcon.icns")
+		} else if strings.EqualFold(filepath.Ext(path), ".app") {
+			g.loadAppIcon(key, path)
 		} else if slices.Contains(previewImageExts, strings.ToLower(filepath.Ext(path))) {
 			_ = g.loadAsset(key, path)
+		}
+		if g.assets[key] == nil {
+			g.assets[key] = g.defaultFileIcon(fileIconForPath(path))
+		}
+		if item.Link {
+			g.assets["badge:alias"] = g.defaultFileIcon("alias")
 		}
 	}
 	g.pruneAssets()
@@ -302,7 +316,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 			// Generic artwork is intentional for files without an extractable
 			// icon. It does not claim to reproduce Finder's per-file thumbnails.
 			body := r.Inset(max(1, int(side/8)))
-			if item.Link {
+			if item.Link || g.itemKinds[item.Path] == "Folder" {
 				comp.Rect(canvas, comp.Box(body.Min.X, body.Min.Y, body.Dx()/2, max(3, body.Dy()/6)), color.RGBA{144, 205, 240, 255})
 				comp.Rect(canvas, comp.Box(body.Min.X, body.Min.Y+body.Dy()/8, body.Dx(), body.Dy()*7/8), color.RGBA{112, 178, 223, 255})
 			} else {
@@ -314,6 +328,9 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 					comp.Rect(canvas, comp.Box(body.Min.X+body.Dx()/5, body.Min.Y+body.Dy()/2+row*max(3, body.Dy()/9), body.Dx()*3/5, max(1, body.Dy()/35)), color.RGBA{157, 179, 200, 255})
 				}
 			}
+		}
+		if item.Link {
+			drawFileIcon(canvas, g.assets["badge:alias"], r)
 		}
 		fs := max(8, int(math.Round(float64(label)*t.scale)))
 		name := g.ui.Fit(item.title(), max(int(side*1.7), 60), fs)
@@ -333,20 +350,23 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
 	dst = full
-	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%", l.W, l.H, t.scale*100), 420, g.contentBottom()-42, 13, g.ui.Theme.Muted)
+	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%", l.W, l.H, t.scale*100), g.previewArea().Min.X, g.contentBottom()-42, 13, g.ui.Theme.Muted)
 	if len(items) == 0 {
 		g.ui.Wrapped(canvas, "Drop files or folders here, or set the app path in Project.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)
 	}
-	message := "Layout approximation; Finder fonts and generic file icons may differ."
+	message := "Approximate preview · Drop files or folders to add"
+	if g.previewActual {
+		message = "Space + drag to pan · Fit shows the whole window"
+	}
 	if g.selected != "" {
 		for _, item := range items {
 			if item.Path == g.selected {
-				message = fmt.Sprintf("%s — center (%d, %d)", item.title(), item.X, item.Y)
+				message = "Arrows: move · Shift: 10 px · Delete: remove"
 			}
 		}
 	}
 	if g.previewError != "" {
 		message = g.previewError
 	}
-	g.ui.Text(dst, g.ui.Fit(message, g.previewArea().Dx(), 12), 420, g.contentBottom()-20, 12, g.ui.Theme.Muted)
+	g.ui.Text(dst, g.ui.Fit(message, g.previewArea().Dx(), 12), g.previewArea().Min.X, g.contentBottom()-20, 12, g.ui.Theme.Muted)
 }

@@ -46,6 +46,9 @@ func (c Config) ValidateLayout() error {
 		seen[strings.ToLower(name)] = true
 	}
 	for _, item := range c.Contents {
+		if item.Type == Link && item.Icon != "" {
+			return fmt.Errorf("custom icons are not supported for symbolic links: %s", item.Path)
+		}
 		name := item.ImageName()
 		if item.Path == "" || name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\:\x00") {
 			return fmt.Errorf("invalid content name or path %q", name)
@@ -75,6 +78,14 @@ func (c Config) Validate() error {
 	}
 	for _, item := range c.Contents {
 		name := item.ImageName()
+		if item.Icon != "" {
+			if err := validateItemIconTarget(item); err != nil {
+				return err
+			}
+			if _, err := readItemIcon(item.Icon); err != nil {
+				return fmt.Errorf("icon for %q: %w", name, err)
+			}
+		}
 		switch item.Type {
 		case Link:
 			if strings.ContainsRune(item.Path, 0) {

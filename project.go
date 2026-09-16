@@ -48,10 +48,10 @@ type Window struct {
 	Height int `json:"height,omitempty"`
 }
 type Content struct {
-	X    *int   `json:"x"`
-	Y    *int   `json:"y"`
-	Link bool   `json:"link,omitempty"`
-	Name string `json:"name,omitempty"`
+	Icon string    `json:"icon,omitempty"`
+	Pos  *Position `json:"pos" yaml:"pos,flow"`
+	Link bool      `json:"link,omitempty"`
+	Name string    `json:"name,omitempty"`
 }
 type DMGConfig struct {
 	Title                string             `json:"title,omitempty"`

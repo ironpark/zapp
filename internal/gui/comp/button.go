@@ -6,11 +6,16 @@ import (
 )
 
 type Button struct {
-	Bounds             image.Rectangle
-	Label              string
+	Bounds image.Rectangle
+	Label  string
+	Icon   Icon
+	// IconOnly hides the label visually; retain Label for action descriptions.
+	IconOnly           bool
 	Selected, Disabled bool
-	Primary            bool
-	OnClick            func()
+	// Ghost removes the resting background and border; hover/selection remain visible.
+	Ghost   bool
+	Primary bool
+	OnClick func()
 }
 
 // Click consumes a hit even when disabled, preventing click-through to content
@@ -50,11 +55,46 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	if b.Disabled {
 		bg, fg = t.Disabled, t.DisabledText
 	}
-	Surface(dst, b.Bounds, Radius, bg, t.Border)
+	if b.Ghost {
+		fg = t.Text
+		if b.Primary {
+			fg = t.Accent
+		}
+		if b.Disabled {
+			fg = t.DisabledText
+		} else if b.Selected {
+			RoundedRect(dst, b.Bounds, Radius, t.Selection)
+		} else if pointer.In(b.Bounds) {
+			RoundedRect(dst, b.Bounds, Radius, t.Hover)
+		}
+	} else {
+		Surface(dst, b.Bounds, Radius, bg, t.Border)
+	}
 	clip := b.Bounds.Intersect(dst.Bounds())
 	if clip.Empty() {
 		return
 	}
-	label := p.Fit(b.Label, b.Bounds.Dx()-24, 14)
-	p.Text(dst.SubImage(clip).(*ebiten.Image), label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
+	canvas := dst.SubImage(clip).(*ebiten.Image)
+	iconWidth := 0
+	if b.Icon != "" {
+		iconWidth = 18
+	}
+	label := ""
+	if !b.IconOnly || iconWidth == 0 {
+		available := b.Bounds.Dx() - 24
+		if iconWidth > 0 {
+			available -= iconWidth + 8
+		}
+		label = p.Fit(b.Label, available, 14)
+	}
+	width := p.Measure(label, 14) + iconWidth
+	if iconWidth > 0 && label != "" {
+		width += 8
+	}
+	x := b.Bounds.Min.X + (b.Bounds.Dx()-width)/2
+	if iconWidth > 0 {
+		p.drawIcon(canvas, b.Icon, Box(x, b.Bounds.Min.Y+(b.Bounds.Dy()-18)/2, 18, 18), fg)
+		x += iconWidth + 8
+	}
+	p.Text(canvas, label, x, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
 }

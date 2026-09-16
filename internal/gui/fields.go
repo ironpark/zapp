@@ -34,23 +34,15 @@ func choiceField(label string, value *string, choices ...string) field {
 	return f
 }
 
-// coord reads an optional layout coordinate, treating an unset one as zero.
-func coord(v *int) int {
-	if v == nil {
-		return 0
-	}
-	return *v
-}
-
 // contentAxes drives the two selected-item coordinate fields from one
 // definition instead of comparing an axis name inside the shared setter.
 var contentAxes = []struct {
 	name  string
-	of    func(zapp.Content) *int
+	of    func(zapp.Content) int
 	apply func(n, x, y int) (int, int)
 }{
-	{"X", func(c zapp.Content) *int { return c.X }, func(n, _, y int) (int, int) { return n, y }},
-	{"Y", func(c zapp.Content) *int { return c.Y }, func(n, x, _ int) (int, int) { return x, n }},
+	{"X", func(c zapp.Content) int { return positionCoord(c.Pos, 0) }, func(n, _, y int) (int, int) { return n, y }},
+	{"Y", func(c zapp.Content) int { return positionCoord(c.Pos, 1) }, func(n, x, _ int) (int, int) { return x, n }},
 }
 
 func boolField(label string, value *bool, hint string) field {
@@ -100,6 +92,12 @@ func jsonField[T any](label string, value *T, hint string) field {
 }
 
 func (g *editor) rebuild() {
+	g.rebuildFields()
+	g.refreshDerived()
+}
+
+func (g *editor) rebuildFields() {
+	g.restoreLive()
 	defer g.syncForm()
 	g.projectDirty = g.s.Dirty()
 	g.fields = nil
@@ -110,10 +108,16 @@ func (g *editor) rebuild() {
 	}
 	g.inspectorStart = len(g.fields)
 	if g.tab == tabDMG && g.enabled() {
+		if _, ok := g.s.layout().find(g.selected); !ok {
+			g.selected = ""
+		}
 		if item, ok := g.selectedContent(); ok {
 			g.fields = append(g.fields, g.selectedItemFields(g.s.Project.DMG, item)...)
 		}
 	}
+}
+
+func (g *editor) refreshDerived() {
 	// Both derived caches read the layout minus item coordinates, so one
 	// signature keeps a drag or an arrow-key nudge from re-resolving the
 	// project and re-stat'ing every item path.
@@ -135,6 +139,13 @@ func (g *editor) projectFields() []field {
 }
 
 func (g *editor) dmgFields() []field {
+	if g.dmgYAML {
+		return []field{g.yamlField()}
+	}
+	return g.dmgFormFields()
+}
+
+func (g *editor) dmgFormFields() []field {
 	p := g.s.Project
 	c := p.DMG
 	var fields []field
@@ -142,7 +153,7 @@ func (g *editor) dmgFields() []field {
 	height.SameRow = true
 	fields = append(fields,
 		stringField("Title", &c.Title, "Blank uses the app name"),
-		pathField("Background image", &c.Background, "PNG or JPEG; drawn at its native size", pickFile),
+		pathField("Background image", &c.Background, "PNG or JPEG; drawn at its native size", pickImage),
 		intField("Window width", &c.Window.Width, 32768, zapp.DefaultWindowWidth, 0, fmt.Sprintf("0 = default %d", zapp.DefaultWindowWidth)),
 		height,
 		intField("Icon size", &c.IconSize, dmg.MaxIconSize, zapp.DefaultIconSize, dmg.MinIconSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultIconSize, dmg.MinIconSize, dmg.MaxIconSize)),
@@ -150,11 +161,10 @@ func (g *editor) dmgFields() []field {
 	)
 	if g.dmgAdvanced {
 		fields = append(fields,
-			pathField("Disk icon", &c.Icon, "ICNS or PNG; not the app icon", pickFile),
+			pathField("Disk icon", &c.Icon, "ICNS or PNG; not the app icon", pickIcon),
 			choiceField("Filesystem", &c.FS, "", "hfsplus", "apfs", "apfs-case-sensitive"),
 			choiceField("Compression", &c.Format, "", "udzo", "ulfo"),
 			pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
-			jsonField("Contents (JSON)", &c.Contents, "null = automatic app + Applications layout"),
 		)
 	}
 	return fields
@@ -175,7 +185,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 		return zapp.Content{}, false
 	}
 	x, y := i.X, i.Y
-	return zapp.Content{X: &x, Y: &y, Name: i.Name, Link: i.Link}, true
+	return zapp.Content{Pos: &zapp.Position{x, y}, Name: i.Name, Link: i.Link, Icon: i.Icon}, true
 }
 
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
@@ -190,17 +200,29 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 	// Both coordinates go through Session.move, so a typed value is clamped to
 	// the window exactly like a dragged one.
 	for _, axis := range contentAxes {
-		fields = append(fields, field{Label: axis.name, Value: strconv.Itoa(coord(axis.of(item))), Hint: "Icon center (px)", Number: &comp.NumberSpec{Min: 0, Max: int(dmg.MaxCoordinate), Step: 1}, set: func(v string) error {
+		fields = append(fields, field{Label: axis.name, Value: strconv.Itoa(axis.of(item)), Hint: "Icon center (px)", Number: &comp.NumberSpec{Min: 0, Max: int(dmg.MaxCoordinate), Step: 1}, set: func(v string) error {
 			n, err := strconv.Atoi(v)
 			if err != nil || n < 0 || uint64(n) > dmg.MaxCoordinate {
 				return fmt.Errorf("coordinate must be a nonnegative 32-bit integer")
 			}
 			g.s.materialize()
 			i := c.Contents[key]
-			x, y := axis.apply(n, coord(i.X), coord(i.Y))
+			x, y := axis.apply(n, positionCoord(i.Pos, 0), positionCoord(i.Pos, 1))
 			g.s.move(key, x, y)
 			return nil
 		}})
+	}
+	icon := pathField("Item icon", &item.Icon, "Blank uses the original icon", pickItemIcon)
+	icon.set = func(value string) error {
+		g.s.materialize()
+		i := c.Contents[key]
+		i.Icon = value
+		c.Contents[key] = i
+		return nil
+	}
+	icon.Placeholder = "PNG, JPG or ICNS"
+	if !item.Link {
+		fields = append(fields, icon)
 	}
 	fields[2].SameRow = true
 	return fields
@@ -219,17 +241,17 @@ func (g *editor) pkgFields() []field {
 			stringField("Install location", &c.InstallLocation, "For example /Applications"),
 			pathField("Scripts directory", &c.Scripts, "Installer scripts", pickFolder),
 			stringField("Minimum macOS", &c.MinOS, "For example 10.13"),
-			jsonField("Licenses (JSON)", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`),
+			jsonField("Licenses", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`),
 		)
 	}
 	return append(fields,
-		jsonField("Components (JSON)", &c.Components, "Full-form package components"),
-		jsonField("Distribution (JSON)", &c.Distribution, "Installer title, resources, license and choices"),
+		jsonField("Components", &c.Components, "Full-form package components"),
+		jsonField("Distribution", &c.Distribution, "Installer title, resources, license and choices"),
 	)
 }
 
 func (g *editor) depFields() []field {
-	return []field{jsonField("Library search paths (JSON)", &g.s.Project.Dep.Libs, `["/opt/homebrew/lib", "vendor/lib"]`)}
+	return []field{jsonField("Library search paths", &g.s.Project.Dep.Libs, `["/opt/homebrew/lib", "vendor/lib"]`)}
 }
 
 func (g *editor) signFields() []field {
@@ -264,4 +286,11 @@ var fieldPlaceholders = map[string]string{
 	"PKCS#12 certificate": "certificate.p12", "PEM certificate": "certificate.pem",
 	"Password file": "password.txt", "Keychain profile": "notary-profile",
 	"Apple ID": "name@example.com", "Team ID": "ABCDEFGHIJ", "API key file": "api-key.json",
+}
+
+func positionCoord(pos *zapp.Position, axis int) int {
+	if pos == nil {
+		return 0
+	}
+	return pos[axis]
 }

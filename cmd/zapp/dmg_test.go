@@ -238,13 +238,11 @@ iconSize: 96
 contents:
   readme.txt:
     name: 사용 안내.txt
-    x: 0
-    y: 120
+    pos: [0, 120]
   /Applications:
     link: true
     name: Install
-    x: 500
-    y: 120
+    pos: [500, 120]
 `, "--ww", "800", "--out", "release", "--title", "Override")
 	if err != nil {
 		t.Fatal(err)
@@ -265,29 +263,29 @@ contents:
 }
 
 func TestJSONConfig(t *testing.T) {
-	_, err := resolveForTest(t, `{"version":1,"title":"Files","contents":{"/Applications":{"link":true,"x":0,"y":0}}}`)
+	_, err := resolveForTest(t, `{"version":1,"title":"Files","contents":{"/Applications":{"link":true,"pos":[0,0]}}}`)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestInvalidConfig(t *testing.T) {
-	base := "version: 1\ntitle: Files\ncontents:\n  readme.txt:\n    x: 100\n    y: 100\n"
+	base := "version: 1\ntitle: Files\ncontents:\n  readme.txt:\n    pos: [100, 100]\n"
 	for name, input := range map[string]string{
 		"unknown":        base + "typo: true\n",
 		"version":        strings.Replace(base, "version: 1", "version: 2", 1),
 		"duplicate key":  base + "title: Other\n",
-		"duplicate path": base + "  readme.txt: {x: 0, y: 0}\n",
+		"duplicate path": base + "  readme.txt: {pos: [0, 0]}\n",
 		"empty":          "version: 1\ntitle: Files\ncontents: {}\n",
 		"size":           base + "iconSize: 0\n",
-		"negative":       strings.Replace(base, "x: 100", "x: -1", 1),
-		"missing x":      strings.Replace(base, "    x: 100\n", "", 1),
-		"missing y":      strings.Replace(base, "    y: 100\n", "", 1),
+		"negative":       strings.Replace(base, "pos: [100, 100]", "pos: [-1, 100]", 1),
+		"missing pos":    strings.Replace(base, "    pos: [100, 100]\n", "", 1),
+		"short pos":      strings.Replace(base, "[100, 100]", "[100]", 1),
 		"reserved":       base + "    name: .DS_Store\n",
 		"traversal":      base + "    name: ../escape\n",
 		"missing source": strings.Replace(base, "readme.txt", "missing", 1),
 		"old type":       base + "    type: file\n",
-		"duplicate name": base + "  /README.txt: {link: true, x: 200, y: 100}\n",
+		"duplicate name": base + "  /README.txt: {link: true, pos: [200, 100]}\n",
 		"invalid link":   base + "    link: invalid\n",
 		"empty path":     strings.Replace(base, "readme.txt", `""`, 1),
 		"null item":      "version: 1\ntitle: Files\ncontents: {readme.txt: null}\n",
@@ -326,9 +324,9 @@ func TestContentsMapTypesAndOrder(t *testing.T) {
 	cfg, err := resolveForTest(t, `version: 1
 title: Files
 contents:
-  readme.txt: {link: false, x: 10, y: 20}
-  .: {name: Bundle, x: 30, y: 40}
-  relative-target: {link: true, x: 0, y: 0}
+  readme.txt: {link: false, pos: [10, 20]}
+  .: {name: Bundle, pos: [30, 40]}
+  relative-target: {link: true, pos: [0, 0]}
 `)
 	if err != nil {
 		t.Fatal(err)

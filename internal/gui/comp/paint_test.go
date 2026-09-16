@@ -8,6 +8,7 @@ func testPainter(t *testing.T) *Painter {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(p.Close)
 	return p
 }
 

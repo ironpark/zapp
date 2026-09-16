@@ -30,8 +30,8 @@ out: dist
 dmg:
   background: artwork/background.png
   contents:
-    dist/MyApp.app: {x: 120, y: 200}
-    /Applications: {x: 480, y: 200, link: true}
+    dist/MyApp.app: {pos: [120, 200]}
+    /Applications: {pos: [480, 200], link: true}
 pkg:
   components:
     - {id: app, root: dist/MyApp.app, installLocation: /Applications}
@@ -61,7 +61,7 @@ notarize: {profile: release, staple: true}
 	if len(p.PKG.Components) != 1 || !p.PKG.Distribution.Choices[0].Selected || !p.Notarize.Staple {
 		t.Fatal("unrelated settings lost")
 	}
-	if *p.DMG.Contents[p.App].X != 222 || *p.DMG.Contents[p.App].Y != 177 {
+	if p.DMG.Contents[p.App].Pos[0] != 222 || p.DMG.Contents[p.App].Pos[1] != 177 {
 		t.Fatal("coordinates not saved")
 	}
 	if s.Dirty() {
@@ -72,11 +72,11 @@ notarize: {profile: release, staple: true}
 		t.Fatal("file permissions changed")
 	}
 	s.Undo()
-	if *s.Project.DMG.Contents[p.App].X != 120 {
+	if s.Project.DMG.Contents[p.App].Pos[0] != 120 {
 		t.Fatal("undo did not restore position")
 	}
 	s.Redo()
-	if *s.Project.DMG.Contents[p.App].X != 222 {
+	if s.Project.DMG.Contents[p.App].Pos[0] != 222 {
 		t.Fatal("redo did not restore position")
 	}
 }
@@ -154,7 +154,7 @@ func TestDefaultLayoutMatchesBuildAndDrag(t *testing.T) {
 	}
 	s.checkpoint()
 	s.move("Demo.app", -40, 9999)
-	if *s.Project.DMG.Contents["Demo.app"].X != 0 || *s.Project.DMG.Contents["Demo.app"].Y != 480 {
+	if s.Project.DMG.Contents["Demo.app"].Pos[0] != 0 || s.Project.DMG.Contents["Demo.app"].Pos[1] != 480 {
 		t.Fatal("drag not clamped in content coordinates")
 	}
 	if !s.Project.DMG.Contents["/Applications"].Link {
@@ -229,7 +229,7 @@ func TestPreviewSignatureIgnoresCoordinatesOnly(t *testing.T) {
 	project := func(x, y int, name string) *zapp.Project {
 		return &zapp.Project{App: "My.app", DMG: &zapp.DMGConfig{
 			Background: "bg.png",
-			Contents:   map[string]zapp.Content{"My.app": {X: &x, Y: &y, Name: name}},
+			Contents:   map[string]zapp.Content{"My.app": {Pos: &zapp.Position{x, y}, Name: name}},
 		}}
 	}
 	sig := func(p *zapp.Project) string {

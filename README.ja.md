@@ -309,16 +309,13 @@ dmg:
   labelSize: 14
   contents:
     dist/MyApp.app:
-      x: 180
-      y: 200
+      pos: [180, 200]
     /Applications:
       link: true
-      x: 540
-      y: 200
+      pos: [540, 200]
     docs/README.pdf:
       name: Guide.pdf
-      x: 360
-      y: 350
+      pos: [360, 350]
 ```
 
 ```sh
@@ -331,7 +328,7 @@ zapp dmg --config .zapp.yaml --out dist/MyApp.dmg
 
 | フィールド | 説明 |
 | --- | --- |
-| `x`, `y` | Finder のコンテンツ領域の左上を基準とするアイコン中心の座標。0 以上 |
+| `pos: [x, y]` | Finder のコンテンツ領域の左上を基準とするアイコン中心の座標。0 以上 |
 | `link` | `true` でシンボリックリンクを作成。省略するとファイル・ディレクトリをコピー |
 | `name` | イメージ内での名前。省略すると元の名前を使用 |
 

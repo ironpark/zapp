@@ -35,6 +35,8 @@ func lineWindow(s string, start, count int) []string {
 }
 
 type InputSpec struct {
+	Syntax             string
+	Height             int
 	Label, Value, Hint string
 	Placeholder        string
 	Number             *NumberSpec
@@ -87,10 +89,12 @@ func StepBounds(bounds image.Rectangle, direction int) image.Rectangle {
 // Input owns a draft, not the application's committed value. Handle returns
 // intents; the application may reject Submit and keep the draft and cursor.
 type Input struct {
-	Spec      InputSpec
-	buffer    []rune
-	cursor    int
-	selectAll bool
+	Spec         InputSpec
+	buffer       []rune
+	cursor       int
+	selectAll    bool
+	viewLine     int
+	manualScroll bool
 }
 type InputIntent uint8
 
@@ -124,12 +128,70 @@ func (i Input) Cursor() int  { return i.cursor }
 func (i Input) Dirty() bool  { return i.Text() != i.Spec.Value }
 func (i Input) Clone() Input { i.buffer = append([]rune(nil), i.buffer...); return i }
 func (i *Input) SetText(s string) {
+	i.manualScroll = false
+	i.viewLine = 0
 	i.buffer = []rune(i.clean(s))
 	i.cursor = len(i.buffer)
 	i.selectAll = false
 }
 func (i *Input) SetCursor(n int) { i.cursor = max(0, min(n, len(i.buffer))); i.selectAll = false }
 func (i *Input) SelectAll()      { i.selectAll = true }
+
+func (i Input) visibleStart(bounds image.Rectangle, focused bool) int {
+	if i.manualScroll {
+		return i.viewLine
+	}
+	if !focused {
+		return 0
+	}
+	line := strings.Count(string(i.buffer[:i.cursor]), "\n")
+	return max(0, line-max(1, (bounds.Dy()-10)/20)+1)
+}
+
+func (i *Input) ScrollLines(delta int, bounds image.Rectangle) {
+	visible := max(1, (bounds.Dy()-10)/20)
+	limit := max(0, strings.Count(i.Text(), "\n")+1-visible)
+	i.viewLine = max(0, min(limit, i.visibleStart(bounds, true)+delta))
+	i.manualScroll = true
+}
+
+// PlaceCursor uses the same font and visible lines as Draw.
+func (i *Input) PlaceCursor(p *Painter, bounds image.Rectangle, point image.Point, wasFocused bool) {
+	start := i.visibleStart(bounds, wasFocused)
+	line := start + max(0, (point.Y-bounds.Min.Y-6)/20)
+	lines := strings.Split(i.Text(), "\n")
+	line = min(line, len(lines)-1)
+	runes := []rune(lines[line])
+	offset := 0
+	for n := 0; n < line; n++ {
+		offset += len([]rune(lines[n])) + 1
+	}
+	measure, size := p.Measure, 14
+	if i.Spec.Syntax != "" {
+		measure = p.codeMeasure
+		size = 13
+	}
+	drop := 0
+	if wasFocused && i.cursor >= offset && i.cursor <= offset+len(runes) {
+		col := i.cursor - offset
+		for drop < col && measure(string(runes[drop:col]), size) > bounds.Dx()-38 {
+			drop++
+		}
+	}
+	x := point.X - bounds.Min.X - 8
+	col := drop
+	for col < len(runes) {
+		left := measure(string(runes[drop:col]), size)
+		right := measure(string(runes[drop:col+1]), size)
+		if x < (left+right)/2 {
+			break
+		}
+		col++
+	}
+	i.SetCursor(offset + col)
+	i.viewLine = start
+	i.manualScroll = true
+}
 func (i *Input) clean(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '\n' && i.Spec.Multiline {
@@ -189,10 +251,17 @@ func (i *Input) verticalCursor(direction int) {
 	i.selectAll = false
 }
 func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
+	if len(k.Pressed) > 0 || len(k.Repeated) > 0 || k.Text != "" {
+		i.manualScroll = false
+	}
 	if k.JustPressed(ebiten.KeyEscape) {
 		return InputResult{Intent: InputCancel}
 	}
 	if k.JustPressed(ebiten.KeyTab) {
+		if i.Spec.Syntax != "" && !k.Shift && !k.Command {
+			i.Insert("  ")
+			return InputResult{}
+		}
 		if k.Shift {
 			return InputResult{Intent: InputPrevious}
 		}
@@ -273,7 +342,22 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 	}
 	if k.JustPressed(ebiten.KeyEnter) {
 		if i.Spec.Multiline {
-			i.Insert("\n")
+			indent := ""
+			if i.Spec.Syntax != "" {
+				start := i.cursor
+				for start > 0 && i.buffer[start-1] != '\n' {
+					start--
+				}
+				end := start
+				for end < i.cursor && i.buffer[end] == ' ' {
+					end++
+				}
+				indent = string(i.buffer[start:end])
+				if strings.HasSuffix(strings.TrimSpace(string(i.buffer[start:i.cursor])), ":") {
+					indent += "  "
+				}
+			}
+			i.Insert("\n" + indent)
 		} else {
 			return InputResult{Intent: InputSubmit}
 		}
@@ -307,11 +391,11 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	if i.Spec.Number != nil {
 		for _, direction := range []int{1, -1} {
 			r := StepBounds(bounds, direction)
-			label := "+"
+			icon := IconChevronUp
 			if direction < 0 {
-				label = "−"
+				icon = IconChevronDown
 			}
-			p.Text(dst, label, r.Min.X+7, r.Min.Y-2, 14, t.Accent)
+			p.drawIcon(dst, icon, Center(r, 16, 16), t.Accent)
 		}
 		textWidth -= 28
 	}
@@ -345,6 +429,12 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		p.Text(clip, p.Fit(i.Spec.Placeholder, textWidth-16, 14), bounds.Min.X+8, bounds.Min.Y+6, 14, t.Muted)
 	}
 	start := 0
+	measure := p.Measure
+	textSize := 14
+	if i.Spec.Syntax != "" {
+		measure = p.codeMeasure
+		textSize = 13
+	}
 	caretLine, caretCol := 0, 0
 	if focused {
 		for _, r := range i.buffer[:i.cursor] {
@@ -359,6 +449,9 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	if caretLine >= visible {
 		start = caretLine - visible + 1
 	}
+	if i.manualScroll {
+		start = i.viewLine
+	}
 	for offset, str := range lineWindow(value, start, visible) {
 		n := start + offset
 		col := caretCol
@@ -368,7 +461,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 			// monotonically as leading runes are dropped, so a binary search
 			// replaces a scan that re-measured the prefix per dropped rune.
 			drop := min(col, sort.Search(col+1, func(d int) bool {
-				return p.Measure(string(rr[d:col]), 14) <= textWidth-22
+				return measure(string(rr[d:col]), textSize) <= textWidth-22
 			}))
 			rr, col = rr[drop:], col-drop
 			str = string(rr)
@@ -377,11 +470,20 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		if focused && i.selectAll {
 			Rect(clip, Box(bounds.Min.X+7, y, bounds.Dx()-14, 20), t.Selection)
 		}
-		p.Text(clip, str, bounds.Min.X+8, y, 14, t.Text)
+		if i.Spec.Syntax != "" {
+			p.drawYAMLLine(clip, str, bounds.Min.X+8, y, textSize)
+		} else {
+			p.Text(clip, str, bounds.Min.X+8, y, textSize, t.Text)
+		}
 		if focused && n == caretLine {
 			rr := []rune(str)
-			x := bounds.Min.X + 8 + p.Measure(string(rr[:min(col, len(rr))]), 14)
+			x := bounds.Min.X + 8 + measure(string(rr[:min(col, len(rr))]), textSize)
 			Rect(clip, Box(x, y+1, 1, 18), t.Accent)
 		}
 	}
+	if i.Spec.Syntax != "" {
+		limit := max(0, strings.Count(value, "\n")+1-visible)
+		Scrollbar(dst, Box(bounds.Max.X-5, bounds.Min.Y+5, 2, bounds.Dy()-10), start, limit, t.Muted)
+	}
+
 }

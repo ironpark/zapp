@@ -309,16 +309,13 @@ dmg:
   labelSize: 14
   contents:
     dist/MyApp.app:
-      x: 180
-      y: 200
+      pos: [180, 200]
     /Applications:
       link: true
-      x: 540
-      y: 200
+      pos: [540, 200]
     docs/README.pdf:
       name: Guide.pdf
-      x: 360
-      y: 350
+      pos: [360, 350]
 ```
 
 ```sh
@@ -331,7 +328,7 @@ zapp dmg --config .zapp.yaml --out dist/MyApp.dmg
 
 | 字段 | 说明 |
 | --- | --- |
-| `x`, `y` | 以 Finder 内容区域左上角为原点的图标中心坐标，必须大于或等于 0 |
+| `pos: [x, y]` | 以 Finder 内容区域左上角为原点的图标中心坐标，必须大于或等于 0 |
 | `link` | `true` 表示创建符号链接；省略时复制文件或目录 |
 | `name` | 镜像内的名称；默认使用源名称 |
 

@@ -204,12 +204,12 @@ func buildLayout(c *zapp.DMGConfig, app string) dmgLayout {
 	if c.Contents == nil {
 		if app != "" {
 			appX, linkX, y := c.DefaultPositions()
-			items = []layoutItem{{app, "", false, appX, y}, {"/Applications", "", true, linkX, y}}
+			items = []layoutItem{{app, "", false, appX, y, ""}, {"/Applications", "", true, linkX, y, ""}}
 		}
 	} else {
 		for _, key := range slices.Sorted(maps.Keys(c.Contents)) {
 			v := c.Contents[key]
-			items = append(items, layoutItem{key, v.Name, v.Link, coord(v.X), coord(v.Y)})
+			items = append(items, layoutItem{key, v.Name, v.Link, positionCoord(v.Pos, 0), positionCoord(v.Pos, 1), v.Icon})
 		}
 	}
 	return dmgLayout{w, h, size, label, items}
@@ -219,6 +219,7 @@ type layoutItem struct {
 	Path, Name string
 	Link       bool
 	X, Y       int
+	Icon       string
 }
 
 func (i layoutItem) title() string {
@@ -233,7 +234,7 @@ func (s *Session) materialize() {
 	c.Contents = map[string]zapp.Content{}
 	for _, item := range items {
 		x, y := item.X, item.Y
-		c.Contents[item.Path] = zapp.Content{X: &x, Y: &y, Name: item.Name, Link: item.Link}
+		c.Contents[item.Path] = zapp.Content{Pos: &zapp.Position{x, y}, Name: item.Name, Link: item.Link, Icon: item.Icon}
 	}
 }
 
@@ -247,8 +248,7 @@ func (s *Session) move(key string, x, y int) {
 	}
 	x = max(0, min(l.W, x))
 	y = max(0, min(l.H, y))
-	item.X = &x
-	item.Y = &y
+	item.Pos = &zapp.Position{x, y}
 	c.Contents[key] = item
 }
 
@@ -264,8 +264,8 @@ func (s *Session) validateLayout() error {
 		return err
 	}
 	for key, v := range c.Contents {
-		if v.X == nil || v.Y == nil {
-			return fmt.Errorf("contents[%q] requires x and y", key)
+		if v.Pos == nil {
+			return fmt.Errorf("contents[%q] requires pos: [x, y]", key)
 		}
 	}
 	// Geometry, names and coordinates are checked by the image generator's own
@@ -274,7 +274,11 @@ func (s *Session) validateLayout() error {
 	l := s.layout()
 	d := dmg.Config{WindowWidth: l.W, WindowHeight: l.H, ContentsIconSize: l.IconSize, LabelSize: l.LabelSize}
 	for _, i := range l.Items {
-		d.Contents = append(d.Contents, dmg.Item{Path: i.Path, Name: i.Name, X: i.X, Y: i.Y})
+		kind := dmg.File
+		if i.Link {
+			kind = dmg.Link
+		}
+		d.Contents = append(d.Contents, dmg.Item{Path: i.Path, Name: i.Name, X: i.X, Y: i.Y, Icon: i.Icon, Type: kind})
 	}
 	return d.ValidateLayout()
 }

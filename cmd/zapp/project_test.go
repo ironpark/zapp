@@ -77,7 +77,7 @@ func TestCLIPathsRelativeToCwd(t *testing.T) {
 	}
 	t.Chdir(dir)
 	file := filepath.Join(fileDir, ".zapp.yaml")
-	if err := os.WriteFile(file, []byte("version: 1\ndmg: {title: Files, out: file.dmg, contents: {/Applications: {link: true, x: 0, y: 0}}}"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("version: 1\ndmg: {title: Files, out: file.dmg, contents: {/Applications: {link: true, pos: [0, 0]}}}"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	c := buildCommand()

@@ -37,9 +37,13 @@ func choosePath(ctx context.Context, mode pickMode, title, initial string) (stri
 			panel.Send(objc.RegisterName("setCanChooseDirectories:"), mode == pickFolder)
 			panel.Send(objc.RegisterName("setAllowsMultipleSelection:"), false)
 			panel.Send(objc.RegisterName("setTreatsFilePackagesAsDirectories:"), false)
-			if mode == pickApp {
-				types := objc.ID(objc.GetClass("NSArray")).Send(objc.RegisterName("arrayWithObject:"), pickerString("app"))
+			if extensions := pickerExtensions(mode); len(extensions) > 0 {
+				types := objc.ID(objc.GetClass("NSMutableArray")).Send(objc.RegisterName("array"))
+				for _, ext := range extensions {
+					types.Send(objc.RegisterName("addObject:"), pickerString(ext))
+				}
 				panel.Send(objc.RegisterName("setAllowedFileTypes:"), types)
+				panel.Send(objc.RegisterName("setAllowsOtherFileTypes:"), false)
 			}
 		}
 		if panel == 0 {

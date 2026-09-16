@@ -26,6 +26,9 @@ func (g *editor) clearFieldError() {
 }
 func (g *editor) showFieldError(tab int, label string, err error) {
 	g.tab = tab
+	if tab == tabDMG {
+		g.dmgYAML = false
+	}
 	g.selected = ""
 	g.dmgAdvanced = true
 	g.rebuild()
@@ -41,18 +44,41 @@ func (g *editor) showFieldError(tab int, label string, err error) {
 
 // Validate checks build inputs, while Save continues to permit unfinished drafts.
 func (g *editor) validatePaths() bool {
+	if g.s.Project.DMG != nil {
+		for path, item := range g.s.Project.DMG.Contents {
+			if item.Icon == "" || strings.Contains(item.Icon, "${") {
+				continue
+			}
+			if _, err := os.Stat(g.assetPath(item.Icon)); err != nil {
+				g.tab = tabDMG
+				g.selected = path
+				g.rebuild()
+				if len(g.inspector.Inputs) > 3 {
+					g.focus(g.inspectorStart + 3)
+					g.fieldError(err)
+				} else {
+					g.report(err, "")
+				}
+				return false
+			}
+		}
+	}
 	for tab, section := range sections {
 		if !section.Enabled(g.s.Project) {
 			continue
 		}
-		for _, f := range section.fields(g) {
+		fields := section.fields(g)
+		if tab == tabDMG {
+			fields = g.dmgFormFields()
+		}
+		for _, f := range fields {
 			if f.picker == "" || f.picker == pickSave || f.mayNotExist || f.Value == "" || strings.Contains(f.Value, "${") {
 				continue
 			}
 			info, err := os.Stat(g.assetPath(f.Value))
 			if err == nil {
 				switch f.picker {
-				case pickFile:
+				case pickFile, pickImage, pickIcon, pickItemIcon:
 					if info.IsDir() {
 						err = fmt.Errorf("Choose a file, not a directory")
 					}
@@ -84,7 +110,11 @@ func (g *editor) locateValidationError(err error) {
 			if !section.Enabled(g.s.Project) {
 				continue
 			}
-			for _, f := range section.fields(g) {
+			fields := section.fields(g)
+			if tab == tabDMG {
+				fields = g.dmgFormFields()
+			}
+			for _, f := range fields {
 				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
 					g.showFieldError(tab, f.Label, err)
 					return

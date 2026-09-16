@@ -224,8 +224,8 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 				if k == "" {
 					return nil, fmt.Errorf("contents path must not be empty")
 				}
-				if item.X == nil || item.Y == nil {
-					return nil, fmt.Errorf("contents[%q] requires x and y", k)
+				if item.Pos == nil {
+					return nil, fmt.Errorf("contents[%q] requires pos: [x, y]", k)
 				}
 				source := path(k)
 				if q.legacy && item.Link {
@@ -242,8 +242,9 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 						kind = dmg.Dir
 					}
 				}
+				item.Icon = path(item.Icon)
 				normalized[source] = item
-				d.Contents = append(d.Contents, dmg.Item{Path: source, Type: kind, Name: item.Name, X: *item.X, Y: *item.Y})
+				d.Contents = append(d.Contents, dmg.Item{Path: source, Type: kind, Name: item.Name, Icon: item.Icon, X: item.Pos[0], Y: item.Pos[1]})
 			}
 			c.Contents = normalized
 		} else {
@@ -262,7 +263,7 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 			c.Contents = make(map[string]Content, len(d.Contents))
 			for _, item := range d.Contents {
 				x, y := item.X, item.Y
-				c.Contents[item.Path] = Content{X: &x, Y: &y, Link: item.Type == dmg.Link, Name: item.Name}
+				c.Contents[item.Path] = Content{Pos: &Position{x, y}, Link: item.Type == dmg.Link, Name: item.Name}
 			}
 		}
 		if err := d.Validate(); err != nil {

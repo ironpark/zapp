@@ -43,15 +43,7 @@ func (g *editor) handleShortcuts() bool {
 		return true
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
-		switch {
-		case g.active >= 0:
-			// An edit is in progress: discard the draft, not the last change.
-		case ebiten.IsKeyPressed(ebiten.KeyShift):
-			g.s.Redo()
-		default:
-			g.s.Undo()
-		}
-		g.rebuild()
+		g.history(ebiten.IsKeyPressed(ebiten.KeyShift))
 		return true
 	}
 	for i, key := range tabKeys {
@@ -63,6 +55,28 @@ func (g *editor) handleShortcuts() bool {
 	return false
 }
 
+// history keeps toolbar and keyboard feedback consistent after restoring state.
+func (g *editor) history(redo bool) {
+	if g.active >= 0 {
+		g.rebuild()
+		g.report(nil, "Edit cancelled.")
+		return
+	}
+	message := "Nothing to undo."
+	if redo {
+		message = "Nothing to redo."
+		if g.s.CanRedo() {
+			g.s.Redo()
+			message = "Redo applied."
+		}
+	} else if g.s.CanUndo() {
+		g.s.Undo()
+		message = "Undo applied."
+	}
+	g.rebuild()
+	g.report(nil, message)
+}
+
 // handleTyping routes the keyboard to the focused field, to focus movement, or
 // to the selected preview icon, depending on what currently holds focus.
 func (g *editor) handleTyping() {
@@ -70,7 +84,16 @@ func (g *editor) handleTyping() {
 	case g.active >= 0:
 		g.editInput()
 	case inpututil.IsKeyJustPressed(ebiten.KeyTab) && len(g.fields) > 0:
-		g.focus(0)
+		index := 0
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			index = len(g.fields) - 1
+		}
+		g.focus(index)
+	case g.tab == tabDMG && g.enabled() && inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+		g.selected = ""
+		g.rebuild()
+	case g.tab == tabDMG && g.enabled() && (inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace)):
+		g.removeSelected()
 	default:
 		g.nudgeSelected()
 	}
@@ -80,7 +103,15 @@ func (g *editor) handleTyping() {
 // whether the click was consumed and the rest of the tick should stop; starting
 // a drag or a pan does not consume it, so both continue in the same tick.
 func (g *editor) handleClick(in tick) bool {
+	for _, segmented := range g.segmentedControls() {
+		if segmented.Click(in.mouse) {
+			return true
+		}
+	}
 	if g.tabs().Click(in.mouse) || (g.section().Optional() && g.stepToggle().Click(in.mouse)) || comp.ClickButtons(g.controls(), in.mouse) {
+		return true
+	}
+	if g.tab == tabDMG && g.enabled() && g.selected != "" && g.linkToggle().Click(in.mouse) {
 		return true
 	}
 	if g.enabled() {
@@ -102,11 +133,17 @@ func (g *editor) handleClick(in tick) bool {
 		}
 	}
 	if i, ok := index, hit; ok {
+		wasFocused := g.active == i
 		if g.active != i {
 			if !g.commit() {
 				return true
 			}
 			g.focus(i)
+		}
+		if g.active >= 0 && g.input.Spec.Syntax != "" {
+			form, local := g.fieldForm(i)
+			g.input.PlaceCursor(g.ui, form.FieldBounds(local), in.mouse, wasFocused)
+			return true
 		}
 		if g.active >= 0 && g.input.Spec.Number != nil {
 			form, local := g.fieldForm(i)
@@ -114,6 +151,7 @@ func (g *editor) handleClick(in tick) bool {
 				if in.mouse.In(comp.StepBounds(form.FieldBounds(local), direction)) {
 					g.input.StepNumber(direction, ebiten.IsKeyPressed(ebiten.KeyShift))
 					g.clearFieldError()
+					g.previewInput()
 					return true
 				}
 			}
@@ -214,6 +252,17 @@ func (g *editor) scrollForm(in tick) {
 		}
 	}
 	if in.mouse.In(g.form.Bounds) {
+		if g.tab == tabDMG && g.dmgYAML && g.enabled() && delta != 0 {
+			if g.active != 0 {
+				if !g.commit() {
+					return
+				}
+				g.focus(0)
+				g.input.SetCursor(0)
+			}
+			g.input.ScrollLines(-int(wheel*3), g.form.FieldBounds(0))
+			return
+		}
 		g.form.ScrollBy(delta)
 	}
 }

@@ -39,9 +39,12 @@ func DarkTheme() Theme {
 // Painter owns shared fonts and styling. Create one per UI and Close it after
 // RunGame returns. Drawing and measuring use the same face cache.
 type Painter struct {
-	Theme Theme
-	font  *opentype.Font
-	faces map[int]font.Face
+	mono      *opentype.Font
+	monoFaces map[int]font.Face
+	Theme     Theme
+	font      *opentype.Font
+	faces     map[int]font.Face
+	icons     map[Icon]*ebiten.Image
 }
 
 func NewPainter(ttf []byte, theme Theme) (*Painter, error) {
@@ -52,9 +55,22 @@ func NewPainter(ttf []byte, theme Theme) (*Painter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Painter{Theme: theme, font: f, faces: make(map[int]font.Face)}, nil
+	icons, err := loadIcons()
+	if err != nil {
+		return nil, err
+	}
+	return &Painter{Theme: theme, font: f, faces: make(map[int]font.Face), icons: icons}, nil
 }
 func (p *Painter) Close() {
+	for _, face := range p.monoFaces {
+		_ = face.Close()
+	}
+	p.monoFaces = nil
+	p.mono = nil
+	for _, icon := range p.icons {
+		icon.Deallocate()
+	}
+	p.icons = nil
 	for _, f := range p.faces {
 		_ = f.Close()
 	}
