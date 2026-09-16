@@ -14,6 +14,15 @@ func (g *editor) openChoice() {
 	if g.active < 0 || len(g.input.Spec.Choices) == 0 {
 		return
 	}
+	if g.input.Spec.Boolean {
+		value := "true"
+		if g.input.Text() == "true" {
+			value = "false"
+		}
+		g.input.SetText(value)
+		g.commit()
+		return
+	}
 	g.choiceOpen = true
 	g.choiceIndex = max(0, slices.Index(g.input.Spec.Choices, g.input.Text()))
 	g.form.SetBounds(g.formArea())

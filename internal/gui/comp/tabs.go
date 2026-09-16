@@ -59,6 +59,6 @@ func (t Tabs) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 			fg = p.Theme.DisabledText
 		}
 		label := p.Fit(b.Label, b.Bounds.Dx()-20, 14)
-		p.Text(dst, label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
+		p.Text(dst, label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, p.TextY(b.Bounds, 14), 14, fg)
 	}
 }

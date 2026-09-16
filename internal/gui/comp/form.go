@@ -19,7 +19,7 @@ type Form struct {
 const (
 	labelGutter    = 25
 	hintGutter     = 19
-	boxHeight      = 34
+	boxHeight      = 32
 	multiBox       = 108
 	rowHeight      = 89
 	multiRowHeight = 165

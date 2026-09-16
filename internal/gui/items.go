@@ -14,7 +14,7 @@ func (g *editor) previewPanel() comp.Panel {
 	return comp.Panel{Bounds: comp.Box(x, workspaceTop, g.itemsPanel().Bounds.Min.X-16-x, g.contentBottom()-workspaceTop), Title: "DMG preview", TitleInset: 156, Description: "Drop files or folders · Drag to arrange"}
 }
 func (g *editor) itemsPanel() comp.Panel {
-	return comp.Panel{Bounds: comp.Box(g.w-268, workspaceTop, 244, g.inspectorPanel().Bounds.Min.Y-12-workspaceTop), Title: "Contents", TitleInset: 48}
+	return comp.Panel{Bounds: comp.Box(g.w-268, workspaceTop, 244, g.inspectorPanel().Bounds.Min.Y-16-workspaceTop), Title: "Contents", TitleInset: 48}
 }
 func (g *editor) inspectorPanel() comp.Panel {
 	return comp.Panel{Bounds: comp.Box(g.w-268, g.contentBottom()-376, 244, 376), Title: "Item details", TitleInset: 96}
@@ -22,7 +22,7 @@ func (g *editor) inspectorPanel() comp.Panel {
 func (g *editor) linkToggle() comp.Toggle {
 	panel := g.inspectorPanel().Bounds
 	item, _ := g.s.layout().find(g.selected)
-	return comp.Toggle{Bounds: comp.Box(panel.Max.X-108, panel.Min.Y+8, 100, 32), Label: "Link", Checked: item.Link, OnChange: g.toggleItemLink}
+	return comp.Toggle{Bounds: comp.Box(panel.Max.X-116, panel.Min.Y+8, 100, 32), Label: "Link", Checked: item.Link, OnChange: g.toggleItemLink}
 }
 
 func (g *editor) toggleItemLink() {

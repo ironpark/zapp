@@ -23,7 +23,7 @@ func (v Panel) Content() image.Rectangle {
 }
 func (v Panel) Draw(dst *ebiten.Image, p *Painter) {
 	Surface(dst, v.Bounds, Radius, p.Theme.Panel, p.Theme.Border)
-	p.Text(dst, p.Fit(v.Title, v.Bounds.Dx()-32-v.TitleInset, 16), v.Bounds.Min.X+Padding, v.Bounds.Min.Y+14, 16, p.Theme.Text)
+	p.Text(dst, p.Fit(v.Title, v.Bounds.Dx()-32-v.TitleInset, 16), v.Bounds.Min.X+Padding, p.TextY(Box(0, v.Bounds.Min.Y+8, 0, 32), 16), 16, p.Theme.Text)
 	if v.Description != "" {
 		p.Text(dst, p.Fit(v.Description, v.Bounds.Dx()-32, 12), v.Bounds.Min.X+Padding, v.Bounds.Min.Y+42, 12, p.Theme.Muted)
 	}

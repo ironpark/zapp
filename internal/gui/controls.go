@@ -46,8 +46,8 @@ func (g *editor) controls() []comp.Button {
 		items := g.itemsPanel().Bounds
 		inspector := g.inspectorPanel().Bounds
 		buttons = append(buttons,
-			comp.Button{Bounds: comp.Box(items.Max.X-48, items.Min.Y+10, 32, 28), Label: "Add file", Icon: comp.IconPlus, IconOnly: true, OnClick: g.guard(g.addFile)},
-			comp.Button{Bounds: comp.Box(inspector.Min.X+16, inspector.Max.Y-44, inspector.Dx()-32, 28), Label: "Remove from DMG", Icon: comp.IconTrash, Disabled: g.selected == "", OnClick: g.removeSelected},
+			comp.Button{Bounds: comp.Box(items.Max.X-48, items.Min.Y+8, 32, 32), Label: "Add file", Icon: comp.IconPlus, IconOnly: true, OnClick: g.guard(g.addFile)},
+			comp.Button{Bounds: comp.Box(inspector.Min.X+16, inspector.Max.Y-48, inspector.Dx()-32, 32), Label: "Remove from DMG", Icon: comp.IconTrash, Disabled: g.selected == "", OnClick: g.removeSelected},
 			comp.Button{Bounds: comp.Box(g.w-302, 74, 146, 32), Label: "Default layout", Disabled: g.s.Project.DMG.Contents == nil, OnClick: g.guard(func() {
 				g.s.checkpoint()
 				g.s.Project.DMG.Contents = nil
@@ -88,7 +88,11 @@ func (g *editor) controls() []comp.Button {
 		})})
 	}
 	if g.tab == tabPKG && g.enabled() {
-		buttons = append(buttons, comp.Button{Bounds: comp.Box(g.w-376, 74, 220, 32), Label: "Switch package form", OnClick: g.guard(g.switchPackageForm)})
+		label := "Use multiple components"
+		if g.s.Project.PKG.HasFullForm() {
+			label = "Use single app"
+		}
+		buttons = append(buttons, comp.Button{Bounds: comp.Box(g.w-376, 74, 220, 32), Label: label, OnClick: g.guard(g.switchPackageForm)})
 	}
 	return buttons
 }
@@ -102,7 +106,8 @@ func (g *editor) switchPackageForm() {
 		g.s.checkpoint()
 		p.Components = []zapp.Component{{ID: "app", Root: g.s.Project.App, InstallLocation: "/Applications"}}
 	} else {
-		if len(p.Components) > 0 || p.Distribution != nil {
+		defaultComponent := len(p.Components) == 1 && p.Components[0] == (zapp.Component{ID: "app", Root: g.s.Project.App, InstallLocation: "/Applications"})
+		if (len(p.Components) > 0 && !defaultComponent) || p.Distribution != nil {
 			g.report(fmt.Errorf("clear components and distribution before switching to short form"), "")
 			return
 		}

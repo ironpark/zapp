@@ -35,5 +35,5 @@ func (t Toggle) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 		knob += 16
 	}
 	RoundedRect(dst, Box(knob, y+3, 14, 14), 7, p.Theme.Text)
-	p.Text(dst, p.Fit(t.Label, t.Bounds.Dx()-60, 14), x+46, y, 14, fg)
+	p.Text(dst, p.Fit(t.Label, t.Bounds.Dx()-60, 14), x+46, p.TextY(t.Bounds, 14), 14, fg)
 }

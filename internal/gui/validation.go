@@ -79,10 +79,13 @@ func (g *editor) validatePaths() bool {
 		}
 		fields := g.pathFields(tab, section)
 		for _, f := range fields {
-			if f.picker == "" || f.picker == pickSave || f.mayNotExist || f.Value == "" || strings.Contains(f.Value, "${") {
+			if f.picker == "" || f.picker == pickSave || f.Value == "" || strings.Contains(f.Value, "${") {
 				continue
 			}
 			info, err := os.Stat(g.assetPath(f.Value))
+			if f.mayNotExist && os.IsNotExist(err) {
+				continue
+			}
 			if err == nil {
 				switch f.picker {
 				case pickFile, pickImage, pickIcon, pickItemIcon:

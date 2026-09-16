@@ -68,7 +68,7 @@ var sections = []section{{
 	flip:        func(p, s *zapp.Project) { toggleSection(&p.Dep, &s.Dep) },
 }, {
 	Name:        "Signing",
-	Description: "Choose the signing identity and entitlements for your app and installers.",
+	Description: "Choose credentials to sign your app and installers.",
 	Credentials: true,
 	fields:      (*editor).signFields,
 	present:     func(p *zapp.Project) bool { return p.Sign != nil },

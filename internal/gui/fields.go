@@ -46,7 +46,7 @@ var contentAxes = []struct {
 }
 
 func boolField(label string, value *bool, hint string) field {
-	return field{Label: label, Value: strconv.FormatBool(*value), Hint: hint, Choices: []string{"false", "true"}, set: func(s string) error {
+	return field{Boolean: true, Label: label, Value: strconv.FormatBool(*value), Hint: hint, Choices: []string{"false", "true"}, set: func(s string) error {
 		b, err := strconv.ParseBool(strings.TrimSpace(s))
 		if err != nil {
 			return fmt.Errorf("%s must be true or false", label)
@@ -75,8 +75,16 @@ func intField(label string, value *int, high, def, stepMin int, hint string) fie
 
 func jsonField[T any](label string, value *T, hint string) field {
 	b, _ := json.MarshalIndent(value, "", "  ")
-	return field{Label: label, Value: string(b), Hint: hint, Multiline: true, set: func(s string) error {
+	text := string(b)
+	if text == "null" {
+		text = ""
+	}
+	return field{Label: label, Value: text, Placeholder: "Optional · JSON", Hint: hint, Multiline: true, set: func(s string) error {
 		var next T
+		if strings.TrimSpace(s) == "" {
+			*value = next
+			return nil
+		}
 		dec := json.NewDecoder(strings.NewReader(s))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&next); err != nil {
@@ -240,7 +248,7 @@ func (g *editor) pkgFields() []field {
 		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
 	if !c.HasFullForm() {
-		return append(fields,
+		fields = append(fields,
 			stringField("Identifier", &c.Identifier, "Blank reads the app Info.plist"),
 			stringField("Version", &c.Version, "Blank reads the app Info.plist"),
 			stringField("Install location", &c.InstallLocation, "For example /Applications"),
@@ -248,6 +256,9 @@ func (g *editor) pkgFields() []field {
 			stringField("Minimum macOS", &c.MinOS, "For example 10.13"),
 			jsonField("Licenses", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`),
 		)
+		fields[3].SameRow = true // Identifier and version.
+		fields[6].SameRow = true // Scripts and minimum macOS.
+		return fields
 	}
 	return append(fields,
 		jsonField("Components", &c.Components, "Full-form package components"),
@@ -256,15 +267,27 @@ func (g *editor) pkgFields() []field {
 }
 
 func (g *editor) depFields() []field {
-	return []field{jsonField("Library search paths", &g.s.Project.Dep.Libs, `["/opt/homebrew/lib", "vendor/lib"]`)}
+	c := g.s.Project.Dep
+	return []field{{Label: "Library search paths", Value: strings.Join(c.Libs, "\n"),
+		Multiline: true, Height: 180, Placeholder: "/opt/homebrew/lib", Hint: "One directory per line; blank uses automatic discovery",
+		set: func(value string) error {
+			var paths []string
+			for _, line := range strings.Split(value, "\n") {
+				if path := strings.TrimSpace(line); path != "" {
+					paths = append(paths, path)
+				}
+			}
+			c.Libs = paths
+			return nil
+		}}}
 }
 
 func (g *editor) signFields() []field {
 	c := g.s.Project.Sign
 	return []field{
-		stringField("Signing identity", &c.Identity, "Certificate name or ${env:ZAPP_IDENTITY}"),
-		pathField("PKCS#12 certificate", &c.P12File, "Path to .p12 certificate", pickFile),
-		pathField("PEM certificate", &c.PEMFile, "Path to PEM certificate", pickFile),
+		stringField("Signing identity", &c.Identity, "macOS Keychain certificate name or ${env:ZAPP_IDENTITY}"),
+		pathField("PKCS#12 certificate", &c.P12File, "Windows / Linux: .p12 certificate for rcodesign", pickFile),
+		pathField("PEM certificate", &c.PEMFile, "Windows / Linux: PEM certificate for rcodesign", pickFile),
 		pathField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
 	}
 }
@@ -272,11 +295,11 @@ func (g *editor) signFields() []field {
 func (g *editor) notarizeFields() []field {
 	c := g.s.Project.Notarize
 	return []field{
-		stringField("Keychain profile", &c.Profile, "macOS notarytool profile"),
-		stringField("Apple ID", &c.AppleID, "Apple account email"),
+		stringField("Keychain profile", &c.Profile, "macOS: saved notarytool credentials (recommended)"),
+		stringField("Apple ID", &c.AppleID, "macOS: requires Team ID and a runtime password"),
 		stringField("Team ID", &c.TeamID, "Developer team identifier"),
-		pathField("API key file", &c.APIKeyFile, "Path to API key configuration", pickFile),
-		boolField("Staple", &c.Staple, "Click to toggle stapling"),
+		pathField("API key file", &c.APIKeyFile, "Windows / Linux: rcodesign API key JSON", pickFile),
+		boolField("Staple", &c.Staple, "Attach the notarization ticket after approval"),
 	}
 }
 

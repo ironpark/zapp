@@ -42,7 +42,7 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	}
 	comp.RoundedRect(dst, comp.Box(24, footerTop+(footerHeight-5)/2, 5, 5), 2, statusColor)
 	statusWidth := g.w - 64
-	p.Text(dst, p.Fit(g.status, statusWidth, 12), 40, footerTop+(footerHeight-16)/2, 12, statusColor)
+	p.Text(dst, p.Fit(g.status, statusWidth, 12), 40, p.TextY(comp.Box(0, footerTop, 0, footerHeight), 12), 12, statusColor)
 	// Keep long validation messages readable without a permanent tall footer.
 	if pointer.In(comp.Box(24, footerTop+1, g.w-48, footerHeight-1)) && p.Measure(g.status, 12) > statusWidth {
 		box := comp.Box(24, footerTop-136, g.w-48, 124)
@@ -108,21 +108,34 @@ func (g *editor) drawHeader(dst *ebiten.Image) {
 	p.Text(dst, state, stateX+21, 20, 12, stateColor)
 }
 
-// The help section tables are fixed copy read every frame, so they live here
-// rather than being rebuilt on each draw.
-var (
-	sharedHelpSections = [][2]string{
-		{"SAVE & VALIDATE", "Save writes all enabled steps. Validate checks build inputs. Build runs enabled steps using current settings."},
-		{"EDITING", "Tab / Shift+Tab moves between fields. Enter applies; Ctrl/Cmd+Enter applies JSON. Esc cancels."},
-		{"SHORTCUTS", "Ctrl/Cmd+S saves. Ctrl/Cmd+Z undoes; add Shift to redo. Ctrl/Cmd+1–6 switches tabs."},
-	}
-	helpSections = append([][2]string{
-		{"PATHS & VALUES", "Paths are relative to this configuration. ${env:NAME} expressions are preserved."},
-	}, sharedHelpSections...)
-	credentialHelpSections = append([][2]string{
-		{"CREDENTIALS", "Use environment variables for passwords and other sensitive values."},
-	}, sharedHelpSections...)
-)
+// Help describes the actual configuration workflow for each step.
+var stepHelp = map[int][][2]string{
+	tabProject: {
+		{"APP BUNDLE", "Select the .app directory. Its Info.plist supplies default package identity and version."},
+		{"OUTPUT", "Relative paths use the project directory. A new output directory is created during the build."},
+		{"SAVE & BUILD", "Save keeps your configuration. Validate checks inputs. Build uses current settings, including unsaved edits."},
+	},
+	tabPKG: {
+		{"SINGLE APP", "Leave identity and version blank to read Info.plist. The default destination is /Applications."},
+		{"PACKAGE TYPE", "Default produces a product installer. Component produces a single component package."},
+		{"MULTIPLE COMPONENTS", "Use multiple components for custom roots and installer choices. Components, distribution and licenses accept JSON."},
+	},
+	tabDep: {
+		{"SEARCH DIRECTORIES", "Enter one directory per line. Spaces within a path are preserved; empty lines are ignored."},
+		{"AUTOMATIC DISCOVERY", "Leave the list blank to use the dependency resolver's automatic search. Paths may be relative to this project."},
+		{"BUILD ORDER", "Libraries are bundled before signing and packaging. Disable this step if your app has no external dependencies."},
+	},
+	tabSign: {
+		{"macOS", "Import your certificate into Keychain, then enter its signing identity. Certificate-file credentials are for Windows and Linux."},
+		{"WINDOWS & LINUX", "Use a PKCS#12 or PEM certificate with rcodesign. Supply a password file when the certificate requires it."},
+		{"CREDENTIALS", "Store password file paths here. Certificate passwords are not saved in the project."},
+	},
+	tabNotarize: {
+		{"macOS", "Use a saved notarytool Keychain profile. Apple ID authentication additionally requires a runtime password and Team ID."},
+		{"WINDOWS & LINUX", "Use the rcodesign API key JSON file. Keychain profiles and Apple ID credentials are macOS-only."},
+		{"STAPLING", "Enable Staple to attach the approved notarization ticket for offline verification."},
+	},
+}
 
 func (g *editor) drawHelp(dst *ebiten.Image) {
 	x := g.settingsPanel().Bounds.Max.X + 16
@@ -130,17 +143,14 @@ func (g *editor) drawHelp(dst *ebiten.Image) {
 	panel.Draw(dst, g.ui)
 	area := panel.Content()
 	g.ui.Wrapped(dst, g.section().Description, area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
-	y := area.Min.Y + 110
-	help := helpSections
-	if g.section().Credentials {
-		help = credentialHelpSections
-	}
+	y := area.Min.Y + 88
+	help := stepHelp[g.tab]
 	for _, entry := range help {
 		if y+90 > area.Max.Y {
 			break
 		}
 		g.ui.Text(dst, entry[0], area.Min.X, y, 11, g.ui.Theme.Accent)
-		g.ui.Wrapped(dst, entry[1], area.Min.X, y+25, area.Dx(), 13, g.ui.Theme.Muted, 3)
+		g.ui.Wrapped(dst, entry[1], area.Min.X, y+24, area.Dx(), 13, g.ui.Theme.Muted, 4)
 		y += 110
 	}
 }

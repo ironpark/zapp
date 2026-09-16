@@ -46,6 +46,6 @@ func (s Segmented) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 			fg = p.Theme.Text
 		}
 		label := p.Fit(s.Labels[i], r.Dx()-12, 12)
-		p.Text(dst, label, r.Min.X+(r.Dx()-p.Measure(label, 12))/2, r.Min.Y+(r.Dy()-16)/2, 12, fg)
+		p.Text(dst, label, r.Min.X+(r.Dx()-p.Measure(label, 12))/2, p.TextY(r, 12), 12, fg)
 	}
 }

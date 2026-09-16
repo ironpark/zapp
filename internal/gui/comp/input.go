@@ -35,6 +35,7 @@ func lineWindow(s string, start, count int) []string {
 }
 
 type InputSpec struct {
+	Boolean            bool
 	Syntax             string
 	Height             int
 	Label, Value, Hint string
@@ -387,6 +388,14 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	} else {
 		p.Text(dst, p.Fit(i.Spec.Hint, bounds.Dx(), 11), bounds.Min.X, bounds.Max.Y+4, 11, t.Muted)
 	}
+	if i.Spec.Boolean {
+		label := "Off"
+		if i.Spec.Value == "true" {
+			label = "On"
+		}
+		(Toggle{Bounds: bounds, Label: label, Checked: i.Spec.Value == "true"}).Draw(dst, p, image.Pt(-1, -1))
+		return
+	}
 	textWidth := bounds.Dx()
 	if i.Spec.Number != nil {
 		for _, direction := range []int{1, -1} {
@@ -412,7 +421,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		value = i.Spec.DisplayValue
 	}
 	if len(i.Spec.Choices) > 0 {
-		p.Text(clip, "⌄", bounds.Max.X-20, bounds.Min.Y+5, 17, t.Accent)
+		p.drawIcon(clip, IconChevronDown, Box(bounds.Max.X-23, bounds.Min.Y+(bounds.Dy()-16)/2, 16, 16), t.Accent)
 		textBounds := clipped
 		textBounds.Max.X = min(textBounds.Max.X, bounds.Max.X-26)
 		if textBounds.Empty() {
@@ -426,7 +435,11 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		value = i.Text()
 	}
 	if value == "" && i.Spec.Placeholder != "" {
-		p.Text(clip, p.Fit(i.Spec.Placeholder, textWidth-16, 14), bounds.Min.X+8, bounds.Min.Y+6, 14, t.Muted)
+		placeholderY := bounds.Min.Y + 6
+		if !i.Spec.Multiline {
+			placeholderY = p.TextY(bounds, 14)
+		}
+		p.Text(clip, p.Fit(i.Spec.Placeholder, textWidth-16, 14), bounds.Min.X+8, placeholderY, 14, t.Muted)
 	}
 	start := 0
 	measure := p.Measure
@@ -467,6 +480,9 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 			str = string(rr)
 		}
 		y := bounds.Min.Y + 6 + (n-start)*20
+		if !i.Spec.Multiline {
+			y = p.TextY(bounds, textSize)
+		}
 		if focused && i.selectAll {
 			Rect(clip, Box(bounds.Min.X+7, y, bounds.Dx()-14, 20), t.Selection)
 		}

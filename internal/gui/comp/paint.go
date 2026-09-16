@@ -97,6 +97,13 @@ func (p *Painter) Text(dst *ebiten.Image, s string, x, y, size int, c color.Colo
 	text.Draw(dst, s, p.face(size), x, y+size, c)
 }
 
+// TextY centers the font's cap height in a control, independent of its height.
+// Using a stable reference avoids labels moving when their text has descenders.
+func (p *Painter) TextY(bounds image.Rectangle, size int) int {
+	ink, _ := font.BoundString(p.face(size), "H")
+	return bounds.Min.Y + (bounds.Dy()-ink.Max.Y.Ceil()-ink.Min.Y.Floor())/2 - size
+}
+
 // fitRunes returns the longest prefix length of r that still fits in width with
 // suffix appended. Measured width grows monotonically with the prefix, so a
 // binary search replaces a scan that re-measured the whole prefix per dropped rune.

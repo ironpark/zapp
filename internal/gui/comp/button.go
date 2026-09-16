@@ -96,5 +96,5 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 		p.drawIcon(canvas, b.Icon, Box(x, b.Bounds.Min.Y+(b.Bounds.Dy()-18)/2, 18, 18), fg)
 		x += iconWidth + 8
 	}
-	p.Text(canvas, label, x, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
+	p.Text(canvas, label, x, p.TextY(b.Bounds, 14), 14, fg)
 }
