@@ -16,20 +16,10 @@ var depCommand = &cli.Command{Name: "dep", Usage: "Bundle app dependencies", Act
 	if err != nil {
 		return err
 	}
-	target := pl.App
-	err = pl.BundleDeps(ctx)
-	if err != nil {
+	if err = pl.BundleDeps(ctx); err != nil {
 		return err
 	}
-	if pl.SignCredentials != nil {
-		if err = pl.Sign(ctx, target); err != nil {
-			return err
-		}
-	}
-	if pl.NotarizeCredentials != nil {
-		return pl.Notarize(ctx, target)
-	}
-	return nil
+	return signAndNotarize(ctx, pl, pl.App)
 },
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{Name: "app", Usage: "App bundle path"},

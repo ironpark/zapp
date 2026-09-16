@@ -214,9 +214,16 @@ func resolveForTest(t *testing.T, content string, args ...string) (dmg.Config, e
 	c := testCommand()
 	var cfg dmg.Config
 	c.Action = func(_ context.Context, c *cli.Command) error {
-		var err error
-		cfg, _, err = resolveConfig(c)
-		return err
+		p, err := loadProject(c, "dmg")
+		if err != nil {
+			return err
+		}
+		pl, err := p.Resolve()
+		if err != nil {
+			return err
+		}
+		cfg = *pl.DMG
+		return nil
 	}
 	err := c.Run(t.Context(), append([]string{"dmg", "--config", name}, args...))
 	return cfg, err

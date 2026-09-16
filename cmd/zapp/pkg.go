@@ -20,15 +20,7 @@ var pkgCommand = &cli.Command{Name: "pkg", Usage: "Create a PKG installer", Acti
 	if err != nil {
 		return err
 	}
-	if pl.SignCredentials != nil {
-		if err = pl.Sign(ctx, target); err != nil {
-			return err
-		}
-	}
-	if pl.NotarizeCredentials != nil {
-		return pl.Notarize(ctx, target)
-	}
-	return nil
+	return signAndNotarize(ctx, pl, target)
 },
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{Name: "install-location"}, &cli.StringFlag{Name: "scripts"}, &cli.StringFlag{Name: "min-os"}, &cli.StringFlag{Name: "type"},

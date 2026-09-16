@@ -4,20 +4,25 @@ package hdiutil
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
 )
 
 // lockName is fixed rather than derived from the build, so that every test
-// binary of every package contends for the same lock.
-const lockName = "zapp-hdiutil.lock"
+// binary of every package contends for the same lock. It carries the user id
+// because a lock file belongs to whoever created it, and a second account on
+// the same machine could not reopen it for writing.
+func lockName() string {
+	return fmt.Sprintf("zapp-hdiutil-%d.lock", os.Getuid())
+}
 
 // lock blocks until no other process holds the lock and returns the function
 // that releases it. Closing the file releases the lock as well, so a test
 // binary killed mid-command cannot wedge the ones waiting behind it.
 func lock() (func(), error) {
-	f, err := os.OpenFile(filepath.Join(os.TempDir(), lockName), os.O_CREATE|os.O_RDWR, 0666)
+	f, err := os.OpenFile(filepath.Join(os.TempDir(), lockName()), os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}

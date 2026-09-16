@@ -2,12 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/pkg/dmg"
 	"github.com/urfave/cli/v3"
 )
 
@@ -24,15 +20,7 @@ var dmgCommand = &cli.Command{Name: "dmg", Usage: "Create a DMG disk image", Act
 	if err != nil {
 		return err
 	}
-	if pl.SignCredentials != nil {
-		if err = pl.Sign(ctx, target); err != nil {
-			return err
-		}
-	}
-	if pl.NotarizeCredentials != nil {
-		return pl.Notarize(ctx, target)
-	}
-	return nil
+	return signAndNotarize(ctx, pl, target)
 },
 	Flags: append([]cli.Flag{
 
@@ -101,30 +89,4 @@ var dmgCommand = &cli.Command{Name: "dmg", Usage: "Create a DMG disk image", Act
 			Usage:   "Use the original icon file without modifications.",
 		},
 	}, append(subTaskFlags(), projectFileFlags()...)...),
-}
-
-type position struct{ X, Y int }
-
-func resolveConfig(c *cli.Command) (dmg.Config, string, error) {
-	p, err := loadProject(c, "dmg")
-	if err != nil {
-		return dmg.Config{}, "", err
-	}
-	pl, err := p.Resolve()
-	if err != nil {
-		return dmg.Config{}, "", err
-	}
-	return *pl.DMG, pl.App, nil
-}
-func parsePosition(value string) (position, error) {
-	parts := strings.Split(value, ",")
-	if len(parts) != 2 {
-		return position{}, fmt.Errorf("expected x,y")
-	}
-	x, e1 := strconv.Atoi(strings.TrimSpace(parts[0]))
-	y, e2 := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if e1 != nil || e2 != nil || x < 0 || y < 0 {
-		return position{}, fmt.Errorf("expected nonnegative integer coordinates x,y")
-	}
-	return position{x, y}, nil
 }

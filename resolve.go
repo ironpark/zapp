@@ -324,14 +324,13 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 					licenses[k] = v
 				}
 			}
-			a := &macpkg.AppConfig{Created: o.clock, AppPath: q.App, OutputPath: c.Out, Identifier: c.Identifier, Version: c.Version, InstallLocation: c.InstallLocation, ScriptsDir: c.Scripts, MinOSVersion: c.MinOS, License: fallback, Licenses: licenses}
 			if c.Type == "component" {
 				if len(c.License) > 0 {
 					return nil, fmt.Errorf("component package cannot have license")
 				}
 				spec.Components = []macpkg.ComponentConfig{{Created: o.clock, Root: filepath.Dir(q.App), RootEntry: filepath.Base(q.App), OutputPath: c.Out, Identifier: c.Identifier, Version: c.Version, InstallLocation: c.InstallLocation, ScriptsDir: c.Scripts, MinOSVersion: c.MinOS}}
 			} else {
-				spec.App = a
+				spec.App = &macpkg.AppConfig{Created: o.clock, AppPath: q.App, OutputPath: c.Out, Identifier: c.Identifier, Version: c.Version, InstallLocation: c.InstallLocation, ScriptsDir: c.Scripts, MinOSVersion: c.MinOS, License: fallback, Licenses: licenses}
 			}
 		} else {
 			ids := map[string]bool{}

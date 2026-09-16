@@ -86,9 +86,9 @@ func notarizeCredentials(c *cli.Command) signing.Credentials {
 	}
 }
 
-// runNotarize notarizes target, optionally stapling the ticket afterwards. It is
-// exported so other commands can notarize what they just produced without
-// re-entering the CLI parser.
+// runNotarize notarizes target through the library, optionally stapling the
+// ticket afterwards, so that the standalone command and a project build reach
+// the notary backends the same way.
 func runNotarize(ctx context.Context, logger *appLogger, target string, creds signing.Credentials, staple bool) error {
 	pl, err := (&zapp.Project{Notarize: &zapp.NotarizeConfig{Profile: creds.Profile, AppleID: creds.AppleID, TeamID: creds.TeamID, Password: creds.Password, APIKeyFile: creds.APIKeyFile, Staple: staple}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {

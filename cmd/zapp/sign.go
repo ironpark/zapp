@@ -12,11 +12,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var (
-	signIdentity string
-	signTarget   string
-)
-
 var signCommand = &cli.Command{
 	Name:        "sign",
 	Usage:       "Sign the app/dmg/pkg file",
@@ -28,10 +23,9 @@ var signCommand = &cli.Command{
 	},
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{
-			Name:        "target",
-			Usage:       "Path to the target(app,dmg,pkg) file",
-			Destination: &signTarget,
-			Required:    true,
+			Name:     "target",
+			Usage:    "Path to the target(app,dmg,pkg) file",
+			Required: true,
 			Action: func(ctx context.Context, c *cli.Command, target string) error {
 				ext := strings.ToLower(filepath.Ext(target))
 				switch ext {
@@ -58,10 +52,9 @@ var signCommand = &cli.Command{
 			Aliases: []string{"app", "dmg", "pkg"},
 		},
 		&cli.StringFlag{
-			Name:        "identity",
-			Aliases:     []string{"i"},
-			Usage:       "Keychain identity to sign with (macOS)",
-			Destination: &signIdentity,
+			Name:    "identity",
+			Aliases: []string{"i"},
+			Usage:   "Keychain identity to sign with (macOS)",
 		},
 	}, certificateFlags()...),
 	SkipFlagParsing: false,
@@ -80,8 +73,8 @@ func signCredentials(c *cli.Command) signing.Credentials {
 	}
 }
 
-// runSign signs target. It is exported so other commands can sign what they just
-// produced without re-entering the CLI parser.
+// runSign signs target through the library, so that the standalone command and
+// a project build reach the signing backends the same way.
 func runSign(ctx context.Context, logger *appLogger, target string, creds signing.Credentials) error {
 	pl, err := (&zapp.Project{Sign: &zapp.SignConfig{Identity: creds.Identity, P12File: creds.P12File, PEMFile: creds.PEMFile, P12Password: creds.P12Password, P12PasswordFile: creds.P12PasswordFile}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
