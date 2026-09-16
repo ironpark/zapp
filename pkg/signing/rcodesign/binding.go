@@ -3,18 +3,22 @@
 package rcodesign
 
 /*
-// The static library is named per target; the system libraries it needs are
-// the same for every architecture of one OS. cgo concatenates these in order,
-// so the archive still precedes the libraries it depends on.
-#cgo linux,amd64 LDFLAGS: ${SRCDIR}/../../../libcodesign/lib/linux_amd64/libzapp_rcodesign.a
-#cgo linux,arm64 LDFLAGS: ${SRCDIR}/../../../libcodesign/lib/linux_arm64/libzapp_rcodesign.a
+// scripts/fetch-libcodesign.py unpacks one archive per target below; the system
+// libraries it needs are the same for every architecture of one OS. cgo
+// concatenates these in order, so the archive still precedes the libraries it
+// depends on.
+#cgo linux,amd64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/linux_amd64/include
+#cgo linux,amd64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/linux_amd64/lib/libzapp_rcodesign.a
+#cgo linux,arm64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/linux_arm64/include
+#cgo linux,arm64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/linux_arm64/lib/libzapp_rcodesign.a
 #cgo linux LDFLAGS: -ldl -lpthread -lm
-#cgo windows,amd64 LDFLAGS: ${SRCDIR}/../../../libcodesign/lib/windows_amd64/libzapp_rcodesign.a
-#cgo windows,arm64 LDFLAGS: ${SRCDIR}/../../../libcodesign/lib/windows_arm64/libzapp_rcodesign.a
+#cgo windows,amd64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/windows_amd64/include
+#cgo windows,amd64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/windows_amd64/lib/libzapp_rcodesign.a
+#cgo windows,arm64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/windows_arm64/include
+#cgo windows,arm64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/windows_arm64/lib/libzapp_rcodesign.a
 #cgo windows LDFLAGS: -static -lws2_32 -luserenv -lbcrypt -lntdll -lcrypt32 -lncrypt -lsecur32 -liphlpapi -lole32 -loleaut32 -lruntimeobject
 #include <stdlib.h>
-char *zapp_rcodesign_run(const char *request);
-void zapp_rcodesign_free(char *error);
+#include "zapp_rcodesign.h"
 */
 import "C"
 

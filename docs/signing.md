@@ -67,14 +67,20 @@ macOS needs only Go and Apple's tools:
 CGO_ENABLED=0 go build ./cmd/zapp
 ```
 
-Windows and Linux signing builds need Go, Python 3, Rust 1.98.0, and a C toolchain:
+Windows and Linux signing builds need Go, Python 3, and a C toolchain. The Rust
+library itself is not built here: it is downloaded from a
+[libcodesign](https://github.com/ironpark/libcodesign) release, which builds one
+static archive per target from the same sources this repository used to carry.
 
-| Build target | Rust target | C compiler |
-| --- | --- | --- |
-| `linux_amd64` | `x86_64-unknown-linux-gnu` | GCC for x86-64 Linux |
-| `linux_arm64` | `aarch64-unknown-linux-gnu` | GCC for arm64 Linux |
-| `windows_amd64` | `x86_64-pc-windows-gnullvm` | LLVM MinGW `x86_64-w64-mingw32-clang` |
-| `windows_arm64` | `aarch64-pc-windows-gnullvm` | LLVM MinGW `aarch64-w64-mingw32-clang` |
+| Build target | C compiler |
+| --- | --- |
+| `linux_amd64` | GCC for x86-64 Linux |
+| `linux_arm64` | GCC for arm64 Linux |
+| `windows_amd64` | LLVM MinGW `x86_64-w64-mingw32-clang` |
+| `windows_arm64` | LLVM MinGW `aarch64-w64-mingw32-clang` |
+
+The Windows archives are built with LLVM MinGW, so linking them needs the same
+toolchain rather than the host's MSVC.
 
 Run on the target host, with the compiler on `PATH`:
 
@@ -83,19 +89,27 @@ python scripts/build-native.py linux_amd64 --test
 # or windows_amd64, linux_arm64, windows_arm64
 ```
 
-The script builds the pinned Rust sources with `cargo --locked`, copies the
-static archive into `libcodesign/lib/<os>_<arch>/`, runs tests if requested,
-and links zapp into `dist/<os>_<arch>/`, stamping the version with the same
-ldflags GoReleaser uses. Set `CC` for cross compilation and omit `--test`
-unless the host can execute target binaries.
+The script downloads the pinned archive, unpacks it into
+`third_party/libcodesign/<os>_<arch>/`, runs tests if requested, and links zapp
+into `dist/<os>_<arch>/`, stamping the version with the same ldflags GoReleaser
+uses. Set `CC` for cross compilation and omit `--test` unless the host can
+execute target binaries.
+
+`scripts/libcodesign.json` pins the release and the SHA-256 of each archive; a
+download that does not match its pin is rejected. Moving to a new libcodesign
+release is one command, and the diff records the new digests:
+
+```sh
+python scripts/fetch_libcodesign.py --update v0.1.2
+```
 
 A Windows/Linux `CGO_ENABLED=0` build can run commands that do not need signing;
 signing and notarization return `ErrUnavailable`. A CGO build requires the static
-archive to be built first. Unsupported operating systems/architectures do not
+archive to be fetched first. Unsupported operating systems/architectures do not
 fall back to an external rcodesign executable.
 
 `.github/workflows/signing.yaml` builds and tests all four targets on native
-runners and checks the Apple-only macOS build. The release workflow consumes
+runners, against the pinned archives, and checks the Apple-only macOS build. The release workflow consumes
 those archives alongside GoReleaser's macOS archives, and every archive appears
 in the release's single checksums file.
 
@@ -118,10 +132,12 @@ rejects `PreserveOwnership`, since Windows does not supply Unix uid/gid values.
 
 - `pkg/signing/select_darwin.go`: Apple-only backend selection.
 - `pkg/signing/rcodesign`: Go/C binding, credential validation and errors.
-- `libcodesign`: Rust static library using apple-codesign 0.29.0 directly.
-- Rust tests sign amd64 and arm64 Mach-O fixtures with an ephemeral certificate,
-  verify their signatures and hardened runtime flags, and check FFI error ownership.
-  These tests disable network timestamping.
+- [libcodesign](https://github.com/ironpark/libcodesign): the Rust static library,
+  using apple-codesign 0.29.0 directly. Its own CI runs the Rust tests -- signing
+  amd64 and arm64 Mach-O fixtures with an ephemeral certificate, verifying their
+  signatures and hardened runtime flags, and checking FFI error ownership -- and
+  links a C program against each published archive before releasing it.
+- `scripts/libcodesign.json`: the pinned release and per-archive SHA-256.
 - Native Go tests exercise the C ABI with an empty `PATH` and check cancellation
   before entry. They do not require an external rcodesign executable.
 

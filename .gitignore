@@ -10,8 +10,6 @@ dist/
 *.test
 *.prof
 
-/libcodesign/target/
-/libcodesign/lib/
+/third_party/
 /release-assets/
-/libcodesign/THIRD_PARTY_LICENSES.html
 __pycache__/

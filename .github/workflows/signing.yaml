@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['*.go', 'pkg/signing/**', 'libcodesign/**', 'scripts/*native.py', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
+    paths: ['*.go', 'pkg/signing/**', 'scripts/**', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
 
 permissions:
   contents: read
@@ -28,7 +28,6 @@ jobs:
             llvm_host: aarch64
     runs-on: ${{ matrix.runner }}
     env:
-      CARGO_BUILD_JOBS: '2'
       # build-native.py falls back to 'dev' when this is unset.
       ZAPP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name }}
     steps:
@@ -41,9 +40,6 @@ jobs:
           python-version: '3.x'
       - name: Install build script dependencies
         run: pip install pyyaml
-      - name: Install Rust
-        shell: bash
-        run: rustup toolchain install 1.98.0 --profile minimal --no-self-update && rustup default 1.98.0
       - name: Install LLVM MinGW
         if: runner.os == 'Windows'
         shell: pwsh
@@ -52,38 +48,8 @@ jobs:
           Invoke-WebRequest "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/$name.zip" -OutFile "$env:RUNNER_TEMP/llvm-mingw.zip"
           Expand-Archive "$env:RUNNER_TEMP/llvm-mingw.zip" "$env:RUNNER_TEMP/llvm-mingw"
           "$env:RUNNER_TEMP/llvm-mingw/$name/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            libcodesign/target
-          key: rust-1.98-${{ matrix.target }}-${{ hashFiles('libcodesign/Cargo.lock') }}
-          # A lockfile change should still start from the previous build's
-          # artifacts rather than recompiling the whole dependency tree.
-          restore-keys: rust-1.98-${{ matrix.target }}-
-      - name: Build and test static binding and CLI
+      - name: Build and test the CLI against the prebuilt library
         run: python scripts/build-native.py ${{ matrix.target }} --test
-      - name: Generate license notices
-        shell: bash
-        env:
-          LLVM_HOST: ${{ matrix.llvm_host }}
-        run: |
-          # Cached binaries may exist without Cargo installation metadata.
-          # --force also replaces binaries built for a previous target.
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Match the signing build's MinGW toolchain instead of the host
-            # MSVC target, whose ARM64 C headers are not configured here.
-            target="${LLVM_HOST}-pc-windows-gnullvm"
-            compiler="${LLVM_HOST}-w64-mingw32-clang"
-            CC="$compiler" AR=llvm-ar cargo install cargo-about --locked --version 0.8.4 --force \
-              --target "$target" --config "target.$target.linker=\"$compiler\""
-          else
-            cargo install cargo-about --locked --version 0.8.4 --force
-          fi
-          cd libcodesign
-          cargo about generate about.hbs -o THIRD_PARTY_LICENSES.html
       - name: Package binary
         run: python scripts/package-native.py ${{ matrix.target }}
       - uses: actions/upload-artifact@v4

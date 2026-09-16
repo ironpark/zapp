@@ -19,19 +19,21 @@ goos, arch = sys.argv[1].split("_")
 if goos not in ("windows", "linux") or arch not in ("amd64", "arm64"):
     raise SystemExit("expected linux/windows_amd64/arm64")
 
-notices = root / "libcodesign/THIRD_PARTY_LICENSES.html"
-if not notices.is_file():
-    raise SystemExit("generate THIRD_PARTY_LICENSES.html with cargo-about before packaging")
-
 output = root / "release-assets"
 output.mkdir(exist_ok=True)
 binary = "zapp.exe" if goos == "windows" else "zapp"
 files = [(root / "dist" / sys.argv[1] / binary, binary)]
+for pattern in gr.archive_files():
+    files.extend((p, str(p.relative_to(root))) for p in root.glob(pattern) if p.is_file())
 # The Rust notices are native-only: the macOS build does not link the library,
 # so its archive has nothing to attribute and GoReleaser does not carry these.
-patterns = gr.archive_files() + ["libcodesign/NOTICE", "libcodesign/Cargo.lock", str(notices.relative_to(root))]
-for pattern in patterns:
-    files.extend((p, str(p.relative_to(root))) for p in root.glob(pattern) if p.is_file())
+# They ship inside the libcodesign archive and must be redistributed with it.
+unpacked = root / "third_party/libcodesign" / sys.argv[1]
+for name in ("NOTICE", "THIRD_PARTY_LICENSES.html", "Cargo.lock"):
+    source = unpacked / name
+    if not source.is_file():
+        raise SystemExit(f"run scripts/fetch_libcodesign.py {sys.argv[1]} before packaging: {source} is missing")
+    files.append((source, f"libcodesign/{name}"))
 
 name = gr.archive_name("zapp", goos, arch)
 if gr.archive_format(goos) == "zip":

@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
-"""Build the Rust static binding and zapp for one Windows/Linux target."""
+"""Build zapp for one Windows/Linux target against the prebuilt libcodesign."""
 import argparse
 import datetime
 import os
 import sys
 from pathlib import Path
-import shutil
 import subprocess
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fetch_libcodesign
 import goreleaser_config as gr
 
 ROOT = gr.ROOT
-TARGETS = {
-    "linux_amd64": "x86_64-unknown-linux-gnu",
-    "linux_arm64": "aarch64-unknown-linux-gnu",
-    "windows_amd64": "x86_64-pc-windows-gnullvm",
-    "windows_arm64": "aarch64-pc-windows-gnullvm",
-}
+TARGETS = fetch_libcodesign.TARGETS
+# LLVM MinGW names its compilers after the architecture, not GOARCH.
+MINGW_ARCHES = {"amd64": "x86_64", "arm64": "aarch64"}
 
 
 def binary_name(goos):
@@ -27,28 +24,18 @@ def binary_name(goos):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=TARGETS)
-    parser.add_argument("--test", action="store_true", help="run Rust and Go tests on the target host")
+    parser.add_argument("--test", action="store_true", help="run the Go tests on the target host")
     args = parser.parse_args()
     os.chdir(ROOT)
-    target = TARGETS[args.target]
     env = os.environ.copy()
     env.update(zip(("GOOS", "GOARCH"), args.target.split("_")))
     env["CGO_ENABLED"] = "1"
-    env["CARGO_TARGET_DIR"] = str(ROOT / "libcodesign/target")
-    cc = env.get("CC", "gcc" if env["GOOS"] == "linux" else target.split("-")[0] + "-w64-mingw32-clang")
-    env["CC"] = cc
-    if env["GOOS"] == "windows":
-        env.setdefault("AR", "llvm-ar")
-    env["CARGO_TARGET_" + target.upper().replace("-", "_") + "_LINKER"] = cc
-    subprocess.run(["rustup", "target", "add", target], check=True)
-    cargo_args = ["--locked", "--release", "--manifest-path", "libcodesign/Cargo.toml", "--target", target]
-    subprocess.run(["cargo", "build", *cargo_args], env=env, check=True)
-    libdir = ROOT / "libcodesign/lib" / args.target
-    libdir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "libcodesign/target" / target / "release/libzapp_rcodesign.a", libdir)
+    # The Windows archives are built with LLVM MinGW, so linking them needs the
+    # same toolchain rather than the host's MSVC.
+    env["CC"] = env.get("CC", "gcc" if env["GOOS"] == "linux"
+                        else MINGW_ARCHES[env["GOARCH"]] + "-w64-mingw32-clang")
+    fetch_libcodesign.fetch(args.target)
     if args.test:
-        # Only the test run pulls the crate's dev-dependencies in.
-        subprocess.run(["cargo", "test", *cargo_args], env=env, check=True)
         subprocess.run(["go", "test", "-count=1", "./pkg/signing/..."], env=env, check=True)
         if env["GOOS"] == "windows":
             subprocess.run(["go", "test", "-count=1", "-run", "^TestWindowsPayloadMetadata$", "./pkg/macpkg"], env=env, check=True)
