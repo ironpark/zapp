@@ -38,8 +38,9 @@ type editor struct {
 	choiceOpen                               bool
 	choiceIndex                              int
 	previewActual, panning                   bool
-	panX, panY, panStartX, panStartY         int
-	panOriginX, panOriginY                   int
+	// pan is the actual-size view offset; panStart and panOrigin capture where
+	// the current drag began.
+	pan, panStart, panOrigin image.Point
 }
 
 // systemFontPaths are probed in order for a Unicode-capable UI font. Absent

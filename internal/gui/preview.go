@@ -33,14 +33,14 @@ func (g *editor) previewArea() image.Rectangle {
 	return comp.Box(420, 267, g.w-720, g.contentBottom()-321)
 }
 func (g *editor) clampPan() {
-	l := layout(g.s.Project.DMG, g.s.Project.App)
+	l := g.s.layout()
 	area := g.previewArea()
-	limitX, limitY := max(0, (l.W-area.Dx()+1)/2), max(0, (l.H+28-area.Dy()+1)/2)
-	g.panX = max(-limitX, min(limitX, g.panX))
-	g.panY = max(-limitY, min(limitY, g.panY))
+	limit := image.Pt(max(0, (l.W-area.Dx()+1)/2), max(0, (l.H+28-area.Dy()+1)/2))
+	g.pan.X = max(-limit.X, min(limit.X, g.pan.X))
+	g.pan.Y = max(-limit.Y, min(limit.Y, g.pan.Y))
 }
 func (g *editor) transform() previewTransform {
-	l := layout(g.s.Project.DMG, g.s.Project.App)
+	l := g.s.layout()
 	available := g.previewArea()
 	// Fit the whole Finder window, including its compact title bar, at one scale.
 	scale := math.Min(1, math.Min(float64(available.Dx())/float64(max(1, l.W)), float64(available.Dy())/float64(max(1, l.H)+28)))
@@ -53,8 +53,8 @@ func (g *editor) transform() previewTransform {
 	x := available.Min.X + (available.Dx()-width)/2
 	y := available.Min.Y + (available.Dy()-height-headerHeight)/2 + headerHeight
 	if g.previewActual {
-		x += g.panX
-		y += g.panY
+		x += g.pan.X
+		y += g.pan.Y
 	}
 	return previewTransform{float64(x), float64(y), scale, comp.Box(x, y, width, height)}
 }
@@ -117,16 +117,32 @@ func (g *editor) loadAsset(key, path string) error {
 	return nil
 }
 
-// previewSignature captures every input refreshPreview consumes except item
-// coordinates. Dragging and arrow-key nudging only change X/Y, so a matching
-// signature means the resolved paths and decoded icons are still valid.
+// derivedSignature captures every input refreshPreview and refreshItemKinds
+// consume except item coordinates. Dragging and arrow-key nudging only change
+// X/Y, so a matching signature means both caches are still valid.
+func (g *editor) derivedSignature() string {
+	if g.tab != tabDMG || g.s.Project.DMG == nil || !g.enabled() {
+		return ""
+	}
+	return previewSignature(g.s.Project, g.s.layout().Items)
+}
+
 func previewSignature(p *zapp.Project, items []layoutItem) string {
 	c := p.DMG
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00",
-		p.App, p.Out, c.Title, c.Icon, c.Background, c.FS, c.Out)
+	for _, s := range []string{p.App, p.Out, c.Title, c.Icon, c.Background, c.FS, c.Out} {
+		b.WriteString(s)
+		b.WriteByte(0)
+	}
 	for _, i := range items {
-		fmt.Fprintf(&b, "%s\x01%s\x01%t\x02", i.Path, i.Name, i.Link)
+		b.WriteString(i.Path)
+		b.WriteByte(1)
+		b.WriteString(i.Name)
+		b.WriteByte(1)
+		if i.Link {
+			b.WriteByte('L')
+		}
+		b.WriteByte(2)
 	}
 	return b.String()
 }
@@ -136,12 +152,7 @@ func (g *editor) refreshPreview() {
 		return
 	}
 	c := g.s.Project.DMG
-	items := layout(c, g.s.Project.App).Items
-	sig := previewSignature(g.s.Project, items)
-	if sig == g.previewSig {
-		return
-	}
-	g.previewSig = sig
+	items := g.s.layout().Items
 	g.previewError = ""
 	// Drop the previous logical keys so items removed from the layout stop
 	// pinning their textures; the "file:" entries below survive as the cache.
@@ -232,7 +243,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	g.previewPanel().Draw(dst, g.ui)
 	comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
 	c := g.s.Project.DMG
-	l := layout(c, g.s.Project.App)
+	l := g.s.layout()
 	size, label, items := l.IconSize, l.LabelSize, l.Items
 	t := g.transform()
 	full := dst

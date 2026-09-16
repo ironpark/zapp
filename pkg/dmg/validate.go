@@ -28,11 +28,10 @@ const (
 	MaxCoordinate = 0xffffffff
 )
 
-// Validate checks layout and source inputs before image generation.
-func (c Config) Validate() error {
-	if c.Title == "" {
-		return fmt.Errorf("a volume title is required")
-	}
+// ValidateLayout checks window geometry and the name and position of every
+// item. It reads no source files and does not require any, so an editor can
+// run it against a project that is still being assembled.
+func (c Config) ValidateLayout() error {
 	if c.WindowWidth <= 0 || c.WindowHeight <= 0 {
 		return fmt.Errorf("window dimensions must be positive")
 	}
@@ -41,9 +40,6 @@ func (c Config) Validate() error {
 	}
 	if c.LabelSize < MinLabelSize || c.LabelSize > MaxLabelSize {
 		return fmt.Errorf("label size must be between %d and %d", MinLabelSize, MaxLabelSize)
-	}
-	if len(c.Contents) == 0 {
-		return fmt.Errorf("contents must not be empty")
 	}
 	seen := map[string]bool{}
 	for _, name := range []string{storeName, backgroundDir, volumeIconName} {
@@ -62,6 +58,23 @@ func (c Config) Validate() error {
 		if item.X < 0 || item.Y < 0 || uint64(item.X) > MaxCoordinate || uint64(item.Y) > MaxCoordinate {
 			return fmt.Errorf("invalid coordinates for %q", name)
 		}
+	}
+	return nil
+}
+
+// Validate checks layout and source inputs before image generation.
+func (c Config) Validate() error {
+	if c.Title == "" {
+		return fmt.Errorf("a volume title is required")
+	}
+	if err := c.ValidateLayout(); err != nil {
+		return err
+	}
+	if len(c.Contents) == 0 {
+		return fmt.Errorf("contents must not be empty")
+	}
+	for _, item := range c.Contents {
+		name := item.ImageName()
 		switch item.Type {
 		case Link:
 			if strings.ContainsRune(item.Path, 0) {

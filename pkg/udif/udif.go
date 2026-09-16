@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"strings"
 
 	"github.com/ironpark/zapp/pkg/lzfse"
 
@@ -61,6 +62,19 @@ func (f Format) String() string {
 		return "ULFO"
 	}
 	return "UDZO"
+}
+
+// ParseFormat resolves a format name, ignoring case, and treats an unset name
+// as the default. It is the single place that knows which names are accepted.
+func ParseFormat(name string) (Format, error) {
+	switch strings.ToLower(name) {
+	case "", "udzo", "zlib":
+		return UDZO, nil
+	case "ulfo", "lzfse":
+		return ULFO, nil
+	default:
+		return 0, fmt.Errorf("unknown image format %q: use udzo or ulfo", name)
+	}
 }
 
 // Write compresses the raw disk image in src, which must be size bytes long,

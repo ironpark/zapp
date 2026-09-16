@@ -163,7 +163,7 @@ func TestAdvancedChoice(t *testing.T) {
 func TestActualPreviewPanPreservesProjectAndCoordinates(t *testing.T) {
 	g := testEditor(t)
 	g.previewActual = true
-	g.panX, g.panY = 10000, -10000
+	g.pan = image.Pt(10000, -10000)
 	tr := g.transform()
 	if tr.scale != 1 {
 		t.Fatal("actual size must use unit scale")
@@ -172,7 +172,7 @@ func TestActualPreviewPanPreservesProjectAndCoordinates(t *testing.T) {
 	if x != 120 || y != 80 {
 		t.Fatal("pan changed icon coordinate mapping")
 	}
-	if g.panX == 10000 || g.panY == -10000 {
+	if g.pan.X == 10000 || g.pan.Y == -10000 {
 		t.Fatal("pan must be clamped to content")
 	}
 	if g.s.Dirty() || len(g.s.undo) != 0 {

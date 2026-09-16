@@ -46,7 +46,7 @@ func (g *editor) validatePaths() bool {
 			continue
 		}
 		for _, f := range section.fields(g) {
-			if f.picker == "" || f.picker == pickSave || f.Label == "Output directory" || f.Value == "" || strings.Contains(f.Value, "${") {
+			if f.picker == "" || f.picker == pickSave || f.mayNotExist || f.Value == "" || strings.Contains(f.Value, "${") {
 				continue
 			}
 			info, err := os.Stat(g.assetPath(f.Value))
@@ -93,7 +93,7 @@ func (g *editor) locateValidationError(err error) {
 		}
 	}
 	if pathError != nil && g.s.Project.DMG != nil {
-		for _, item := range layout(g.s.Project.DMG, g.s.Project.App).Items {
+		for _, item := range g.s.layout().Items {
 			if !item.Link && filepath.Clean(g.assetPath(item.Path)) == filepath.Clean(pathError.Path) {
 				g.showFieldError(tabDMG, "Contents (JSON)", err)
 				return

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"image"
-	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/ironpark/zapp/internal/gui/comp"
@@ -90,8 +89,8 @@ func (g *editor) drawHeader(dst *ebiten.Image) {
 	stateWidth := p.Measure(state, 12) + 30
 	stateX := g.w - 358 - stateWidth
 	projectWidth := max(0, stateX-192)
-	p.Text(dst, p.Fit(filepath.Base(g.s.Path), projectWidth, 16), 168, 19, 16, t.Text)
-	p.Text(dst, p.Fit(filepath.Dir(g.s.Path), projectWidth, 12), 168, 43, 12, t.Muted)
+	p.Text(dst, p.Fit(g.s.Name, projectWidth, 16), 168, 19, 16, t.Text)
+	p.Text(dst, p.Fit(g.s.Dir, projectWidth, 12), 168, 43, 12, t.Muted)
 	stateColor := t.Muted
 	if g.dirty() {
 		stateColor = t.Accent

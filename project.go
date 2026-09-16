@@ -136,6 +136,18 @@ type PKGConfig struct {
 	Components      []Component   `json:"components,omitempty"`
 	Distribution    *Distribution `json:"distribution,omitempty"`
 }
+
+// HasShortForm reports whether any single-component field is set, and
+// HasFullForm whether the components/distribution form is in use. The two
+// forms cannot be mixed, so validation and editors share one definition of
+// which fields belong to each.
+func (c *PKGConfig) HasShortForm() bool {
+	return c.Identifier != "" || c.Version != "" || c.InstallLocation != "" || c.Scripts != "" || c.MinOS != "" || c.License != nil
+}
+func (c *PKGConfig) HasFullForm() bool {
+	return c.Components != nil || c.Distribution != nil
+}
+
 type Component struct {
 	ID              string `json:"id"`
 	Root            string `json:"root,omitempty"`
@@ -258,8 +270,8 @@ func (p *Project) validate() error {
 		return fmt.Errorf("config version must be 1")
 	}
 	if c := p.PKG; c != nil {
-		full := c.Components != nil || c.Distribution != nil
-		if full && (c.Identifier != "" || c.Version != "" || c.InstallLocation != "" || c.Scripts != "" || c.MinOS != "" || c.License != nil) {
+		full := c.HasFullForm()
+		if full && c.HasShortForm() {
 			return fmt.Errorf("pkg cannot mix short form fields with components/distribution")
 		}
 		if full && len(c.Components) == 0 {

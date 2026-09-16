@@ -152,8 +152,6 @@ func (f Form) Draw(dst *ebiten.Image, p *Painter, active int, draft *Input, poin
 	if limit := f.Limit(); limit > 0 {
 		track := Box(f.Bounds.Max.X+8, f.Bounds.Min.Y, 3, f.Bounds.Dy())
 		Rect(dst, track, p.Theme.Border)
-		height := min(track.Dy(), max(24, track.Dy()*track.Dy()/(limit+track.Dy())))
-		y := track.Min.Y + (track.Dy()-height)*f.offset/limit
-		Rect(dst, Box(track.Min.X, y, 3, height), p.Theme.Accent)
+		Scrollbar(dst, track, f.offset, limit, p.Theme.Accent)
 	}
 }

@@ -139,7 +139,7 @@ func (g *editor) selectPreviewItem(in tick) {
 	if !in.mouse.In(g.previewArea()) || !in.mouse.In(t.bounds) || (g.previewActual && ebiten.IsKeyPressed(ebiten.KeySpace)) {
 		return
 	}
-	l := layout(g.s.Project.DMG, g.s.Project.App)
+	l := g.s.layout()
 	x, y := t.content(float64(in.mouse.X), float64(in.mouse.Y))
 	reach := float64(l.IconSize) / 2
 	g.selected = ""
@@ -161,16 +161,14 @@ func (g *editor) startPan(in tick) {
 		return
 	}
 	g.panning = true
-	g.panStartX, g.panStartY = in.mouse.X, in.mouse.Y
-	g.panOriginX, g.panOriginY = g.panX, g.panY
+	g.panStart, g.panOrigin = in.mouse, g.pan
 }
 
 func (g *editor) updatePan(in tick) {
 	if !g.panning {
 		return
 	}
-	g.panX = g.panOriginX + in.pos.X - g.panStartX
-	g.panY = g.panOriginY + in.pos.Y - g.panStartY
+	g.pan = g.panOrigin.Add(in.pos.Sub(g.panStart))
 	g.clampPan()
 	if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		g.panning = false
@@ -185,7 +183,7 @@ func (g *editor) updateDrag(in tick) {
 	x, y := g.transform().content(float64(in.pos.X), float64(in.pos.Y))
 	x, y = x-g.dragX, y-g.dragY
 	nx, ny := int(math.Round(x)), int(math.Round(y))
-	if i, ok := layout(g.s.Project.DMG, g.s.Project.App).find(g.drag); ok && (nx != i.X || ny != i.Y) {
+	if i, ok := g.s.layout().find(g.drag); ok && (nx != i.X || ny != i.Y) {
 		if !g.dragMoved {
 			g.s.checkpoint()
 			g.dragMoved = true
@@ -201,22 +199,22 @@ func (g *editor) updateDrag(in tick) {
 	}
 }
 
+// scrollForm sends the wheel to whichever scrollable area is under the pointer.
 func (g *editor) scrollForm(in tick) {
+	_, wheel := ebiten.Wheel()
+	delta := -int(wheel * 38)
 	if g.tab == tabDMG && g.enabled() {
 		if in.mouse.In(g.itemsPanel().Content()) {
-			_, wheel := ebiten.Wheel()
-			g.itemScroll = max(0, min(g.itemScroll-int(wheel*38), g.itemListLimit()))
+			g.itemScroll = max(0, min(g.itemScroll+delta, g.itemListLimit()))
 			return
 		}
 		if in.mouse.In(g.inspector.Bounds) {
-			_, wheel := ebiten.Wheel()
-			g.inspector.ScrollBy(-int(wheel * 38))
+			g.inspector.ScrollBy(delta)
 			return
 		}
 	}
 	if in.mouse.In(g.form.Bounds) {
-		_, wheel := ebiten.Wheel()
-		g.form.ScrollBy(-int(wheel * 38))
+		g.form.ScrollBy(delta)
 	}
 }
 
@@ -244,7 +242,7 @@ func (g *editor) nudgeSelected() {
 		dx *= 10
 		dy *= 10
 	}
-	if item, ok := layout(g.s.Project.DMG, g.s.Project.App).find(g.selected); ok {
+	if item, ok := g.s.layout().find(g.selected); ok {
 		g.s.checkpoint()
 		g.s.move(item.Path, item.X+dx, item.Y+dy)
 		g.rebuild()

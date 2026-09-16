@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -149,52 +148,21 @@ func pickedPath(config, selected string) string {
 	return selected
 }
 
-// Arguments/environment carry user values; no path is interpolated into code.
-func choosePath(ctx context.Context, mode pickMode, title, initial string) (string, error) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		return chooseNativePath(ctx, mode, title, initial)
-	case "linux":
-		args := []string{"--file-selection", "--title=" + title, "--filename=" + initial + string(filepath.Separator)}
-		if mode == pickFolder || mode == pickApp {
-			args = append(args, "--directory")
-		}
-		if mode == pickSave {
-			args = append(args, "--save")
-		}
-		cmd = exec.CommandContext(ctx, "zenity", args...)
-	case "windows":
-		script := `[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-Add-Type -AssemblyName System.Windows.Forms
-if ($env:ZAPP_PICK_MODE -eq 'folder' -or $env:ZAPP_PICK_MODE -eq 'app') {
-$d=New-Object System.Windows.Forms.FolderBrowserDialog
-$d.Description=$env:ZAPP_PICK_TITLE
-$d.SelectedPath=$env:ZAPP_PICK_INITIAL
-if ($d.ShowDialog() -eq 'OK') { [Console]::Write($d.SelectedPath) }
-} else {
-if ($env:ZAPP_PICK_MODE -eq 'save') {$d=New-Object System.Windows.Forms.SaveFileDialog;$d.OverwritePrompt=$false} else {$d=New-Object System.Windows.Forms.OpenFileDialog}
-$d.Title=$env:ZAPP_PICK_TITLE
-$d.InitialDirectory=$env:ZAPP_PICK_INITIAL
-if ($d.ShowDialog() -eq 'OK') { [Console]::Write($d.FileName) }
-}`
-		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-STA", "-Command", script)
-		cmd.Env = append(os.Environ(), "ZAPP_PICK_MODE="+string(mode), "ZAPP_PICK_TITLE="+title, "ZAPP_PICK_INITIAL="+initial)
-	default:
-		return "", fmt.Errorf("file picker is unavailable on %s; enter a path directly", runtime.GOOS)
-	}
+// runPicker runs a helper process that prints the chosen path. cancelCode is
+// the exit status the helper uses for a dismissed dialog, or -1 when it has no
+// such convention. Arguments and environment carry user values; no path is
+// interpolated into code.
+func runPicker(cmd *exec.Cmd, cancelCode int) (string, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		var exit *exec.ExitError
-		if runtime.GOOS == "linux" && errors.As(err, &exit) && exit.ExitCode() == 1 {
-			return "", nil
-		}
-		detail := ""
 		if errors.As(err, &exit) {
-			detail = strings.TrimSpace(string(exit.Stderr))
-		}
-		if detail != "" {
-			return "", fmt.Errorf("could not open file picker: %s", detail)
+			if exit.ExitCode() == cancelCode {
+				return "", nil
+			}
+			if detail := strings.TrimSpace(string(exit.Stderr)); detail != "" {
+				return "", fmt.Errorf("could not open file picker: %s", detail)
+			}
 		}
 		return "", fmt.Errorf("could not open file picker: %w; enter a path directly", err)
 	}

@@ -103,15 +103,6 @@ func TestChoiceIsDraftUntilApplied(t *testing.T) {
 	if r := i.Handle(key(ebiten.KeyEnter), nil); r.Intent != InputOpenChoice || i.Text() != "" || i.Spec.Value != "" {
 		t.Fatal("opening choices changed the value")
 	}
-	i.SetText("udzo")
-	i.NextChoice()
-	if i.Text() != "ulfo" {
-		t.Fatal("next choice failed")
-	}
-	i.NextChoice()
-	if i.Text() != "" {
-		t.Fatal("choice did not wrap")
-	}
 }
 
 func TestNumberKeyboardStepping(t *testing.T) {

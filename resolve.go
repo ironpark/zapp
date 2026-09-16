@@ -204,9 +204,9 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		if err != nil {
 			return nil, err
 		}
-		format, ok := map[string]udif.Format{"udzo": udif.UDZO, "zlib": udif.UDZO, "ulfo": udif.ULFO, "lzfse": udif.ULFO}[strings.ToLower(c.Format)]
-		if !ok {
-			return nil, fmt.Errorf("unknown image format %q: use udzo or ulfo", c.Format)
+		format, err := udif.ParseFormat(c.Format)
+		if err != nil {
+			return nil, err
 		}
 		d := &dmg.Config{FileName: c.Out, Title: c.Title, Icon: c.Icon, Background: c.Background, WindowWidth: c.Window.Width, WindowHeight: c.Window.Height, ContentsIconSize: c.IconSize, LabelSize: c.LabelSize, FileSystem: fs, Format: format, Created: o.clock}
 		if c.Contents != nil {

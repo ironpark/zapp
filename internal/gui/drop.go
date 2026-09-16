@@ -80,7 +80,7 @@ func (g *editor) addDroppedPaths(paths []string, point image.Point) (int, error)
 	if g.tab != tabDMG || !g.enabled() || !point.In(g.previewArea()) {
 		return 0, nil
 	}
-	l := layout(g.s.Project.DMG, g.s.Project.App)
+	l := g.s.layout()
 	seen := map[string]bool{}
 	for _, item := range l.Items {
 		absolute, err := filepath.Abs(g.assetPath(item.Path))

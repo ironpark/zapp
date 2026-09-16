@@ -3,12 +3,36 @@ package comp
 import (
 	"image"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+// lineWindow returns up to count lines of s starting at line start. A JSON
+// field can hold hundreds of lines while only a few are drawn, so the whole
+// value is never split.
+func lineWindow(s string, start, count int) []string {
+	for range start {
+		_, rest, found := strings.Cut(s, "\n")
+		if !found {
+			return nil
+		}
+		s = rest
+	}
+	lines := make([]string, 0, count)
+	for range count {
+		line, rest, found := strings.Cut(s, "\n")
+		lines = append(lines, line)
+		if !found {
+			break
+		}
+		s = rest
+	}
+	return lines
+}
 
 type InputSpec struct {
 	Label, Value, Hint string
@@ -130,16 +154,7 @@ func (i *Input) Insert(s string) {
 	i.buffer = slices.Insert(i.buffer, i.cursor, r...)
 	i.cursor += len(r)
 }
-func (i *Input) NextChoice() {
-	if len(i.Spec.Choices) == 0 {
-		return
-	}
-	next := 0
-	if n := slices.Index(i.Spec.Choices, i.Text()); n >= 0 {
-		next = (n + 1) % len(i.Spec.Choices)
-	}
-	i.SetText(i.Spec.Choices[next])
-}
+
 func (i *Input) verticalCursor(direction int) {
 	start := i.cursor
 	for start > 0 && i.buffer[start-1] != '\n' {
@@ -329,27 +344,33 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	if value == "" && i.Spec.Placeholder != "" {
 		p.Text(clip, p.Fit(i.Spec.Placeholder, textWidth-16, 14), bounds.Min.X+8, bounds.Min.Y+6, 14, t.Muted)
 	}
-	lines := strings.Split(value, "\n")
 	start := 0
 	caretLine, caretCol := 0, 0
 	if focused {
-		before := string(i.buffer[:i.cursor])
-		caretLine = strings.Count(before, "\n")
-		caretCol = len([]rune(before[strings.LastIndex(before, "\n")+1:]))
+		for _, r := range i.buffer[:i.cursor] {
+			if r == '\n' {
+				caretLine, caretCol = caretLine+1, 0
+			} else {
+				caretCol++
+			}
+		}
 	}
 	visible := max(1, (bounds.Dy()-10)/20)
 	if caretLine >= visible {
 		start = caretLine - visible + 1
 	}
-	for n := start; n < len(lines) && n < start+visible; n++ {
-		str := lines[n]
+	for offset, str := range lineWindow(value, start, visible) {
+		n := start + offset
 		col := caretCol
 		if focused && n == caretLine {
 			rr := []rune(str)
-			for col > 0 && p.Measure(string(rr[:col]), 14) > textWidth-22 {
-				rr = rr[1:]
-				col--
-			}
+			// Scroll the line so the caret stays visible. Measured width falls
+			// monotonically as leading runes are dropped, so a binary search
+			// replaces a scan that re-measured the prefix per dropped rune.
+			drop := min(col, sort.Search(col+1, func(d int) bool {
+				return p.Measure(string(rr[d:col]), 14) <= textWidth-22
+			}))
+			rr, col = rr[drop:], col-drop
 			str = string(rr)
 		}
 		y := bounds.Min.Y + 6 + (n-start)*20

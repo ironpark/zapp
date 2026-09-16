@@ -33,11 +33,11 @@ func (g *editor) revealField(index int) {
 const itemRowHeight = 44
 
 func (g *editor) itemListLimit() int {
-	return max(0, len(layout(g.s.Project.DMG, g.s.Project.App).Items)*itemRowHeight-g.itemsPanel().Content().Dy())
+	return max(0, len(g.s.layout().Items)*itemRowHeight-g.itemsPanel().Content().Dy())
 }
 func (g *editor) revealItem() {
 	area := g.itemsPanel().Content()
-	for i, item := range layout(g.s.Project.DMG, g.s.Project.App).Items {
+	for i, item := range g.s.layout().Items {
 		if item.Path != g.selected {
 			continue
 		}
@@ -59,7 +59,7 @@ func (g *editor) selectListItem(point image.Point) bool {
 	if !g.commit() {
 		return true
 	}
-	items := layout(g.s.Project.DMG, g.s.Project.App).Items
+	items := g.s.layout().Items
 	index := (point.Y - area.Min.Y + g.itemScroll) / itemRowHeight
 	if index < len(items) {
 		g.selected = items[index].Path
@@ -74,8 +74,9 @@ func (g *editor) drawItems(dst *ebiten.Image, pointer image.Point) {
 	panel.Draw(dst, p)
 	area := panel.Content()
 	canvas := dst.SubImage(area.Intersect(dst.Bounds())).(*ebiten.Image)
-	items := layout(g.s.Project.DMG, g.s.Project.App).Items
-	g.itemScroll = max(0, min(g.itemScroll, g.itemListLimit()))
+	items := g.s.layout().Items
+	limit := g.itemListLimit()
+	g.itemScroll = max(0, min(g.itemScroll, limit))
 	if len(items) == 0 {
 		p.Wrapped(canvas, "Drop files onto the preview to add contents.", area.Min.X, area.Min.Y, area.Dx(), 13, t.Muted, 3)
 	}
@@ -97,11 +98,7 @@ func (g *editor) drawItems(dst *ebiten.Image, pointer image.Point) {
 		p.Text(canvas, p.Fit(name, row.Dx()-16, 13), row.Min.X+8, row.Min.Y+3, 13, t.Text)
 		p.Text(canvas, fmt.Sprintf("%s · %d, %d", kind, item.X, item.Y), row.Min.X+8, row.Min.Y+23, 11, t.Muted)
 	}
-	if limit := g.itemListLimit(); limit > 0 {
-		height := max(16, area.Dy()*area.Dy()/(limit+area.Dy()))
-		y := area.Min.Y + (area.Dy()-height)*g.itemScroll/limit
-		comp.RoundedRect(dst, comp.Box(area.Max.X+6, y, 3, height), 1, t.Muted)
-	}
+	comp.Scrollbar(dst, comp.Box(area.Max.X+6, area.Min.Y, 3, area.Dy()), g.itemScroll, limit, t.Muted)
 	g.inspectorPanel().Draw(dst, p)
 	if g.selected == "" || len(g.inspector.Inputs) == 0 {
 		a := g.inspectorPanel().Content()
@@ -120,7 +117,7 @@ func (g *editor) refreshItemKinds() {
 	if g.tab != tabDMG || !g.enabled() {
 		return
 	}
-	for _, item := range layout(g.s.Project.DMG, g.s.Project.App).Items {
+	for _, item := range g.s.layout().Items {
 		kind := "File"
 		if item.Link {
 			kind = "Link"

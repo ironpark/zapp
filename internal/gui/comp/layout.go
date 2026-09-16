@@ -1,6 +1,22 @@
 package comp
 
-import "image"
+import (
+	"image"
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// Scrollbar draws the thumb for a view scrolled by offset out of limit within
+// track. The form and the contents list share it so both stay the same shape.
+func Scrollbar(dst *ebiten.Image, track image.Rectangle, offset, limit int, c color.Color) {
+	if limit <= 0 || track.Empty() {
+		return
+	}
+	height := min(track.Dy(), max(24, track.Dy()*track.Dy()/(limit+track.Dy())))
+	y := track.Min.Y + (track.Dy()-height)*offset/limit
+	RoundedRect(dst, Box(track.Min.X, y, track.Dx(), height), track.Dx()/2, c)
+}
 
 // SplitRow distributes remainder pixels among cells so the last cell ends at
 // bounds.Max.X. Gaps shrink to fit narrow rows rather than overflowing them.

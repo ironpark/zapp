@@ -56,12 +56,12 @@ func TestDropBatchCoordinatesDuplicatesAndUndo(t *testing.T) {
 	}
 	transform := g.transform()
 	point := image.Pt(int(transform.x+100*transform.scale), int(transform.y+100*transform.scale))
-	before := len(layout(g.s.Project.DMG, g.s.Project.App).Items)
+	before := len(g.s.layout().Items)
 	n, err := g.addDroppedPaths([]string{file, folder, file}, point)
 	if err != nil || n != 2 {
 		t.Fatalf("count=%d err=%v", n, err)
 	}
-	if len(layout(g.s.Project.DMG, g.s.Project.App).Items) != before+2 {
+	if len(g.s.layout().Items) != before+2 {
 		t.Fatal("drop lost existing items")
 	}
 	content := g.s.Project.DMG.Contents["Readme.txt"]

@@ -13,11 +13,15 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp"
+	"github.com/ironpark/zapp/internal/fsutil"
 	"github.com/ironpark/zapp/pkg/dmg"
+	"github.com/ironpark/zapp/pkg/udif"
 )
 
 type Session struct {
-	Path       string
+	Path string
+	// Name and Dir split Path once; the header redraws them every frame.
+	Name, Dir  string
 	filePath   string
 	Project    *zapp.Project
 	original   []byte
@@ -48,7 +52,7 @@ func Open(name string) (*Session, error) {
 	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
 		target = resolved
 	}
-	s := &Session{Path: abs, filePath: target}
+	s := &Session{Path: abs, Name: filepath.Base(abs), Dir: filepath.Dir(abs), filePath: target}
 	s.original, err = os.ReadFile(abs)
 	if err == nil {
 		s.exists = true
@@ -151,29 +155,16 @@ func (s *Session) Save() error {
 	if info, err := os.Stat(s.filePath); err == nil {
 		mode = info.Mode().Perm()
 	}
-	f, err := os.CreateTemp(filepath.Dir(s.filePath), ".zapp-gui-*")
+	temp, err := fsutil.WriteTemp(filepath.Dir(s.filePath), data, mode)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
-	if err = f.Chmod(mode); err == nil {
-		_, err = f.Write(data)
-	}
-	if err == nil {
-		err = f.Sync()
-	}
-	closeErr := f.Close()
-	if err != nil {
-		return err
-	}
-	if closeErr != nil {
-		return closeErr
-	}
+	defer os.Remove(temp)
 	if s.exists {
-		err = os.Rename(f.Name(), s.filePath)
+		err = os.Rename(temp, s.filePath)
 	} else {
 		// Link is exclusive: don't overwrite a file created since our read.
-		err = os.Link(f.Name(), s.filePath)
+		err = os.Link(temp, s.filePath)
 	}
 	if err != nil {
 		return err
@@ -201,7 +192,11 @@ func (l dmgLayout) find(path string) (layoutItem, bool) {
 	return layoutItem{}, false
 }
 
-func layout(c *zapp.DMGConfig, app string) dmgLayout {
+// layout is the only binding between the DMG config and the app path, so call
+// sites never repeat the pair.
+func (s *Session) layout() dmgLayout { return buildLayout(s.Project.DMG, s.Project.App) }
+
+func buildLayout(c *zapp.DMGConfig, app string) dmgLayout {
 	// Geometry and automatic placement come from the same helpers Resolve uses,
 	// so the preview cannot drift from what a build actually produces.
 	w, h, size, label := c.Metrics()
@@ -234,7 +229,7 @@ func (s *Session) materialize() {
 	if c.Contents != nil {
 		return
 	}
-	items := layout(c, s.Project.App).Items
+	items := s.layout().Items
 	c.Contents = map[string]zapp.Content{}
 	for _, item := range items {
 		x, y := item.X, item.Y
@@ -245,7 +240,7 @@ func (s *Session) materialize() {
 func (s *Session) move(key string, x, y int) {
 	s.materialize()
 	c := s.Project.DMG
-	l := layout(c, s.Project.App)
+	l := s.layout()
 	item, ok := c.Contents[key]
 	if !ok {
 		return
@@ -262,37 +257,24 @@ func (s *Session) validateLayout() error {
 	if c == nil {
 		return nil
 	}
-	l := layout(c, s.Project.App)
-	if l.W < 1 || l.H < 1 {
-		return fmt.Errorf("window dimensions must be positive")
-	}
 	if _, err := dmg.ParseFileSystem(c.FS); err != nil {
 		return err
 	}
-	switch strings.ToLower(c.Format) {
-	case "", "udzo", "ulfo", "zlib", "lzfse":
-	default:
-		return fmt.Errorf("format must be udzo or ulfo")
+	if _, err := udif.ParseFormat(c.Format); err != nil {
+		return err
 	}
-	if l.IconSize < dmg.MinIconSize || l.IconSize > dmg.MaxIconSize {
-		return fmt.Errorf("icon size must be %d–%d", dmg.MinIconSize, dmg.MaxIconSize)
-	}
-	if l.LabelSize < dmg.MinLabelSize || l.LabelSize > dmg.MaxLabelSize {
-		return fmt.Errorf("label size must be %d–%d", dmg.MinLabelSize, dmg.MaxLabelSize)
-	}
-	if c.Contents != nil {
-		for key, v := range c.Contents {
-			if v.X == nil || v.Y == nil {
-				return fmt.Errorf("contents[%q] requires x and y", key)
-			}
+	for key, v := range c.Contents {
+		if v.X == nil || v.Y == nil {
+			return fmt.Errorf("contents[%q] requires x and y", key)
 		}
-		// Validate names/coordinates without requiring source files to already
-		// exist. Full build-input validation is a separate explicit UI action.
-		d := dmg.Config{Title: "Preview", WindowWidth: l.W, WindowHeight: l.H, ContentsIconSize: l.IconSize, LabelSize: l.LabelSize}
-		for _, i := range l.Items {
-			d.Contents = append(d.Contents, dmg.Item{Path: i.Path, Name: i.Name, X: i.X, Y: i.Y, Type: dmg.Link})
-		}
-		return d.Validate()
 	}
-	return nil
+	// Geometry, names and coordinates are checked by the image generator's own
+	// rules; source files are not required to exist yet, which is a separate
+	// explicit UI action.
+	l := s.layout()
+	d := dmg.Config{WindowWidth: l.W, WindowHeight: l.H, ContentsIconSize: l.IconSize, LabelSize: l.LabelSize}
+	for _, i := range l.Items {
+		d.Contents = append(d.Contents, dmg.Item{Path: i.Path, Name: i.Name, X: i.X, Y: i.Y})
+	}
+	return d.ValidateLayout()
 }

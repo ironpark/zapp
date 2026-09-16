@@ -146,7 +146,7 @@ func TestDefaultLayoutMatchesBuildAndDrag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	items := layout(s.Project.DMG, s.Project.App).Items
+	items := buildLayout(s.Project.DMG, s.Project.App).Items
 	for i, item := range items {
 		if item.X != pl.DMG.Contents[i].X || item.Y != pl.DMG.Contents[i].Y {
 			t.Fatal("preview defaults differ from build")
@@ -233,7 +233,7 @@ func TestPreviewSignatureIgnoresCoordinatesOnly(t *testing.T) {
 		}}
 	}
 	sig := func(p *zapp.Project) string {
-		return previewSignature(p, layout(p.DMG, p.App).Items)
+		return previewSignature(p, buildLayout(p.DMG, p.App).Items)
 	}
 	base := sig(project(10, 20, ""))
 	if moved := sig(project(300, 400, "")); moved != base {

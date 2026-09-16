@@ -2,6 +2,8 @@ package gui
 
 import (
 	"fmt"
+	"image"
+
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
@@ -42,8 +44,8 @@ func (g *editor) controls() []comp.Button {
 	}
 	if g.tab == tabDMG && g.enabled() {
 		buttons = append(buttons,
-			comp.Button{Bounds: comp.Box(g.w-440, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.panX = 0; g.panY = 0 }},
-			comp.Button{Bounds: comp.Box(g.w-364, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.panX = 0; g.panY = 0 }},
+			comp.Button{Bounds: comp.Box(g.w-440, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.pan = image.Point{} }},
+			comp.Button{Bounds: comp.Box(g.w-364, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.pan = image.Point{} }},
 			comp.Button{Bounds: comp.Box(404, 145, 104, 34), Label: "Add file", OnClick: g.guard(g.addFile)},
 			comp.Button{Bounds: comp.Box(518, 145, 142, 34), Label: "Remove selected", Disabled: g.selected == "", OnClick: g.guard(func() {
 				g.s.checkpoint()
@@ -63,8 +65,8 @@ func (g *editor) controls() []comp.Button {
 }
 func (g *editor) switchPackageForm() {
 	p := g.s.Project.PKG
-	if p.Components == nil && p.Distribution == nil {
-		if p.Identifier != "" || p.Version != "" || p.InstallLocation != "" || p.Scripts != "" || p.MinOS != "" || p.License != nil {
+	if !p.HasFullForm() {
+		if p.HasShortForm() {
 			g.report(fmt.Errorf("clear short-form fields before switching to components"), "")
 			return
 		}

@@ -1,8 +1,9 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
 	"image"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Panel groups related content with a consistent inset and title hierarchy.
@@ -26,20 +27,4 @@ func (v Panel) Draw(dst *ebiten.Image, p *Painter) {
 	if v.Description != "" {
 		p.Text(dst, p.Fit(v.Description, v.Bounds.Dx()-32, 12), v.Bounds.Min.X+Padding, v.Bounds.Min.Y+42, 12, p.Theme.Muted)
 	}
-}
-
-// Badge communicates a short state independently of actionable controls.
-type Badge struct {
-	Bounds    image.Rectangle
-	Label     string
-	Highlight bool
-}
-
-func (b Badge) Draw(dst *ebiten.Image, p *Painter) {
-	fg := p.Theme.Muted
-	if b.Highlight {
-		fg = p.Theme.Accent
-	}
-	RoundedRect(dst, b.Bounds, Radius, p.Theme.Panel)
-	p.Text(dst, p.Fit(b.Label, b.Bounds.Dx()-16, 12), b.Bounds.Min.X+8, b.Bounds.Min.Y+5, 12, fg)
 }

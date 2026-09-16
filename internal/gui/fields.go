@@ -17,10 +17,13 @@ type field struct {
 	comp.InputSpec
 	set    func(string) error
 	picker pickMode
+	// mayNotExist marks a path the build creates, so Validate does not require
+	// it to be on disk already.
+	mayNotExist bool
 }
 
 func stringField(label string, value *string, hint string) field {
-	return field{Label: label, Value: *value, Hint: hint, Placeholder: fieldPlaceholder(label), set: func(s string) error { *value = s; return nil }}
+	return field{Label: label, Value: *value, Hint: hint, Placeholder: fieldPlaceholders[label], set: func(s string) error { *value = s; return nil }}
 }
 func choiceField(label string, value *string, choices ...string) field {
 	f := stringField(label, value, "Click to choose, or press Enter")
@@ -60,26 +63,20 @@ func boolField(label string, value *bool, hint string) field {
 		return nil
 	}}
 }
-func intField(label string, value *int, low, high int, hint string, displayZero ...int) field {
-	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &comp.NumberSpec{Min: low, Max: high, Step: 1}, set: func(s string) error {
+
+// intField accepts 0 as "use def", so the stepper's own minimum (stepMin) is
+// passed separately from the range the setter accepts.
+func intField(label string, value *int, high, def, stepMin int, hint string) field {
+	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &comp.NumberSpec{Min: stepMin, Max: high, Step: 1, Default: def}, set: func(s string) error {
 		n, err := strconv.Atoi(strings.TrimSpace(s))
-		if err != nil || n < low || n > high {
-			return fmt.Errorf("%s must be %d–%d", label, low, high)
+		if err != nil || n < 0 || n > high {
+			return fmt.Errorf("%s must be 0–%d", label, high)
 		}
 		*value = n
 		return nil
 	}}
-	if len(displayZero) > 0 {
-		f.Number.Default = displayZero[0]
-		if label == "Icon size" {
-			f.Number.Min = dmg.MinIconSize
-		}
-		if label == "Label size" {
-			f.Number.Min = dmg.MinLabelSize
-		}
-	}
-	if *value == 0 && len(displayZero) > 0 {
-		f.DisplayValue = strconv.Itoa(displayZero[0]) + " (default)"
+	if *value == 0 {
+		f.DisplayValue = strconv.Itoa(def) + " (default)"
 	}
 	return f
 }
@@ -117,15 +114,23 @@ func (g *editor) rebuild() {
 			g.fields = append(g.fields, g.selectedItemFields(g.s.Project.DMG, item)...)
 		}
 	}
-	g.refreshPreview()
-	g.refreshItemKinds()
+	// Both derived caches read the layout minus item coordinates, so one
+	// signature keeps a drag or an arrow-key nudge from re-resolving the
+	// project and re-stat'ing every item path.
+	if sig := g.derivedSignature(); sig != g.previewSig {
+		g.previewSig = sig
+		g.refreshPreview()
+		g.refreshItemKinds()
+	}
 }
 
 func (g *editor) projectFields() []field {
 	p := g.s.Project
+	outDir := pathField("Output directory", &p.Out, "Directory used by DMG and PKG", pickFolder)
+	outDir.mayNotExist = true
 	return []field{
 		pathField("App bundle", &p.App, "Path to MyApp.app; relative to the configuration", pickApp),
-		pathField("Output directory", &p.Out, "Directory used by DMG and PKG", pickFolder),
+		outDir,
 	}
 }
 
@@ -133,15 +138,15 @@ func (g *editor) dmgFields() []field {
 	p := g.s.Project
 	c := p.DMG
 	var fields []field
-	height := intField("Window height", &c.Window.Height, 0, 32768, fmt.Sprintf("0 = default %d", zapp.DefaultWindowHeight), zapp.DefaultWindowHeight)
+	height := intField("Window height", &c.Window.Height, 32768, zapp.DefaultWindowHeight, 0, fmt.Sprintf("0 = default %d", zapp.DefaultWindowHeight))
 	height.SameRow = true
 	fields = append(fields,
 		stringField("Title", &c.Title, "Blank uses the app name"),
 		pathField("Background image", &c.Background, "PNG or JPEG; drawn at its native size", pickFile),
-		intField("Window width", &c.Window.Width, 0, 32768, fmt.Sprintf("0 = default %d", zapp.DefaultWindowWidth), zapp.DefaultWindowWidth),
+		intField("Window width", &c.Window.Width, 32768, zapp.DefaultWindowWidth, 0, fmt.Sprintf("0 = default %d", zapp.DefaultWindowWidth)),
 		height,
-		intField("Icon size", &c.IconSize, 0, dmg.MaxIconSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultIconSize, dmg.MinIconSize, dmg.MaxIconSize), zapp.DefaultIconSize),
-		intField("Label size", &c.LabelSize, 0, dmg.MaxLabelSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultLabelSize, dmg.MinLabelSize, dmg.MaxLabelSize), zapp.DefaultLabelSize),
+		intField("Icon size", &c.IconSize, dmg.MaxIconSize, zapp.DefaultIconSize, dmg.MinIconSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultIconSize, dmg.MinIconSize, dmg.MaxIconSize)),
+		intField("Label size", &c.LabelSize, dmg.MaxLabelSize, zapp.DefaultLabelSize, dmg.MinLabelSize, fmt.Sprintf("0 = %d; otherwise %d–%d", zapp.DefaultLabelSize, dmg.MinLabelSize, dmg.MaxLabelSize)),
 	)
 	if g.dmgAdvanced {
 		fields = append(fields,
@@ -165,7 +170,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 	if g.selected == "" {
 		return zapp.Content{}, false
 	}
-	i, found := layout(p.DMG, p.App).find(g.selected)
+	i, found := g.s.layout().find(g.selected)
 	if !found {
 		return zapp.Content{}, false
 	}
@@ -207,7 +212,7 @@ func (g *editor) pkgFields() []field {
 		choiceField("Package type", &c.Type, "", "product", "component"),
 		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
-	if c.Components == nil && c.Distribution == nil {
+	if !c.HasFullForm() {
 		return append(fields,
 			stringField("Identifier", &c.Identifier, "Blank reads the app Info.plist"),
 			stringField("Version", &c.Version, "Blank reads the app Info.plist"),
@@ -248,17 +253,15 @@ func (g *editor) notarizeFields() []field {
 	}
 }
 
-func fieldPlaceholder(label string) string {
-	examples := map[string]string{
-		"App bundle": "MyApp.app", "Output directory": "dist",
-		"Title": "App name", "Background image": "background.png",
-		"Disk icon": "volume.icns", "Output file": "Automatic output path",
-		"Identifier": "com.example.myapp", "Version": "1.0.0",
-		"Install location": "/Applications", "Scripts directory": "scripts",
-		"Minimum macOS": "10.13", "Signing identity": "Developer ID Application: …",
-		"PKCS#12 certificate": "certificate.p12", "PEM certificate": "certificate.pem",
-		"Password file": "password.txt", "Keychain profile": "notary-profile",
-		"Apple ID": "name@example.com", "Team ID": "ABCDEFGHIJ", "API key file": "api-key.json",
-	}
-	return examples[label]
+// fieldPlaceholders holds the greyed-out example shown in an empty input.
+var fieldPlaceholders = map[string]string{
+	"App bundle": "MyApp.app", "Output directory": "dist",
+	"Title": "App name", "Background image": "background.png",
+	"Disk icon": "volume.icns", "Output file": "Automatic output path",
+	"Identifier": "com.example.myapp", "Version": "1.0.0",
+	"Install location": "/Applications", "Scripts directory": "scripts",
+	"Minimum macOS": "10.13", "Signing identity": "Developer ID Application: …",
+	"PKCS#12 certificate": "certificate.p12", "PEM certificate": "certificate.pem",
+	"Password file": "password.txt", "Keychain profile": "notary-profile",
+	"Apple ID": "name@example.com", "Team ID": "ABCDEFGHIJ", "API key file": "api-key.json",
 }

@@ -114,37 +114,45 @@ func CopyDir(src, dst string) error {
 	return nil
 }
 
+// WriteTemp writes data to a new file beside dir with the given mode and
+// returns its name without publishing it. The caller moves it into place —
+// with a rename to replace a file, or a link to create one exclusively — and
+// removes it if that fails. Nothing is left behind when the write itself does.
+func WriteTemp(dir string, data []byte, mode os.FileMode) (string, error) {
+	temp, err := os.CreateTemp(dir, ".zapp-*")
+	if err != nil {
+		return "", err
+	}
+	name := temp.Name()
+	// CreateTemp opens at 0600; the replacement carries the caller's mode.
+	if err = temp.Chmod(mode); err == nil {
+		_, err = temp.Write(data)
+	}
+	if err == nil {
+		err = temp.Sync()
+	}
+	if cerr := temp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	return name, nil
+}
+
 // WriteFileAtomic replaces path with data, so a reader never sees a partly
 // written file and an interrupted write leaves the original in place. The
 // replacement is written beside the original, because a rename is only atomic
 // within one filesystem.
 func WriteFileAtomic(path string, data []byte, mode os.FileMode) error {
-	temp, err := os.CreateTemp(filepath.Dir(path), ".zapp-*")
+	name, err := WriteTemp(filepath.Dir(path), data, mode)
 	if err != nil {
 		return err
 	}
-	name := temp.Name()
-	renamed := false
-	defer func() {
-		if !renamed {
-			_ = os.Remove(name)
-		}
-	}()
-
-	if _, err := temp.Write(data); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	// CreateTemp opens at 0600; the replacement carries the original's mode.
-	if err := os.Chmod(name, mode); err != nil {
-		return err
-	}
 	if err := os.Rename(name, path); err != nil {
+		_ = os.Remove(name)
 		return err
 	}
-	renamed = true
 	return nil
 }
