@@ -3,9 +3,7 @@ package gui
 import (
 	"context"
 	"image"
-	"math"
 	"os"
-	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -31,26 +29,38 @@ type editor struct {
 	dragMoved                                bool
 	assets                                   map[string]*ebiten.Image
 	previewError                             string
+	previewSig                               string
 	dmgAdvanced, adding                      bool
 	previewActual, panning                   bool
 	panX, panY, panStartX, panStartY         int
 	panOriginX, panOriginY                   int
 }
 
+// systemFontPaths are probed in order for a Unicode-capable UI font. Absent
+// paths simply fail to open, so the list stays cross-platform.
+var systemFontPaths = []string{
+	"/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+	"C:/Windows/Fonts/malgun.ttf",
+	"/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+}
+
 func Run(ctx context.Context, s *Session) error {
-	painter, err := comp.NewPainter(nil, comp.DarkTheme())
+	// Prefer a local Unicode font when available, with the bundled font as
+	// fallback. Only the chosen candidate is read and parsed; Arial Unicode
+	// alone is ~20 MB, so parsing every candidate would be wasteful.
+	var ttf []byte
+	for _, name := range systemFontPaths {
+		if data, e := os.ReadFile(name); e == nil {
+			ttf = data
+			break
+		}
+	}
+	painter, err := comp.NewPainter(ttf, comp.DarkTheme())
+	if err != nil && ttf != nil {
+		painter, err = comp.NewPainter(nil, comp.DarkTheme())
+	}
 	if err != nil {
 		return err
-	}
-	// Prefer a local Unicode font when available, with the bundled font as fallback.
-	for _, name := range []string{"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/malgun.ttf", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"} {
-		if data, e := os.ReadFile(name); e == nil {
-			if next, e := comp.NewPainter(data, comp.DarkTheme()); e == nil {
-				painter.Close()
-				painter = next
-				break
-			}
-		}
 	}
 	defer painter.Close()
 	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ebiten.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
@@ -131,8 +141,8 @@ func (g *editor) validate() {
 }
 func (g *editor) settingsPanel() comp.Panel {
 	width := min(696, g.w-364)
-	title := tabNames[g.tab] + " settings"
-	if g.tab == 1 {
+	title := g.section().Name + " settings"
+	if g.tab == tabDMG {
 		width = 364
 		title = "Layout settings"
 	}
@@ -181,7 +191,7 @@ func (g *editor) editInput() {
 	}
 }
 func (g *editor) switchTab(index int) {
-	if index < 0 || index >= len(tabNames) || !g.commit() {
+	if index < 0 || index >= len(sections) || !g.commit() {
 		return
 	}
 	g.tab = index
@@ -198,134 +208,24 @@ func (g *editor) Update() error {
 		return err
 	}
 	if ebiten.IsWindowBeingClosed() {
-		if g.dirty() {
-			g.confirmClose = true
-		} else {
+		if !g.dirty() {
 			return ebiten.Termination
 		}
+		g.confirmClose = true
 	}
-	mx, my := comp.PointerPosition(g.w, g.h)
-	mouse := image.Pt(mx, my)
-	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	if click {
-		mx, my = comp.PointerPressPosition(g.w, g.h)
-		mouse = image.Pt(mx, my)
-	}
-	if g.confirmClose && g.closeDialog().Handle(mouse, click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
+	in := captureTick(g.w, g.h)
+	if g.confirmClose && g.closeDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
 		return nil
 	}
-	if comp.CommandKey() {
-		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-			g.save()
-			return nil
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
-			if g.active >= 0 {
-				g.rebuild()
-			} else {
-				if ebiten.IsKeyPressed(ebiten.KeyShift) {
-					g.s.Redo()
-				} else {
-					g.s.Undo()
-				}
-				g.rebuild()
-			}
-			return nil
-		}
-		for i, key := range []ebiten.Key{ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5, ebiten.KeyDigit6} {
-			if inpututil.IsKeyJustPressed(key) {
-				g.switchTab(i)
-				return nil
-			}
-		}
+	if g.handleShortcuts() {
+		return nil
 	}
-	if g.active >= 0 {
-		g.editInput()
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyTab) && len(g.fields) > 0 {
-		g.focus(0)
-	} else {
-		g.nudgeSelected()
+	g.handleTyping()
+	if in.click && g.handleClick(in) {
+		return nil
 	}
-	if click {
-		if g.tabs().Click(mouse) || (g.tab > 0 && g.stepToggle().Click(mouse)) || comp.ClickButtons(g.controls(), mouse) {
-			return nil
-		}
-		if i, ok := g.form.Hit(mouse); ok {
-			if g.active != i {
-				if !g.commit() {
-					return nil
-				}
-				g.focus(i)
-			}
-			if g.active >= 0 && len(g.input.Spec.Choices) > 0 {
-				g.cycleChoice(g.active)
-			}
-			return nil
-		}
-		if !g.commit() {
-			return nil
-		}
-		if g.tab == 1 && g.enabled() {
-			t := g.transform()
-			if mouse.In(g.previewArea()) && mouse.In(t.bounds) && !(g.previewActual && ebiten.IsKeyPressed(ebiten.KeySpace)) {
-				l := layout(g.s.Project.DMG, g.s.Project.App)
-				size, items := l.IconSize, l.Items
-				x, y := t.content(float64(mx), float64(my))
-				g.selected = ""
-				for _, item := range slices.Backward(items) {
-					if math.Abs(x-float64(item.X)) <= float64(size)/2 && math.Abs(y-float64(item.Y)) <= float64(size)/2 {
-						g.selected = item.Path
-						g.drag = item.Path
-						g.dragX = x - float64(item.X)
-						g.dragY = y - float64(item.Y)
-						g.dragMoved = false
-						break
-					}
-				}
-				g.rebuild()
-				g.form.ScrollTo(0)
-			}
-		}
-		if g.tab == 1 && g.enabled() && g.previewActual && mouse.In(g.previewArea()) && g.drag == "" {
-			g.panning = true
-			g.panStartX, g.panStartY = mx, my
-			g.panOriginX, g.panOriginY = g.panX, g.panY
-		}
-	}
-	if g.panning {
-		px, py := comp.PointerPosition(g.w, g.h)
-		g.panX, g.panY = g.panOriginX+px-g.panStartX, g.panOriginY+py-g.panStartY
-		g.clampPan()
-		if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			g.panning = false
-		}
-	}
-	if g.drag != "" {
-		// Apply the release position too: a short drag can finish between ticks.
-		px, py := comp.PointerPosition(g.w, g.h)
-		x, y := g.transform().content(float64(px), float64(py))
-		x -= g.dragX
-		y -= g.dragY
-		if i, ok := layout(g.s.Project.DMG, g.s.Project.App).find(g.drag); ok &&
-			(int(math.Round(x)) != i.X || int(math.Round(y)) != i.Y) {
-			if !g.dragMoved {
-				g.s.checkpoint()
-				g.dragMoved = true
-			}
-			g.s.move(g.drag, int(math.Round(x)), int(math.Round(y)))
-		}
-		if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			g.drag = ""
-			if g.dragMoved {
-				g.rebuild()
-				g.report(nil, "Position updated. Arrow keys nudge; Shift moves 10 pixels.")
-			}
-		}
-	}
-
-	if mouse.In(g.form.Bounds) {
-		_, wheel := ebiten.Wheel()
-		g.form.ScrollBy(-int(wheel * 38))
-	}
+	g.updatePan(in)
+	g.updateDrag(in)
+	g.scrollForm(in)
 	return nil
 }

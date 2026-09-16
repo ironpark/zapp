@@ -178,18 +178,7 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		if c.Title == "" {
 			c.Title = name
 		}
-		if c.Window.Width == 0 {
-			c.Window.Width = 640
-		}
-		if c.Window.Height == 0 {
-			c.Window.Height = 480
-		}
-		if c.IconSize == 0 {
-			c.IconSize = 128
-		}
-		if c.LabelSize == 0 {
-			c.LabelSize = 14
-		}
+		c.Window.Width, c.Window.Height, c.IconSize, c.LabelSize = c.Metrics()
 		if c.FS == "" {
 			c.FS = "hfsplus"
 		}
@@ -261,8 +250,8 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 			if q.App == "" {
 				return nil, fmt.Errorf("provide --app or config contents")
 			}
-			y := int(float64(c.Window.Height)/2-float64(c.IconSize)/2) + c.LabelSize
-			d.Contents = []dmg.Item{{Type: dmg.Dir, Path: q.App, X: int(float64(c.Window.Width)/3 - float64(c.IconSize)/2), Y: y}, {Type: dmg.Link, Path: "/Applications", X: int(float64(c.Window.Width)/3*2 + float64(c.IconSize)/2), Y: y}}
+			appX, linkX, y := c.DefaultPositions()
+			d.Contents = []dmg.Item{{Type: dmg.Dir, Path: q.App, X: appX, Y: y}, {Type: dmg.Link, Path: "/Applications", X: linkX, Y: y}}
 			for i, pos := range []*[2]int{c.AppPosition, c.ApplicationsPosition} {
 				if pos != nil {
 					d.Contents[i].X, d.Contents[i].Y = pos[0], pos[1]

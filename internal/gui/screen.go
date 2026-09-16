@@ -32,16 +32,16 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	comp.Rect(dst, comp.Box(24, 127, g.w-48, g.h-217), t.Panel)
 	comp.Border(dst, comp.Box(24, 127, g.w-48, g.h-217), t.Border)
 	g.tabs().Draw(dst, p, pointer)
-	if g.tab == 0 {
+	if g.tab == tabProject {
 		p.Text(dst, "Project workspace", 40, 148, 22, t.Text)
 	}
 	if !g.enabled() {
-		comp.Panel{Bounds: comp.Box(40, 195, g.w-80, 180), Title: tabNames[g.tab] + " is disabled", Description: "Enable this step above to include it in your project."}.Draw(dst, p)
+		comp.Panel{Bounds: comp.Box(40, 195, g.w-80, 180), Title: g.section().Name + " is disabled", Description: "Enable this step above to include it in your project."}.Draw(dst, p)
 		p.Text(dst, "Your settings are retained while you work. Disabled steps are omitted from the saved configuration.", 56, 285, 14, t.Muted)
 	} else {
 		g.settingsPanel().Draw(dst, p)
 		g.form.Draw(dst, p, g.active, &g.input)
-		if g.tab == 1 {
+		if g.tab == tabDMG {
 			g.drawPreview(dst)
 		} else {
 			g.drawHelp(dst)
@@ -58,7 +58,7 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	for _, button := range g.controls() {
 		button.Draw(dst, p, pointer)
 	}
-	if g.tab > 0 {
+	if g.section().Optional() {
 		g.stepToggle().Draw(dst, p, pointer)
 	}
 	if g.confirmClose {
@@ -66,17 +66,9 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	}
 }
 
-// tabDescriptions and the help section tables are fixed copy; they are indexed
-// per frame, so they live here rather than being rebuilt on every draw.
+// The help section tables are fixed copy read every frame, so they live here
+// rather than being rebuilt on each draw.
 var (
-	tabDescriptions = []string{
-		"Choose the app bundle and output directory shared by your packaging steps.",
-		"Arrange the installer window and its contents.",
-		"Configure the installer identity, destination and package contents.",
-		"Bundle the libraries your app needs and configure dependency search paths.",
-		"Choose the signing identity and entitlements for your app and installers.",
-		"Configure Apple notarization and ticket stapling for distribution.",
-	}
 	sharedHelpSections = [][2]string{
 		{"SAVE & VALIDATE", "Save writes all enabled steps. Validate checks build inputs. Run the CLI to build."},
 		{"EDITING", "Tab moves to the next field. Ctrl/Cmd+Enter applies JSON. Esc cancels an edit."},
@@ -94,18 +86,18 @@ func (g *editor) drawHelp(dst *ebiten.Image) {
 	panel := comp.Panel{Bounds: comp.Box(x, 195, g.w-x-40, g.h-301), Title: "About this step"}
 	panel.Draw(dst, g.ui)
 	area := panel.Content()
-	g.ui.Wrapped(dst, tabDescriptions[g.tab], area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
+	g.ui.Wrapped(dst, g.section().Description, area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
 	y := area.Min.Y + 110
-	sections := helpSections
-	if g.tab == 4 || g.tab == 5 {
-		sections = credentialHelpSections
+	help := helpSections
+	if g.section().Credentials {
+		help = credentialHelpSections
 	}
-	for _, section := range sections {
+	for _, entry := range help {
 		if y+90 > area.Max.Y {
 			break
 		}
-		g.ui.Text(dst, section[0], area.Min.X, y, 11, g.ui.Theme.Accent)
-		g.ui.Wrapped(dst, section[1], area.Min.X, y+25, area.Dx(), 13, g.ui.Theme.Muted, 3)
+		g.ui.Text(dst, entry[0], area.Min.X, y, 11, g.ui.Theme.Accent)
+		g.ui.Wrapped(dst, entry[1], area.Min.X, y+25, area.Dx(), 13, g.ui.Theme.Muted, 3)
 		y += 110
 	}
 }

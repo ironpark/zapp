@@ -6,6 +6,7 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -56,6 +57,10 @@ func (g *editor) transform() previewTransform {
 	return previewTransform{float64(x), float64(y), scale, comp.Box(x, y, width, height)}
 }
 
+// assetCachePrefix marks decoded-by-path entries in the asset map, keeping them
+// distinct from the logical "background" / "item:<path>" keys the preview draws.
+const assetCachePrefix = "file:"
+
 // previewImageExts are the icon sources the preview can decode directly.
 var previewImageExts = []string{".png", ".jpg", ".jpeg", ".icns"}
 
@@ -71,7 +76,7 @@ func (g *editor) loadAsset(key, path string) error {
 		g.assets[key] = nil
 		return nil
 	}
-	cacheKey := "file:" + path
+	cacheKey := assetCachePrefix + path
 	if cached, ok := g.assets[cacheKey]; ok {
 		g.assets[key] = cached
 		return nil
@@ -110,13 +115,37 @@ func (g *editor) loadAsset(key, path string) error {
 	return nil
 }
 
+// previewSignature captures every input refreshPreview consumes except item
+// coordinates. Dragging and arrow-key nudging only change X/Y, so a matching
+// signature means the resolved paths and decoded icons are still valid.
+func previewSignature(p *zapp.Project, items []layoutItem) string {
+	c := p.DMG
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00",
+		p.App, p.Out, c.Title, c.Icon, c.Background, c.FS, c.Out)
+	for _, i := range items {
+		fmt.Fprintf(&b, "%s\x01%s\x01%t\x02", i.Path, i.Name, i.Link)
+	}
+	return b.String()
+}
+
 func (g *editor) refreshPreview() {
-	if g.tab != 1 || g.s.Project.DMG == nil {
+	if g.tab != tabDMG || g.s.Project.DMG == nil {
 		return
 	}
-	g.previewError = ""
 	c := g.s.Project.DMG
 	items := layout(c, g.s.Project.App).Items
+	sig := previewSignature(g.s.Project, items)
+	if sig == g.previewSig {
+		return
+	}
+	g.previewSig = sig
+	g.previewError = ""
+	// Drop the previous logical keys so items removed from the layout stop
+	// pinning their textures; the "file:" entries below survive as the cache.
+	maps.DeleteFunc(g.assets, func(k string, _ *ebiten.Image) bool {
+		return !strings.HasPrefix(k, assetCachePrefix)
+	})
 	bg := g.assetPath(c.Background)
 	paths := make([]string, len(items))
 	for i, item := range items {
@@ -141,8 +170,9 @@ func (g *editor) refreshPreview() {
 				paths[i] = item.Path
 			}
 		} else if hasVariables {
+			// Resolve clones internally, so one scratch project serves every item.
+			one := p.Clone()
 			for i, item := range items {
-				one := p.Clone()
 				x, y := item.X, item.Y
 				one.DMG.Contents = map[string]zapp.Content{item.Path: {X: &x, Y: &y, Link: item.Link, Name: item.Name}}
 				if resolved, err := one.Resolve(); err == nil {
@@ -173,6 +203,27 @@ func (g *editor) refreshPreview() {
 			_ = g.loadAsset(key, path)
 		}
 	}
+	g.pruneAssets()
+}
+
+// pruneAssets releases cached textures that no live preview key references.
+// Every path typed during a session would otherwise hold a GPU texture forever.
+func (g *editor) pruneAssets() {
+	live := map[*ebiten.Image]bool{}
+	for key, img := range g.assets {
+		if img != nil && !strings.HasPrefix(key, assetCachePrefix) {
+			live[img] = true
+		}
+	}
+	maps.DeleteFunc(g.assets, func(key string, img *ebiten.Image) bool {
+		if !strings.HasPrefix(key, assetCachePrefix) || live[img] {
+			return false
+		}
+		if img != nil {
+			img.Deallocate()
+		}
+		return true
+	})
 }
 
 func (g *editor) drawPreview(dst *ebiten.Image) {

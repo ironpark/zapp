@@ -99,9 +99,6 @@ func (s *Session) encode() ([]byte, error) {
 // undoLimit caps the retained history so long sessions stay bounded.
 const undoLimit = 100
 
-func noSections(p *zapp.Project) bool {
-	return p.DMG == nil && p.PKG == nil && p.Dep == nil && p.Sign == nil && p.Notarize == nil
-}
 func (s *Session) Dirty() bool { b, err := s.encode(); return err != nil || !bytes.Equal(b, s.saved) }
 
 // push records a snapshot as the new undo top and drops any redo branch.
@@ -115,22 +112,18 @@ func (s *Session) push(before *zapp.Project) {
 func (s *Session) checkpoint()   { s.push(s.Project.Clone()) }
 func (s *Session) CanUndo() bool { return len(s.undo) > 0 }
 func (s *Session) CanRedo() bool { return len(s.redo) > 0 }
-func (s *Session) Undo() {
-	if !s.CanUndo() {
+
+// pop makes the top of from current, pushing the outgoing project onto to.
+func (s *Session) pop(from, to *[]*zapp.Project) {
+	if len(*from) == 0 {
 		return
 	}
-	s.redo = append(s.redo, s.Project.Clone())
-	s.Project = s.undo[len(s.undo)-1]
-	s.undo = s.undo[:len(s.undo)-1]
+	*to = append(*to, s.Project.Clone())
+	s.Project = (*from)[len(*from)-1]
+	*from = (*from)[:len(*from)-1]
 }
-func (s *Session) Redo() {
-	if !s.CanRedo() {
-		return
-	}
-	s.undo = append(s.undo, s.Project.Clone())
-	s.Project = s.redo[len(s.redo)-1]
-	s.redo = s.redo[:len(s.redo)-1]
-}
+func (s *Session) Undo() { s.pop(&s.undo, &s.redo) }
+func (s *Session) Redo() { s.pop(&s.redo, &s.undo) }
 
 func (s *Session) Save() error {
 	if err := s.validateLayout(); err != nil {
@@ -209,36 +202,19 @@ func (l dmgLayout) find(path string) (layoutItem, bool) {
 }
 
 func layout(c *zapp.DMGConfig, app string) dmgLayout {
-	w, h, size, label := c.Window.Width, c.Window.Height, c.IconSize, c.LabelSize
-	if w == 0 {
-		w = 640
-	}
-	if h == 0 {
-		h = 480
-	}
-	if size == 0 {
-		size = 128
-	}
-	if label == 0 {
-		label = 14
-	}
+	// Geometry and automatic placement come from the same helpers Resolve uses,
+	// so the preview cannot drift from what a build actually produces.
+	w, h, size, label := c.Metrics()
 	var items []layoutItem
 	if c.Contents == nil {
 		if app != "" {
-			y := int(float64(h)/2-float64(size)/2) + label
-			items = []layoutItem{{app, "", false, int(float64(w)/3 - float64(size)/2), y}, {"/Applications", "", true, int(float64(w)/3*2 + float64(size)/2), y}}
+			appX, linkX, y := c.DefaultPositions()
+			items = []layoutItem{{app, "", false, appX, y}, {"/Applications", "", true, linkX, y}}
 		}
 	} else {
 		for _, key := range slices.Sorted(maps.Keys(c.Contents)) {
 			v := c.Contents[key]
-			x, y := 0, 0
-			if v.X != nil {
-				x = *v.X
-			}
-			if v.Y != nil {
-				y = *v.Y
-			}
-			items = append(items, layoutItem{key, v.Name, v.Link, x, y})
+			items = append(items, layoutItem{key, v.Name, v.Link, coord(v.X), coord(v.Y)})
 		}
 	}
 	return dmgLayout{w, h, size, label, items}
@@ -298,11 +274,11 @@ func (s *Session) validateLayout() error {
 	default:
 		return fmt.Errorf("format must be udzo or ulfo")
 	}
-	if l.IconSize < 16 || l.IconSize > 512 {
-		return fmt.Errorf("icon size must be 16–512")
+	if l.IconSize < dmg.MinIconSize || l.IconSize > dmg.MaxIconSize {
+		return fmt.Errorf("icon size must be %d–%d", dmg.MinIconSize, dmg.MaxIconSize)
 	}
-	if l.LabelSize < 10 || l.LabelSize > 16 {
-		return fmt.Errorf("label size must be 10–16")
+	if l.LabelSize < dmg.MinLabelSize || l.LabelSize > dmg.MaxLabelSize {
+		return fmt.Errorf("label size must be %d–%d", dmg.MinLabelSize, dmg.MaxLabelSize)
 	}
 	if c.Contents != nil {
 		for key, v := range c.Contents {

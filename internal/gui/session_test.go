@@ -224,3 +224,27 @@ func TestSaveThroughSymlinkKeepsConfigBase(t *testing.T) {
 		t.Fatalf("target not updated: %v", err)
 	}
 }
+
+func TestPreviewSignatureIgnoresCoordinatesOnly(t *testing.T) {
+	project := func(x, y int, name string) *zapp.Project {
+		return &zapp.Project{App: "My.app", DMG: &zapp.DMGConfig{
+			Background: "bg.png",
+			Contents:   map[string]zapp.Content{"My.app": {X: &x, Y: &y, Name: name}},
+		}}
+	}
+	sig := func(p *zapp.Project) string {
+		return previewSignature(p, layout(p.DMG, p.App).Items)
+	}
+	base := sig(project(10, 20, ""))
+	if moved := sig(project(300, 400, "")); moved != base {
+		t.Errorf("moving an icon changed the preview signature:\n got %q\nwant %q", moved, base)
+	}
+	if renamed := sig(project(10, 20, "Renamed")); renamed == base {
+		t.Error("renaming an item left the preview signature unchanged")
+	}
+	changed := project(10, 20, "")
+	changed.DMG.Background = "other.png"
+	if sig(changed) == base {
+		t.Error("changing the background left the preview signature unchanged")
+	}
+}

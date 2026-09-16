@@ -332,3 +332,44 @@ func TestFullPKGLicensePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Resolve and DMGConfig.DefaultPositions must agree: the GUI preview places
+// automatic contents with DefaultPositions, so any drift would show the user a
+// layout different from the one a build produces.
+func TestResolveMatchesDefaultPositions(t *testing.T) {
+	for _, c := range []*DMGConfig{
+		{},
+		{Window: Window{Width: 900, Height: 700}},
+		{IconSize: 96, LabelSize: 12},
+		{Window: Window{Width: 1024}, IconSize: 64},
+	} {
+		dir := t.TempDir()
+		p := &Project{App: syntheticApp(t, dir), Out: filepath.Join(dir, "out"), DMG: c}
+		plan, err := p.Resolve()
+		if err != nil {
+			t.Fatal(err)
+		}
+		appX, linkX, y := c.DefaultPositions()
+		if len(plan.DMG.Contents) != 2 {
+			t.Fatalf("expected the automatic app + Applications layout, got %d items", len(plan.DMG.Contents))
+		}
+		app, link := plan.DMG.Contents[0], plan.DMG.Contents[1]
+		if app.X != appX || app.Y != y {
+			t.Errorf("app placed at (%d,%d), DefaultPositions says (%d,%d)", app.X, app.Y, appX, y)
+		}
+		if link.X != linkX || link.Y != y {
+			t.Errorf("Applications placed at (%d,%d), DefaultPositions says (%d,%d)", link.X, link.Y, linkX, y)
+		}
+	}
+}
+
+func TestMetricsAppliesDocumentedDefaults(t *testing.T) {
+	w, h, icon, label := (&DMGConfig{}).Metrics()
+	if w != DefaultWindowWidth || h != DefaultWindowHeight || icon != DefaultIconSize || label != DefaultLabelSize {
+		t.Errorf("empty config metrics = (%d,%d,%d,%d), want the documented defaults", w, h, icon, label)
+	}
+	set := &DMGConfig{Window: Window{Width: 800, Height: 600}, IconSize: 64, LabelSize: 11}
+	if w, h, icon, label = set.Metrics(); w != 800 || h != 600 || icon != 64 || label != 11 {
+		t.Errorf("explicit metrics = (%d,%d,%d,%d), want them preserved", w, h, icon, label)
+	}
+}

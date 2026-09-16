@@ -16,9 +16,9 @@ func (g *editor) guard(action func()) func() {
 	}
 }
 func (g *editor) tabs() comp.Tabs {
-	items := make([]comp.Tab, len(tabNames))
-	for i, name := range tabNames {
-		items[i] = comp.Tab{Label: name}
+	items := make([]comp.Tab, len(sections))
+	for i, s := range sections {
+		items[i] = comp.Tab{Label: s.Name}
 	}
 	var measure func(string, int) int
 	if g.ui != nil {
@@ -27,7 +27,7 @@ func (g *editor) tabs() comp.Tabs {
 	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 84, g.w-48, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
 }
 func (g *editor) stepToggle() comp.Toggle {
-	return comp.Toggle{Bounds: comp.Box(24, 145, 250, 34), Label: "Enable " + tabNames[g.tab], Checked: g.enabled(), OnChange: g.guard(g.toggle)}
+	return comp.Toggle{Bounds: comp.Box(24, 145, 250, 34), Label: "Enable " + g.section().Name, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
 }
 func (g *editor) controls() []comp.Button {
 	buttons := []comp.Button{
@@ -36,7 +36,7 @@ func (g *editor) controls() []comp.Button {
 		{Bounds: comp.Box(g.w-154, 22, 130, 36), Label: "Save", Selected: true, OnClick: func() { g.save() }},
 		{Bounds: comp.Box(g.w-154, g.h-61, 130, 36), Label: "Validate", OnClick: g.validate},
 	}
-	if g.tab == 1 && g.enabled() {
+	if g.tab == tabDMG && g.enabled() {
 		buttons = append(buttons,
 			comp.Button{Bounds: comp.Box(g.w-196, 205, 68, 28), Label: "Fit", Selected: !g.previewActual, OnClick: func() { g.previewActual = false; g.panX = 0; g.panY = 0 }},
 			comp.Button{Bounds: comp.Box(g.w-120, 205, 64, 28), Label: "100%", Selected: g.previewActual, OnClick: func() { g.previewActual = true; g.panX = 0; g.panY = 0 }},
@@ -52,7 +52,7 @@ func (g *editor) controls() []comp.Button {
 			comp.Button{Bounds: comp.Box(826, 145, 120, 34), Label: "Advanced", Selected: g.dmgAdvanced, OnClick: g.guard(func() { g.dmgAdvanced = !g.dmgAdvanced; g.form.ScrollTo(0); g.rebuild() })},
 		)
 	}
-	if g.tab == 2 && g.enabled() {
+	if g.tab == tabPKG && g.enabled() {
 		buttons = append(buttons, comp.Button{Bounds: comp.Box(294, 145, 220, 34), Label: "Switch package form", OnClick: g.guard(g.switchPackageForm)})
 	}
 	return buttons

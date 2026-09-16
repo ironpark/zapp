@@ -6,6 +6,7 @@ package comp
 import (
 	"image"
 	"image/color"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -75,6 +76,15 @@ func (p *Painter) Measure(s string, size int) int { return font.MeasureString(p.
 func (p *Painter) Text(dst *ebiten.Image, s string, x, y, size int, c color.Color) {
 	text.Draw(dst, s, p.face(size), x, y+size, c)
 }
+
+// fitRunes returns the longest prefix length of r that still fits in width with
+// suffix appended. Measured width grows monotonically with the prefix, so a
+// binary search replaces a scan that re-measured the whole prefix per dropped rune.
+func (p *Painter) fitRunes(r []rune, suffix string, width, size int) int {
+	return sort.Search(len(r), func(n int) bool {
+		return p.Measure(string(r[:n+1])+suffix, size) > width
+	})
+}
 func (p *Painter) Fit(s string, width, size int) string {
 	if width <= 0 {
 		return ""
@@ -86,18 +96,12 @@ func (p *Painter) Fit(s string, width, size int) string {
 		return ""
 	}
 	r := []rune(s)
-	for len(r) > 0 && p.Measure(string(r)+"…", size) > width {
-		r = r[:len(r)-1]
-	}
-	return string(r) + "…"
+	return string(r[:p.fitRunes(r, "…", width, size)]) + "…"
 }
 func (p *Painter) Wrapped(dst *ebiten.Image, s string, x, y, width, size int, c color.Color, maxLines int) {
 	for i := 0; i < maxLines && s != ""; i++ {
 		r := []rune(s)
-		n := len(r)
-		for n > 0 && p.Measure(string(r[:n]), size) > width {
-			n--
-		}
+		n := p.fitRunes(r, "", width, size)
 		if n == 0 {
 			return
 		}

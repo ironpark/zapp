@@ -13,16 +13,37 @@ type Form struct {
 	offset int
 }
 
-func inputHeight(f InputSpec) int {
+// Row geometry. Each row is a label, the editable box, then a hint; rowHeight
+// covers all three plus the gap to the next row. Multiline rows are taller so a
+// JSON value is legible without scrolling the box itself.
+const (
+	labelGutter    = 25
+	hintGutter     = 19
+	boxHeight      = 34
+	multiBox       = 108
+	rowHeight      = 89
+	multiRowHeight = 165
+)
+
+// rowSpan is the vertical space one field occupies, including its gutters.
+func rowSpan(f InputSpec) int {
 	if f.Multiline {
-		return 165
+		return multiRowHeight
 	}
-	return 89
+	return rowHeight
+}
+
+// boxSpan is the height of the editable area alone.
+func boxSpan(f InputSpec) int {
+	if f.Multiline {
+		return multiBox
+	}
+	return boxHeight
 }
 func (f Form) Limit() int {
 	height := 0
 	for _, i := range f.Inputs {
-		height += inputHeight(i)
+		height += rowSpan(i)
 	}
 	return max(0, height-f.Bounds.Dy())
 }
@@ -37,13 +58,9 @@ func (f Form) FieldBounds(index int) image.Rectangle {
 	}
 	y := f.Bounds.Min.Y - f.offset
 	for i := range index {
-		y += inputHeight(f.Inputs[i])
+		y += rowSpan(f.Inputs[i])
 	}
-	height := 34
-	if f.Inputs[index].Multiline {
-		height = 108
-	}
-	return Box(f.Bounds.Min.X, y+25, f.Bounds.Dx(), height)
+	return Box(f.Bounds.Min.X, y+labelGutter, f.Bounds.Dx(), boxSpan(f.Inputs[index]))
 }
 func (f Form) Hit(point image.Point) (int, bool) {
 	if !point.In(f.Bounds) {
@@ -65,8 +82,8 @@ func (f *Form) Reveal(index int) {
 	if r.Max.Y > f.Bounds.Max.Y {
 		offset += r.Max.Y - f.Bounds.Max.Y
 	}
-	if r.Min.Y < f.Bounds.Min.Y+25 {
-		offset -= f.Bounds.Min.Y + 25 - r.Min.Y
+	if r.Min.Y < f.Bounds.Min.Y+labelGutter {
+		offset -= f.Bounds.Min.Y + labelGutter - r.Min.Y
 	}
 	f.ScrollTo(offset)
 }
@@ -78,7 +95,7 @@ func (f Form) Draw(dst *ebiten.Image, p *Painter, active int, draft *Input) {
 	canvas := dst.SubImage(bounds).(*ebiten.Image)
 	for i, spec := range f.Inputs {
 		r := f.FieldBounds(i)
-		row := image.Rect(r.Min.X, r.Min.Y-25, r.Max.X, r.Max.Y+19)
+		row := image.Rect(r.Min.X, r.Min.Y-labelGutter, r.Max.X, r.Max.Y+hintGutter)
 		if !row.Overlaps(bounds) {
 			continue
 		}

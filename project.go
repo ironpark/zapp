@@ -68,6 +68,46 @@ type DMGConfig struct {
 	AppPosition          *[2]int            `json:"-"`
 	ApplicationsPosition *[2]int            `json:"-"`
 }
+
+// DMG layout defaults, applied wherever a field is left at its zero value.
+const (
+	DefaultWindowWidth  = 640
+	DefaultWindowHeight = 480
+	DefaultIconSize     = 128
+	DefaultLabelSize    = 14
+)
+
+// Metrics returns the window and icon geometry with defaults applied, leaving
+// the config untouched. Resolve and the GUI preview share one definition of
+// what an unset dimension means.
+func (c *DMGConfig) Metrics() (width, height, iconSize, labelSize int) {
+	width, height, iconSize, labelSize = c.Window.Width, c.Window.Height, c.IconSize, c.LabelSize
+	if width == 0 {
+		width = DefaultWindowWidth
+	}
+	if height == 0 {
+		height = DefaultWindowHeight
+	}
+	if iconSize == 0 {
+		iconSize = DefaultIconSize
+	}
+	if labelSize == 0 {
+		labelSize = DefaultLabelSize
+	}
+	return
+}
+
+// DefaultPositions returns the automatic placement used when contents are not
+// listed: the app bundle left of centre and the Applications link right of it,
+// both on the same baseline.
+func (c *DMGConfig) DefaultPositions() (appX, linkX, y int) {
+	width, height, iconSize, labelSize := c.Metrics()
+	y = int(float64(height)/2-float64(iconSize)/2) + labelSize
+	appX = int(float64(width)/3 - float64(iconSize)/2)
+	linkX = int(float64(width)/3*2 + float64(iconSize)/2)
+	return
+}
+
 type License map[string]string
 
 func (l *License) UnmarshalYAML(data []byte) error {

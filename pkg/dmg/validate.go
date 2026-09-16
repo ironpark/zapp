@@ -17,6 +17,17 @@ func (i Item) ImageName() string {
 	return filepath.Base(i.Path)
 }
 
+// Layout bounds accepted by Validate. They are exported so editors can reject
+// out-of-range input with the same limits image generation enforces.
+const (
+	MinIconSize  = 16
+	MaxIconSize  = 512
+	MinLabelSize = 10
+	MaxLabelSize = 16
+	// MaxCoordinate is the largest icon position a Finder layout record holds.
+	MaxCoordinate = 0xffffffff
+)
+
 // Validate checks layout and source inputs before image generation.
 func (c Config) Validate() error {
 	if c.Title == "" {
@@ -25,11 +36,11 @@ func (c Config) Validate() error {
 	if c.WindowWidth <= 0 || c.WindowHeight <= 0 {
 		return fmt.Errorf("window dimensions must be positive")
 	}
-	if c.ContentsIconSize < 16 || c.ContentsIconSize > 512 {
-		return fmt.Errorf("icon size must be between 16 and 512")
+	if c.ContentsIconSize < MinIconSize || c.ContentsIconSize > MaxIconSize {
+		return fmt.Errorf("icon size must be between %d and %d", MinIconSize, MaxIconSize)
 	}
-	if c.LabelSize < 10 || c.LabelSize > 16 {
-		return fmt.Errorf("label size must be between 10 and 16")
+	if c.LabelSize < MinLabelSize || c.LabelSize > MaxLabelSize {
+		return fmt.Errorf("label size must be between %d and %d", MinLabelSize, MaxLabelSize)
 	}
 	if len(c.Contents) == 0 {
 		return fmt.Errorf("contents must not be empty")
@@ -48,7 +59,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("duplicate or reserved content name %q", name)
 		}
 		seen[key] = true
-		if item.X < 0 || item.Y < 0 || uint64(item.X) > 0xffffffff || uint64(item.Y) > 0xffffffff {
+		if item.X < 0 || item.Y < 0 || uint64(item.X) > MaxCoordinate || uint64(item.Y) > MaxCoordinate {
 			return fmt.Errorf("invalid coordinates for %q", name)
 		}
 		switch item.Type {
