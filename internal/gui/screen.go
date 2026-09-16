@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -62,15 +61,15 @@ func (g *editor) Draw(dst *ebiten.Image) {
 	if g.tab > 0 {
 		g.stepToggle().Draw(dst, p, pointer)
 	}
-	g.closeDialog().Draw(dst, p, pointer)
+	if g.confirmClose {
+		g.closeDialog().Draw(dst, p, pointer)
+	}
 }
 
-func (g *editor) drawHelp(dst *ebiten.Image) {
-	x := g.settingsPanel().Bounds.Max.X + 16
-	panel := comp.Panel{Bounds: comp.Box(x, 195, g.w-x-40, g.h-301), Title: "About this step"}
-	panel.Draw(dst, g.ui)
-	area := panel.Content()
-	descriptions := []string{
+// tabDescriptions and the help section tables are fixed copy; they are indexed
+// per frame, so they live here rather than being rebuilt on every draw.
+var (
+	tabDescriptions = []string{
 		"Choose the app bundle and output directory shared by your packaging steps.",
 		"Arrange the installer window and its contents.",
 		"Configure the installer identity, destination and package contents.",
@@ -78,15 +77,28 @@ func (g *editor) drawHelp(dst *ebiten.Image) {
 		"Choose the signing identity and entitlements for your app and installers.",
 		"Configure Apple notarization and ticket stapling for distribution.",
 	}
-	g.ui.Wrapped(dst, descriptions[g.tab], area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
-	y := area.Min.Y + 110
-	sections := [][2]string{
-		{"PATHS & VALUES", "Paths are relative to this configuration. ${env:NAME} expressions are preserved."},
+	sharedHelpSections = [][2]string{
 		{"SAVE & VALIDATE", "Save writes all enabled steps. Validate checks build inputs. Run the CLI to build."},
 		{"EDITING", "Tab moves to the next field. Ctrl/Cmd+Enter applies JSON. Esc cancels an edit."},
 	}
+	helpSections = append([][2]string{
+		{"PATHS & VALUES", "Paths are relative to this configuration. ${env:NAME} expressions are preserved."},
+	}, sharedHelpSections...)
+	credentialHelpSections = append([][2]string{
+		{"CREDENTIALS", "Use environment variables for passwords and other sensitive values."},
+	}, sharedHelpSections...)
+)
+
+func (g *editor) drawHelp(dst *ebiten.Image) {
+	x := g.settingsPanel().Bounds.Max.X + 16
+	panel := comp.Panel{Bounds: comp.Box(x, 195, g.w-x-40, g.h-301), Title: "About this step"}
+	panel.Draw(dst, g.ui)
+	area := panel.Content()
+	g.ui.Wrapped(dst, tabDescriptions[g.tab], area.Min.X, area.Min.Y, area.Dx(), 15, g.ui.Theme.Text, 4)
+	y := area.Min.Y + 110
+	sections := helpSections
 	if g.tab == 4 || g.tab == 5 {
-		sections[0] = [2]string{"CREDENTIALS", "Use environment variables for passwords and other sensitive values."}
+		sections = credentialHelpSections
 	}
 	for _, section := range sections {
 		if y+90 > area.Max.Y {
@@ -108,25 +120,18 @@ func (g *editor) addFile() {
 		g.report(nil, "Enter a file or folder path, then click Add file again.")
 		return
 	}
-	path := key
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(filepath.Dir(g.s.Path), path)
-	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(g.assetPath(key)); err != nil {
 		g.report(err, "")
 		return
 	}
-	_, _, _, _, items := layout(g.s.Project.DMG, g.s.Project.App)
-	for _, i := range items {
-		if i.Path == key {
-			g.report(fmt.Errorf("that path is already in the layout"), "")
-			return
-		}
+	if _, ok := layout(g.s.Project.DMG, g.s.Project.App).find(key); ok {
+		g.report(fmt.Errorf("that path is already in the layout"), "")
+		return
 	}
 	g.s.checkpoint()
 	g.s.materialize()
-	w, h, _, _, _ := layout(g.s.Project.DMG, g.s.Project.App)
-	x, y := w/2, h/2
+	l := layout(g.s.Project.DMG, g.s.Project.App)
+	x, y := l.W/2, l.H/2
 	g.s.Project.DMG.Contents[key] = zapp.Content{X: &x, Y: &y}
 	g.selected = key
 	g.newPath = ""

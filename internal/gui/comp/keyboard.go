@@ -1,6 +1,8 @@
 package comp
 
 import (
+	"slices"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -13,23 +15,10 @@ type Keyboard struct {
 }
 
 func (k Keyboard) JustPressed(key ebiten.Key) bool {
-	for _, v := range k.Pressed {
-		if v == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(k.Pressed, key)
 }
 func (k Keyboard) Repeats(key ebiten.Key) bool {
-	if k.JustPressed(key) {
-		return true
-	}
-	for _, v := range k.Repeated {
-		if v == key {
-			return true
-		}
-	}
-	return false
+	return k.JustPressed(key) || slices.Contains(k.Repeated, key)
 }
 func CommandKey() bool {
 	return ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyMeta)

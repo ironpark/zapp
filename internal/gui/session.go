@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/ironpark/zapp"
@@ -95,19 +96,27 @@ func (s *Session) encode() ([]byte, error) {
 	return data, err
 }
 
+// undoLimit caps the retained history so long sessions stay bounded.
+const undoLimit = 100
+
 func noSections(p *zapp.Project) bool {
 	return p.DMG == nil && p.PKG == nil && p.Dep == nil && p.Sign == nil && p.Notarize == nil
 }
 func (s *Session) Dirty() bool { b, err := s.encode(); return err != nil || !bytes.Equal(b, s.saved) }
-func (s *Session) checkpoint() {
-	s.undo = append(s.undo, s.Project.Clone())
-	if len(s.undo) > 100 {
+
+// push records a snapshot as the new undo top and drops any redo branch.
+func (s *Session) push(before *zapp.Project) {
+	s.undo = append(s.undo, before)
+	if len(s.undo) > undoLimit {
 		s.undo = s.undo[1:]
 	}
 	s.redo = nil
 }
+func (s *Session) checkpoint()   { s.push(s.Project.Clone()) }
+func (s *Session) CanUndo() bool { return len(s.undo) > 0 }
+func (s *Session) CanRedo() bool { return len(s.redo) > 0 }
 func (s *Session) Undo() {
-	if len(s.undo) == 0 {
+	if !s.CanUndo() {
 		return
 	}
 	s.redo = append(s.redo, s.Project.Clone())
@@ -115,7 +124,7 @@ func (s *Session) Undo() {
 	s.undo = s.undo[:len(s.undo)-1]
 }
 func (s *Session) Redo() {
-	if len(s.redo) == 0 {
+	if !s.CanRedo() {
 		return
 	}
 	s.undo = append(s.undo, s.Project.Clone())
@@ -182,7 +191,24 @@ func (s *Session) Save() error {
 	return nil
 }
 
-func layout(c *zapp.DMGConfig, app string) (int, int, int, int, []layoutItem) {
+// dmgLayout is the resolved preview geometry: window size, icon and label
+// metrics, and the ordered items placed inside the window.
+type dmgLayout struct {
+	W, H, IconSize, LabelSize int
+	Items                     []layoutItem
+}
+
+// find returns the item with the given path, if it is present in the layout.
+func (l dmgLayout) find(path string) (layoutItem, bool) {
+	for _, i := range l.Items {
+		if i.Path == path {
+			return i, true
+		}
+	}
+	return layoutItem{}, false
+}
+
+func layout(c *zapp.DMGConfig, app string) dmgLayout {
 	w, h, size, label := c.Window.Width, c.Window.Height, c.IconSize, c.LabelSize
 	if w == 0 {
 		w = 640
@@ -203,12 +229,7 @@ func layout(c *zapp.DMGConfig, app string) (int, int, int, int, []layoutItem) {
 			items = []layoutItem{{app, "", false, int(float64(w)/3 - float64(size)/2), y}, {"/Applications", "", true, int(float64(w)/3*2 + float64(size)/2), y}}
 		}
 	} else {
-		keys := make([]string, 0, len(c.Contents))
-		for key := range c.Contents {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
+		for _, key := range slices.Sorted(maps.Keys(c.Contents)) {
 			v := c.Contents[key]
 			x, y := 0, 0
 			if v.X != nil {
@@ -220,7 +241,7 @@ func layout(c *zapp.DMGConfig, app string) (int, int, int, int, []layoutItem) {
 			items = append(items, layoutItem{key, v.Name, v.Link, x, y})
 		}
 	}
-	return w, h, size, label, items
+	return dmgLayout{w, h, size, label, items}
 }
 
 type layoutItem struct {
@@ -230,17 +251,14 @@ type layoutItem struct {
 }
 
 func (i layoutItem) title() string {
-	if i.Name != "" {
-		return i.Name
-	}
-	return filepath.Base(i.Path)
+	return dmg.Item{Name: i.Name, Path: i.Path}.ImageName()
 }
 func (s *Session) materialize() {
 	c := s.Project.DMG
 	if c.Contents != nil {
 		return
 	}
-	_, _, _, _, items := layout(c, s.Project.App)
+	items := layout(c, s.Project.App).Items
 	c.Contents = map[string]zapp.Content{}
 	for _, item := range items {
 		x, y := item.X, item.Y
@@ -251,13 +269,13 @@ func (s *Session) materialize() {
 func (s *Session) move(key string, x, y int) {
 	s.materialize()
 	c := s.Project.DMG
-	w, h, _, _, _ := layout(c, s.Project.App)
+	l := layout(c, s.Project.App)
 	item, ok := c.Contents[key]
 	if !ok {
 		return
 	}
-	x = max(0, min(w, x))
-	y = max(0, min(h, y))
+	x = max(0, min(l.W, x))
+	y = max(0, min(l.H, y))
 	item.X = &x
 	item.Y = &y
 	c.Contents[key] = item
@@ -268,8 +286,8 @@ func (s *Session) validateLayout() error {
 	if c == nil {
 		return nil
 	}
-	w, h, size, label, items := layout(c, s.Project.App)
-	if w < 1 || h < 1 {
+	l := layout(c, s.Project.App)
+	if l.W < 1 || l.H < 1 {
 		return fmt.Errorf("window dimensions must be positive")
 	}
 	if _, err := dmg.ParseFileSystem(c.FS); err != nil {
@@ -280,10 +298,10 @@ func (s *Session) validateLayout() error {
 	default:
 		return fmt.Errorf("format must be udzo or ulfo")
 	}
-	if size < 16 || size > 512 {
+	if l.IconSize < 16 || l.IconSize > 512 {
 		return fmt.Errorf("icon size must be 16–512")
 	}
-	if label < 10 || label > 16 {
+	if l.LabelSize < 10 || l.LabelSize > 16 {
 		return fmt.Errorf("label size must be 10–16")
 	}
 	if c.Contents != nil {
@@ -294,8 +312,8 @@ func (s *Session) validateLayout() error {
 		}
 		// Validate names/coordinates without requiring source files to already
 		// exist. Full build-input validation is a separate explicit UI action.
-		d := dmg.Config{Title: "Preview", WindowWidth: w, WindowHeight: h, ContentsIconSize: size, LabelSize: label}
-		for _, i := range items {
+		d := dmg.Config{Title: "Preview", WindowWidth: l.W, WindowHeight: l.H, ContentsIconSize: l.IconSize, LabelSize: l.LabelSize}
+		for _, i := range l.Items {
 			d.Contents = append(d.Contents, dmg.Item{Path: i.Path, Name: i.Name, X: i.X, Y: i.Y, Type: dmg.Link})
 		}
 		return d.Validate()

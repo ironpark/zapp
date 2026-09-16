@@ -48,5 +48,6 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	if clip.Empty() {
 		return
 	}
-	p.Text(dst.SubImage(clip).(*ebiten.Image), p.Fit(b.Label, b.Bounds.Dx()-24, 14), b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(p.Fit(b.Label, b.Bounds.Dx()-24, 14), 14))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
+	label := p.Fit(b.Label, b.Bounds.Dx()-24, 14)
+	p.Text(dst.SubImage(clip).(*ebiten.Image), label, b.Bounds.Min.X+(b.Bounds.Dx()-p.Measure(label, 14))/2, b.Bounds.Min.Y+(b.Bounds.Dy()-20)/2, 14, fg)
 }

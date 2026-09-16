@@ -136,7 +136,6 @@ func Center(bounds image.Rectangle, w, h int) image.Rectangle {
 
 // Shared spacing keeps control interiors and grouped content consistent.
 const (
-	Spacing = 8
 	Padding = 16
 	Radius  = 5
 )

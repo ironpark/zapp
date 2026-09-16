@@ -146,7 +146,7 @@ func TestDefaultLayoutMatchesBuildAndDrag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, _, _, items := layout(s.Project.DMG, s.Project.App)
+	items := layout(s.Project.DMG, s.Project.App).Items
 	for i, item := range items {
 		if item.X != pl.DMG.Contents[i].X || item.Y != pl.DMG.Contents[i].Y {
 			t.Fatal("preview defaults differ from build")

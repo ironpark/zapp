@@ -7,16 +7,16 @@ import (
 
 // Toggle requests a boolean change; the owner may reject it during validation.
 type Toggle struct {
-	Bounds            image.Rectangle
-	Label             string
-	Checked, Disabled bool
-	OnChange          func(bool)
+	Bounds   image.Rectangle
+	Label    string
+	Checked  bool
+	OnChange func()
 }
 
 func (t Toggle) Click(point image.Point) bool {
-	return (Button{Bounds: t.Bounds, Disabled: t.Disabled, OnClick: func() {
+	return (Button{Bounds: t.Bounds, OnClick: func() {
 		if t.OnChange != nil {
-			t.OnChange(!t.Checked)
+			t.OnChange()
 		}
 	}}).Click(point)
 }
@@ -25,10 +25,7 @@ func (t Toggle) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	if t.Checked {
 		track = p.Theme.Accent
 	}
-	if t.Disabled {
-		fg, track = p.Theme.DisabledText, p.Theme.Disabled
-	}
-	if pointer.In(t.Bounds) && !t.Disabled {
+	if pointer.In(t.Bounds) {
 		RoundedRect(dst, t.Bounds, Radius, p.Theme.Hover)
 	}
 	x, y := t.Bounds.Min.X+8, t.Bounds.Min.Y+(t.Bounds.Dy()-20)/2

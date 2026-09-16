@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -29,22 +30,22 @@ func (t previewTransform) content(x, y float64) (float64, float64) {
 }
 func (g *editor) previewArea() image.Rectangle { return comp.Box(420, 267, g.w-476, g.h-427) }
 func (g *editor) clampPan() {
-	w, h, _, _, _ := layout(g.s.Project.DMG, g.s.Project.App)
+	l := layout(g.s.Project.DMG, g.s.Project.App)
 	area := g.previewArea()
-	limitX, limitY := max(0, (w-area.Dx()+1)/2), max(0, (h+28-area.Dy()+1)/2)
+	limitX, limitY := max(0, (l.W-area.Dx()+1)/2), max(0, (l.H+28-area.Dy()+1)/2)
 	g.panX = max(-limitX, min(limitX, g.panX))
 	g.panY = max(-limitY, min(limitY, g.panY))
 }
 func (g *editor) transform() previewTransform {
-	w, h, _, _, _ := layout(g.s.Project.DMG, g.s.Project.App)
+	l := layout(g.s.Project.DMG, g.s.Project.App)
 	available := g.previewArea()
 	// Fit the whole Finder window, including its compact title bar, at one scale.
-	scale := math.Min(1, math.Min(float64(available.Dx())/float64(max(1, w)), float64(available.Dy())/float64(max(1, h)+28)))
+	scale := math.Min(1, math.Min(float64(available.Dx())/float64(max(1, l.W)), float64(available.Dy())/float64(max(1, l.H)+28)))
 	if g.previewActual {
 		scale = 1
 		g.clampPan()
 	}
-	width, height := int(math.Round(float64(w)*scale)), int(math.Round(float64(h)*scale))
+	width, height := int(math.Round(float64(l.W)*scale)), int(math.Round(float64(l.H)*scale))
 	headerHeight := max(1, int(math.Round(28*scale)))
 	x := available.Min.X + (available.Dx()-width)/2
 	y := available.Min.Y + (available.Dy()-height-headerHeight)/2 + headerHeight
@@ -54,6 +55,9 @@ func (g *editor) transform() previewTransform {
 	}
 	return previewTransform{float64(x), float64(y), scale, comp.Box(x, y, width, height)}
 }
+
+// previewImageExts are the icon sources the preview can decode directly.
+var previewImageExts = []string{".png", ".jpg", ".jpeg", ".icns"}
 
 func (g *editor) assetPath(path string) string {
 	if path == "" || filepath.IsAbs(path) {
@@ -112,7 +116,7 @@ func (g *editor) refreshPreview() {
 	}
 	g.previewError = ""
 	c := g.s.Project.DMG
-	_, _, _, _, items := layout(c, g.s.Project.App)
+	items := layout(c, g.s.Project.App).Items
 	bg := g.assetPath(c.Background)
 	paths := make([]string, len(items))
 	for i, item := range items {
@@ -165,7 +169,7 @@ func (g *editor) refreshPreview() {
 			}
 		} else if item.Link && item.Path == "/Applications" {
 			_ = g.loadAsset(key, "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ApplicationsFolderIcon.icns")
-		} else if ext := strings.ToLower(filepath.Ext(path)); ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".icns" {
+		} else if slices.Contains(previewImageExts, strings.ToLower(filepath.Ext(path))) {
 			_ = g.loadAsset(key, path)
 		}
 	}
@@ -174,7 +178,8 @@ func (g *editor) refreshPreview() {
 func (g *editor) drawPreview(dst *ebiten.Image) {
 	comp.Panel{Bounds: comp.Box(404, 195, g.w-444, g.h-301), Title: "DMG preview", Description: "Drag icons to arrange · Space + drag to pan at 100%"}.Draw(dst, g.ui)
 	c := g.s.Project.DMG
-	w, h, size, label, items := layout(c, g.s.Project.App)
+	l := layout(c, g.s.Project.App)
+	size, label, items := l.IconSize, l.LabelSize, l.Items
 	t := g.transform()
 	full := dst
 	dst = dst.SubImage(g.previewArea().Intersect(dst.Bounds())).(*ebiten.Image)
@@ -263,7 +268,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
 	dst = full
-	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%  ·  Drag icons to arrange", w, h, t.scale*100), 420, g.h-148, 13, g.ui.Theme.Muted)
+	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%  ·  Drag icons to arrange", l.W, l.H, t.scale*100), 420, g.h-148, 13, g.ui.Theme.Muted)
 	if len(items) == 0 {
 		g.ui.Wrapped(canvas, "Set the app path in Project, or add contents in DMG settings.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)
 	}

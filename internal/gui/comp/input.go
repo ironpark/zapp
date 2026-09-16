@@ -2,6 +2,7 @@ package comp
 
 import (
 	"image"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -82,9 +83,7 @@ func (i *Input) Insert(s string) {
 		i.selectAll = false
 	}
 	r := []rune(i.clean(s))
-	next := append([]rune(nil), i.buffer[:i.cursor]...)
-	next = append(next, r...)
-	i.buffer = append(next, i.buffer[i.cursor:]...)
+	i.buffer = slices.Insert(i.buffer, i.cursor, r...)
 	i.cursor += len(r)
 }
 func (i *Input) NextChoice() {
@@ -92,11 +91,8 @@ func (i *Input) NextChoice() {
 		return
 	}
 	next := 0
-	for n, v := range i.Spec.Choices {
-		if v == i.Text() {
-			next = (n + 1) % len(i.Spec.Choices)
-			break
-		}
+	if n := slices.Index(i.Spec.Choices, i.Text()); n >= 0 {
+		next = (n + 1) % len(i.Spec.Choices)
 	}
 	i.SetText(i.Spec.Choices[next])
 }
@@ -195,7 +191,7 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 		if i.selectAll {
 			i.SetText("")
 		} else if i.cursor > 0 {
-			i.buffer = append(i.buffer[:i.cursor-1], i.buffer[i.cursor:]...)
+			i.buffer = slices.Delete(i.buffer, i.cursor-1, i.cursor)
 			i.cursor--
 		}
 	}
@@ -203,7 +199,7 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 		if i.selectAll {
 			i.SetText("")
 		} else if i.cursor < len(i.buffer) {
-			i.buffer = append(i.buffer[:i.cursor], i.buffer[i.cursor+1:]...)
+			i.buffer = slices.Delete(i.buffer, i.cursor, i.cursor+1)
 		}
 	}
 	if k.JustPressed(ebiten.KeyEnter) {
@@ -224,7 +220,6 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focused bool) {
 	t := p.Theme
 	p.Text(dst, i.Spec.Label, bounds.Min.X, bounds.Min.Y-25, 15, t.Text)
-	RoundedRect(dst, bounds, Radius, t.Input)
 	border := t.Border
 	if focused {
 		border = t.Accent
@@ -241,9 +236,6 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		value = i.Spec.DisplayValue
 	}
 	if len(i.Spec.Choices) > 0 {
-		if value == "" {
-			value = "Default"
-		}
 		p.Text(clip, "›", bounds.Max.X-20, bounds.Min.Y+5, 17, t.Accent)
 	}
 	if focused {

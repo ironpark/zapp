@@ -30,13 +30,9 @@ func (g *editor) nudgeSelected() {
 		dx *= 10
 		dy *= 10
 	}
-	_, _, _, _, items := layout(g.s.Project.DMG, g.s.Project.App)
-	for _, item := range items {
-		if item.Path == g.selected {
-			g.s.checkpoint()
-			g.s.move(item.Path, item.X+dx, item.Y+dy)
-			g.rebuild()
-			return
-		}
+	if item, ok := layout(g.s.Project.DMG, g.s.Project.App).find(g.selected); ok {
+		g.s.checkpoint()
+		g.s.move(item.Path, item.X+dx, item.Y+dy)
+		g.rebuild()
 	}
 }

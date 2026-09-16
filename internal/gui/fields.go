@@ -23,7 +23,20 @@ func stringField(label string, value *string, hint string) field {
 func choiceField(label string, value *string, choices ...string) field {
 	f := stringField(label, value, "Click to cycle options, or Tab then Enter")
 	f.Choices = choices
+	if *value == "" {
+		f.DisplayValue = "Default"
+	}
 	return f
+}
+func boolField(label string, value *bool, hint string) field {
+	return field{InputSpec: comp.InputSpec{Label: label, Value: strconv.FormatBool(*value), Hint: hint, Choices: []string{"false", "true"}}, set: func(s string) error {
+		b, err := strconv.ParseBool(strings.TrimSpace(s))
+		if err != nil {
+			return fmt.Errorf("%s must be true or false", label)
+		}
+		*value = b
+		return nil
+	}}
 }
 func intField(label string, value *int, low, high int, hint string, displayZero ...int) field {
 	f := field{InputSpec: comp.InputSpec{Label: label, Value: strconv.Itoa(*value), Hint: hint}, set: func(s string) error {
@@ -157,14 +170,9 @@ func (g *editor) rebuild() {
 		}
 		item, ok := c.Contents[g.selected]
 		if !ok && g.selected != "" {
-			_, _, _, _, items := layout(c, p.App)
-			for _, i := range items {
-				if i.Path == g.selected {
-					x, y := i.X, i.Y
-					item = zapp.Content{X: &x, Y: &y, Name: i.Name, Link: i.Link}
-					ok = true
-					break
-				}
+			if i, found := layout(c, p.App).find(g.selected); found {
+				x, y := i.X, i.Y
+				item, ok = zapp.Content{X: &x, Y: &y, Name: i.Name, Link: i.Link}, true
 			}
 		}
 		if ok {
@@ -234,10 +242,7 @@ func (g *editor) rebuild() {
 		g.fields = []field{stringField("Signing identity", &c.Identity, "Certificate name or ${env:ZAPP_IDENTITY}"), stringField("PKCS#12 certificate", &c.P12File, "Path to .p12 certificate"), stringField("PEM certificate", &c.PEMFile, "Path to PEM certificate"), stringField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI")}
 	case 5:
 		c := p.Notarize
-		g.fields = []field{stringField("Keychain profile", &c.Profile, "macOS notarytool profile"), stringField("Apple ID", &c.AppleID, "Apple account email"), stringField("Team ID", &c.TeamID, "Developer team identifier"), stringField("API key file", &c.APIKeyFile, "Path to API key configuration"), jsonField("Staple", &c.Staple, "true / false")}
-		g.fields[len(g.fields)-1].Multiline = false
-		g.fields[len(g.fields)-1].Choices = []string{"false", "true"}
-		g.fields[len(g.fields)-1].Hint = "Click to toggle stapling"
+		g.fields = []field{stringField("Keychain profile", &c.Profile, "macOS notarytool profile"), stringField("Apple ID", &c.AppleID, "Apple account email"), stringField("Team ID", &c.TeamID, "Developer team identifier"), stringField("API key file", &c.APIKeyFile, "Path to API key configuration"), boolField("Staple", &c.Staple, "Click to toggle stapling")}
 	}
 	g.refreshPreview()
 }

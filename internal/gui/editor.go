@@ -107,11 +107,7 @@ func (g *editor) commit() bool {
 		g.report(err, "")
 		return false
 	}
-	g.s.undo = append(g.s.undo, before)
-	if len(g.s.undo) > 100 {
-		g.s.undo = g.s.undo[1:]
-	}
-	g.s.redo = nil
+	g.s.push(before)
 	g.rebuild()
 	g.report(nil, "Unsaved changes")
 	return true
@@ -214,7 +210,7 @@ func (g *editor) Update() error {
 		mx, my = comp.PointerPressPosition(g.w, g.h)
 		mouse = image.Pt(mx, my)
 	}
-	if g.closeDialog().Handle(mouse, click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
+	if g.confirmClose && g.closeDialog().Handle(mouse, click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
 		return nil
 	}
 	if comp.CommandKey() {
@@ -271,7 +267,8 @@ func (g *editor) Update() error {
 		if g.tab == 1 && g.enabled() {
 			t := g.transform()
 			if mouse.In(g.previewArea()) && mouse.In(t.bounds) && !(g.previewActual && ebiten.IsKeyPressed(ebiten.KeySpace)) {
-				_, _, size, _, items := layout(g.s.Project.DMG, g.s.Project.App)
+				l := layout(g.s.Project.DMG, g.s.Project.App)
+				size, items := l.IconSize, l.Items
 				x, y := t.content(float64(mx), float64(my))
 				g.selected = ""
 				for i := len(items) - 1; i >= 0; i-- {
@@ -309,16 +306,13 @@ func (g *editor) Update() error {
 		x, y := g.transform().content(float64(px), float64(py))
 		x -= g.dragX
 		y -= g.dragY
-		_, _, _, _, items := layout(g.s.Project.DMG, g.s.Project.App)
-		for _, i := range items {
-			if i.Path == g.drag && (int(math.Round(x)) != i.X || int(math.Round(y)) != i.Y) {
-				if !g.dragMoved {
-					g.s.checkpoint()
-					g.dragMoved = true
-				}
-				g.s.move(g.drag, int(math.Round(x)), int(math.Round(y)))
-				break
+		if i, ok := layout(g.s.Project.DMG, g.s.Project.App).find(g.drag); ok &&
+			(int(math.Round(x)) != i.X || int(math.Round(y)) != i.Y) {
+			if !g.dragMoved {
+				g.s.checkpoint()
+				g.dragMoved = true
 			}
+			g.s.move(g.drag, int(math.Round(x)), int(math.Round(y)))
 		}
 		if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			g.drag = ""

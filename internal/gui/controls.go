@@ -27,12 +27,12 @@ func (g *editor) tabs() comp.Tabs {
 	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 84, g.w-48, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
 }
 func (g *editor) stepToggle() comp.Toggle {
-	return comp.Toggle{Bounds: comp.Box(24, 145, 250, 34), Label: "Enable " + tabNames[g.tab], Checked: g.enabled(), OnChange: func(bool) { g.guard(g.toggle)() }}
+	return comp.Toggle{Bounds: comp.Box(24, 145, 250, 34), Label: "Enable " + tabNames[g.tab], Checked: g.enabled(), OnChange: g.guard(g.toggle)}
 }
 func (g *editor) controls() []comp.Button {
 	buttons := []comp.Button{
-		{Bounds: comp.Box(g.w-338, 22, 84, 36), Label: "Undo", Disabled: len(g.s.undo) == 0, OnClick: g.guard(func() { g.s.Undo(); g.rebuild() })},
-		{Bounds: comp.Box(g.w-246, 22, 84, 36), Label: "Redo", Disabled: len(g.s.redo) == 0, OnClick: g.guard(func() { g.s.Redo(); g.rebuild() })},
+		{Bounds: comp.Box(g.w-338, 22, 84, 36), Label: "Undo", Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.s.Undo(); g.rebuild() })},
+		{Bounds: comp.Box(g.w-246, 22, 84, 36), Label: "Redo", Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.s.Redo(); g.rebuild() })},
 		{Bounds: comp.Box(g.w-154, 22, 130, 36), Label: "Save", Selected: true, OnClick: func() { g.save() }},
 		{Bounds: comp.Box(g.w-154, g.h-61, 130, 36), Label: "Validate", OnClick: g.validate},
 	}
