@@ -245,7 +245,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 				comp.Border(canvas, body, color.RGBA{163, 184, 204, 255})
 				fold := max(3, body.Dx()/4)
 				comp.Rect(canvas, comp.Box(body.Max.X-fold, body.Min.Y, fold, fold), color.RGBA{203, 221, 237, 255})
-				for row := 0; row < 3; row++ {
+				for row := range 3 {
 					comp.Rect(canvas, comp.Box(body.Min.X+body.Dx()/5, body.Min.Y+body.Dy()/2+row*max(3, body.Dy()/9), body.Dx()*3/5, max(1, body.Dy()/35)), color.RGBA{157, 179, 200, 255})
 				}
 			}

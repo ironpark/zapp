@@ -18,7 +18,7 @@ type field struct {
 }
 
 func stringField(label string, value *string, hint string) field {
-	return field{InputSpec: comp.InputSpec{Label: label, Value: *value, Hint: hint}, set: func(s string) error { *value = s; return nil }}
+	return field{Label: label, Value: *value, Hint: hint, set: func(s string) error { *value = s; return nil }}
 }
 func choiceField(label string, value *string, choices ...string) field {
 	f := stringField(label, value, "Click to cycle options, or Tab then Enter")
@@ -29,7 +29,7 @@ func choiceField(label string, value *string, choices ...string) field {
 	return f
 }
 func boolField(label string, value *bool, hint string) field {
-	return field{InputSpec: comp.InputSpec{Label: label, Value: strconv.FormatBool(*value), Hint: hint, Choices: []string{"false", "true"}}, set: func(s string) error {
+	return field{Label: label, Value: strconv.FormatBool(*value), Hint: hint, Choices: []string{"false", "true"}, set: func(s string) error {
 		b, err := strconv.ParseBool(strings.TrimSpace(s))
 		if err != nil {
 			return fmt.Errorf("%s must be true or false", label)
@@ -39,7 +39,7 @@ func boolField(label string, value *bool, hint string) field {
 	}}
 }
 func intField(label string, value *int, low, high int, hint string, displayZero ...int) field {
-	f := field{InputSpec: comp.InputSpec{Label: label, Value: strconv.Itoa(*value), Hint: hint}, set: func(s string) error {
+	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, set: func(s string) error {
 		n, err := strconv.Atoi(strings.TrimSpace(s))
 		if err != nil || n < low || n > high {
 			return fmt.Errorf("%s must be %d–%d", label, low, high)
@@ -55,7 +55,7 @@ func intField(label string, value *int, low, high int, hint string, displayZero 
 
 func jsonField[T any](label string, value *T, hint string) field {
 	b, _ := json.MarshalIndent(value, "", "  ")
-	return field{InputSpec: comp.InputSpec{Label: label, Value: string(b), Hint: hint, Multiline: true}, set: func(s string) error {
+	return field{Label: label, Value: string(b), Hint: hint, Multiline: true, set: func(s string) error {
 		var next T
 		dec := json.NewDecoder(strings.NewReader(s))
 		dec.DisallowUnknownFields()
@@ -177,7 +177,7 @@ func (g *editor) rebuild() {
 		}
 		if ok {
 			key := g.selected
-			g.fields = append(g.fields, field{InputSpec: comp.InputSpec{Label: "Selected item name", Value: item.Name, Hint: "Blank uses the source filename"}, set: func(v string) error {
+			g.fields = append(g.fields, field{Label: "Selected item name", Value: item.Name, Hint: "Blank uses the source filename", set: func(v string) error {
 				g.s.materialize()
 				i := c.Contents[key]
 				i.Name = v
@@ -192,7 +192,7 @@ func (g *editor) rebuild() {
 				if axis == "Y" && item.Y != nil {
 					n = *item.Y
 				}
-				g.fields = append(g.fields, field{InputSpec: comp.InputSpec{Label: "Selected item " + axis, Value: strconv.Itoa(n), Hint: "Icon center in Finder content coordinates"}, set: func(v string) error {
+				g.fields = append(g.fields, field{Label: "Selected item " + axis, Value: strconv.Itoa(n), Hint: "Icon center in Finder content coordinates", set: func(v string) error {
 					n, err := strconv.Atoi(v)
 					if err != nil || n < 0 || uint64(n) > 0xffffffff {
 						return fmt.Errorf("coordinate must be a nonnegative 32-bit integer")

@@ -36,7 +36,7 @@ func (f Form) FieldBounds(index int) image.Rectangle {
 		return image.Rectangle{}
 	}
 	y := f.Bounds.Min.Y - f.offset
-	for i := 0; i < index; i++ {
+	for i := range index {
 		y += inputHeight(f.Inputs[i])
 	}
 	height := 34

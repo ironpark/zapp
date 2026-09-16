@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"os"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -271,8 +272,7 @@ func (g *editor) Update() error {
 				size, items := l.IconSize, l.Items
 				x, y := t.content(float64(mx), float64(my))
 				g.selected = ""
-				for i := len(items) - 1; i >= 0; i-- {
-					item := items[i]
+				for _, item := range slices.Backward(items) {
 					if math.Abs(x-float64(item.X)) <= float64(size)/2 && math.Abs(y-float64(item.Y)) <= float64(size)/2 {
 						g.selected = item.Path
 						g.drag = item.Path
