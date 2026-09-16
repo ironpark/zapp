@@ -71,7 +71,7 @@ func print3rdPartyLicenseOverview(app *cli.Command) error {
 	c1 := color.New(color.FgGreen, color.Italic)
 	c2 := color.New(color.FgHiWhite)
 
-	// Get csv data (fossa scan result)
+	// Everything above the dependency table describes the file; see 3rdparty.csv.
 	thirdPartyLicenses := strings.Split(thirdPartyLicensesCsv, "    Direct Dependencies\n")
 	// Skip the first 4 lines (First Party Licenses header)
 	thirdPartyLicenses = thirdPartyLicenses[1:]
@@ -106,8 +106,12 @@ func print3rdPartyLicenseOverview(app *cli.Command) error {
 	for _, record := range records[1:] {
 		name := strings.TrimSpace(record[0])
 		url := getUrl(name, strings.TrimSpace(record[len(record)-2]))
+		commit := record[1]
+		if len(commit) > 12 {
+			commit = commit[:12]
+		}
 		recordStr := c1.Sprintf("%-28s ", name)
-		recordStr += fmt.Sprintf("%-12s ", record[1][:12])
+		recordStr += fmt.Sprintf("%-12s ", commit)
 		recordStr += c2.Sprintf("%-35s", record[3])
 		if url != "" {
 			recordStr += fmt.Sprintf(" %s", url)
