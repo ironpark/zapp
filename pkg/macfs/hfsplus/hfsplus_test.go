@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ironpark/zapp/internal/hdiutil"
 )
 
 // writeImage builds v into a file under a temporary directory and returns its path.
@@ -47,12 +49,19 @@ func attach(t *testing.T, image string, args ...string) string {
 	if runtime.GOOS != "darwin" {
 		t.Skip("verifying an image needs macOS")
 	}
-	out, err := exec.Command("hdiutil", append([]string{"attach", image, "-readonly", "-nobrowse"}, args...)...).Output()
+	// The claim covers the whole time the image stays attached, not just the
+	// attach itself, so no other test binary has an image mounted meanwhile.
+	release := hdiutil.Lock()
+	out, err := hdiutil.Output(append([]string{"attach", image, "-readonly", "-nobrowse"}, args...)...)
 	if err != nil {
+		release()
 		t.Fatalf("attach: %v", err)
 	}
 	device := strings.Fields(string(out))[0]
-	t.Cleanup(func() { _ = exec.Command("hdiutil", "detach", device, "-force").Run() })
+	t.Cleanup(func() {
+		_, _ = hdiutil.Run("detach", device, "-force")
+		release()
+	})
 	return device
 }
 

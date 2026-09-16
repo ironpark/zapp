@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ironpark/zapp/internal/hdiutil"
 )
 
 func testVolume() Volume {
@@ -65,12 +67,17 @@ func mountImage(t *testing.T, path string) string {
 	if err := os.Mkdir(point, 0755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := exec.Command("hdiutil", "attach", path, "-readonly", "-nobrowse", "-mountpoint", point).CombinedOutput()
+	// The claim covers the whole time the image stays attached, not just the
+	// attach itself, so no other test binary has an image mounted meanwhile.
+	release := hdiutil.Lock()
+	out, err := hdiutil.Run("attach", path, "-readonly", "-nobrowse", "-mountpoint", point)
 	if err != nil {
+		release()
 		t.Fatalf("attach: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
-		if out, err := exec.Command("hdiutil", "detach", point, "-force").CombinedOutput(); err != nil {
+		defer release()
+		if out, err := hdiutil.Run("detach", point, "-force"); err != nil {
 			t.Errorf("detach: %v\n%s", err, out)
 		}
 	})

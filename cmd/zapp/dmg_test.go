@@ -8,12 +8,12 @@ import (
 	"image/png"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/ironpark/zapp/internal/hdiutil"
 	"github.com/ironpark/zapp/pkg/dmg"
 	"github.com/ironpark/zapp/pkg/icns"
 	"github.com/urfave/cli/v3"
@@ -129,11 +129,17 @@ func TestPNGIconAndOutputExtension(t *testing.T) {
 				return
 			}
 			mount := filepath.Join(t.TempDir(), "mounted")
-			if out, err := exec.Command("hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mount, want).CombinedOutput(); err != nil {
+			// The claim covers the whole time the image stays attached, not
+			// just the attach itself, so no other test binary has an image
+			// mounted meanwhile.
+			release := hdiutil.Lock()
+			if out, err := hdiutil.Run("attach", "-readonly", "-nobrowse", "-mountpoint", mount, want); err != nil {
+				release()
 				t.Fatalf("mount: %v\n%s", err, out)
 			}
 			defer func() {
-				if out, err := exec.Command("hdiutil", "detach", mount).CombinedOutput(); err != nil {
+				defer release()
+				if out, err := hdiutil.Run("detach", mount); err != nil {
 					t.Errorf("detach: %v\n%s", err, out)
 				}
 			}()

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ironpark/zapp/internal/hdiutil"
 	"github.com/ironpark/zapp/pkg/udif"
 )
 
@@ -57,10 +57,17 @@ func mount(t *testing.T, image string) string {
 	if err := os.MkdirAll(point, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command("hdiutil", "attach", image, "-mountpoint", point, "-nobrowse", "-readonly").CombinedOutput(); err != nil {
+	// The claim covers the whole time the image stays attached, not just the
+	// attach itself, so no other test binary has an image mounted meanwhile.
+	release := hdiutil.Lock()
+	if out, err := hdiutil.Run("attach", image, "-mountpoint", point, "-nobrowse", "-readonly"); err != nil {
+		release()
 		t.Fatalf("attach: %v\n%s", err, out)
 	}
-	t.Cleanup(func() { _ = exec.Command("hdiutil", "detach", point, "-force").Run() })
+	t.Cleanup(func() {
+		_, _ = hdiutil.Run("detach", point, "-force")
+		release()
+	})
 	return point
 }
 
@@ -91,7 +98,7 @@ func TestCreateDMG(t *testing.T) {
 	}
 
 	if runtime.GOOS == "darwin" {
-		if out, err := exec.Command("hdiutil", "verify", output).CombinedOutput(); err != nil {
+		if out, err := hdiutil.Run("verify", output); err != nil {
 			t.Fatalf("the image did not verify: %v\n%s", err, out)
 		}
 	}

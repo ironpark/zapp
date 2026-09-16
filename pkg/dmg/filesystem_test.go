@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"github.com/ironpark/zapp/internal/hdiutil"
 	"github.com/ironpark/zapp/pkg/plist"
 	"github.com/ironpark/zapp/pkg/udif"
 )
@@ -96,7 +97,7 @@ func TestFileSystemCompressionMatrix(t *testing.T) {
 				if runtime.GOOS != "darwin" {
 					return
 				}
-				if out, err := exec.Command("hdiutil", "verify", config.FileName).CombinedOutput(); err != nil {
+				if out, err := hdiutil.Run("verify", config.FileName); err != nil {
 					t.Fatalf("verify: %v\n%s", err, out)
 				}
 				point := mount(t, config.FileName)
@@ -157,10 +158,10 @@ func TestImportedArtifacts(t *testing.T) {
 		for _, format := range []udif.Format{udif.UDZO, udif.ULFO} {
 			t.Run(filesystem.String()+"/"+format.String(), func(t *testing.T) {
 				path := filepath.Join(dir, "cross-platform-"+filesystem.String()+"-"+strings.ToLower(format.String())+".dmg")
-				if out, err := exec.Command("hdiutil", "verify", path).CombinedOutput(); err != nil {
+				if out, err := hdiutil.Run("verify", path); err != nil {
 					t.Fatalf("verify: %v\n%s", err, out)
 				}
-				out, err := exec.Command("hdiutil", "imageinfo", path).CombinedOutput()
+				out, err := hdiutil.Run("imageinfo", path)
 				if err != nil || !strings.Contains(string(out), "Format: "+format.String()) {
 					t.Fatalf("format: %v\n%s", err, out)
 				}

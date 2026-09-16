@@ -6,12 +6,12 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/ironpark/zapp/internal/hdiutil"
 	"github.com/ironpark/zapp/pkg/plist"
 )
 
@@ -251,10 +251,10 @@ func testSystemAccepts(t *testing.T, format Format) {
 	if err := os.WriteFile(path, image, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command("hdiutil", "verify", path).CombinedOutput(); err != nil {
+	if out, err := hdiutil.Run("verify", path); err != nil {
 		t.Fatalf("verify rejected the image: %v\n%s", err, out)
 	}
-	out, err := exec.Command("hdiutil", "imageinfo", path).Output()
+	out, err := hdiutil.Output("imageinfo", path)
 	if err != nil {
 		t.Fatal(err)
 	}
