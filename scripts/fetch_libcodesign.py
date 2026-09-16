@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Download the prebuilt libcodesign static library for one target.
+"""Refresh the bundled libcodesign static library for one target.
 
-The Rust sources that used to live in this repository are now built and
-released by github.com/ironpark/libcodesign, so a Windows or Linux build needs
-a C toolchain but no Rust toolchain. scripts/libcodesign.json pins the release
+Prebuilt libraries from github.com/ironpark/libcodesign are checked into the
+Go module. Consumers need a C toolchain but no Rust toolchain or download step.
+scripts/libcodesign.json pins the release
 and the SHA-256 of every archive; a download that does not match its pin is
 rejected, and `--update <version>` is the only thing that rewrites the pins.
 
@@ -12,19 +12,16 @@ rejected, and `--update <version>` is the only thing that rewrites the pins.
 """
 import argparse
 import hashlib
+import io
 import json
-import shutil
-import sys
 import tarfile
-import tempfile
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = Path(__file__).resolve().parent / "libcodesign.json"
-# Where the archive is unpacked. pkg/signing/rcodesign/binding.go links
-# <target>/lib/libzapp_rcodesign.a from here, so the two move together.
-DESTINATION = ROOT / "third_party/libcodesign"
+# Keep only link inputs and redistribution notices in the Go package.
+DESTINATION = ROOT / "pkg/signing/rcodesign"
 TARGETS = ("linux_amd64", "linux_arm64", "windows_amd64", "windows_arm64")
 
 
@@ -46,36 +43,45 @@ def download(address):
         return response.read()
 
 
-def fetch(target, force=False):
-    """Unpack the pinned archive for target, returning its directory."""
+def fetch(target):
+    """Verify the pinned archive and copy only build inputs and license notices."""
     pin = config()
     digest = pin["archives"].get(target)
     if digest is None:
         raise SystemExit(f"{PIN.name} has no pin for {target}; run --update")
-    directory = DESTINATION / target
-    stamp = directory / ".version"
-    if not force and stamp.is_file() and stamp.read_text() == pin["version"]:
-        return directory
-
     name = archive_name(pin["version"], target)
     data = download(url(pin, name))
     actual = hashlib.sha256(data).hexdigest()
     if actual != digest:
         raise SystemExit(f"{name} is {actual}, not the pinned {digest}")
 
-    # Replace the target's directory outright: a half-extracted or stale tree
-    # would otherwise link into the next build.
-    if directory.exists():
-        shutil.rmtree(directory)
-    directory.mkdir(parents=True)
-    with tempfile.TemporaryDirectory() as tmp:
-        bundle = Path(tmp) / name
-        bundle.write_bytes(data)
-        with tarfile.open(bundle) as tar:
-            tar.extractall(directory, filter="data")
-    stamp.write_text(pin["version"])
-    print(f"{name} -> {directory}", flush=True)
-    return directory
+    goos = target.split("_")[0]
+    files = {
+        "lib/libzapp_rcodesign.a": f"lib/{target}.a",
+        "include/zapp_rcodesign.h": "zapp_rcodesign.h",
+        "LICENSE": "LICENSE.libcodesign",
+        "NOTICE": "NOTICE.libcodesign",
+        "THIRD_PARTY_LICENSES.html": f"licenses/{goos}.html",
+    }
+    # Validate every required member before changing any bundled file. Never
+    # extract the upstream README, Cargo.lock, or arbitrary archive paths.
+    payloads = {}
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        for source, destination in files.items():
+            member = tar.getmember(source)
+            if not member.isfile():
+                raise SystemExit(f"{name}: {source} is not a regular file")
+            payload = tar.extractfile(member).read()
+            if not destination.endswith(".a"):
+                payload = payload.replace(b"\r\n", b"\n")
+            payloads[destination] = payload
+    for destination, payload in payloads.items():
+        path = DESTINATION / destination
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    library = DESTINATION / f"lib/{target}.a"
+    print(f"{name} -> {library}", flush=True)
+    return library
 
 
 def update(version):
@@ -98,13 +104,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("target", nargs="?", choices=TARGETS)
-    parser.add_argument("--force", action="store_true", help="download even if the pinned version is already unpacked")
     parser.add_argument("--update", metavar="VERSION", help="repin every target to a libcodesign release")
     args = parser.parse_args()
     if args.update:
         update(args.update)
     elif args.target:
-        print(fetch(args.target, args.force))
+        print(fetch(args.target))
     else:
         parser.error("a target or --update is required")
 

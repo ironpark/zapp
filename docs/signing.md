@@ -67,49 +67,66 @@ macOS needs only Go and Apple's tools:
 CGO_ENABLED=0 go build ./cmd/zapp
 ```
 
-Windows and Linux signing builds need Go, Python 3, and a C toolchain. The Rust
-library itself is not built here: it is downloaded from a
-[libcodesign](https://github.com/ironpark/libcodesign) release, which builds one
-static archive per target from the same sources this repository used to carry.
+Windows and Linux signing builds need Go and a C toolchain. The Go module
+includes prebuilt static libraries for all four targets under
+`pkg/signing/rcodesign/lib/`; `go install` links the matching archive
+without fetching files or building Rust.
 
 | Build target | C compiler |
 | --- | --- |
-| `linux_amd64` | GCC for x86-64 Linux |
-| `linux_arm64` | GCC for arm64 Linux |
+| `linux_amd64` | GCC for x86-64 Linux (glibc 2.35+) |
+| `linux_arm64` | GCC for arm64 Linux (glibc 2.35+) |
 | `windows_amd64` | LLVM MinGW `x86_64-w64-mingw32-clang` |
 | `windows_arm64` | LLVM MinGW `aarch64-w64-mingw32-clang` |
 
-The Windows archives are built with LLVM MinGW, so linking them needs the same
-toolchain rather than the host's MSVC.
-
-Run on the target host, with the compiler on `PATH`:
+Linux, with GCC on `PATH`:
 
 ```sh
-python scripts/build-native.py linux_amd64 --test
-# or windows_amd64, linux_arm64, windows_arm64
+CGO_ENABLED=1 go install github.com/ironpark/zapp/cmd/zapp@latest
 ```
 
-The script downloads the pinned archive, unpacks it into
-`third_party/libcodesign/<os>_<arch>/`, runs tests if requested, and links zapp
-into `dist/<os>_<arch>/`, stamping the version with the same ldflags GoReleaser
-uses. Set `CC` for cross compilation and omit `--test` unless the host can
-execute target binaries.
+Windows PowerShell, with LLVM MinGW on `PATH` (use
+`aarch64-w64-mingw32-clang` for arm64):
 
-`scripts/libcodesign.json` pins the release and the SHA-256 of each archive; a
-download that does not match its pin is rejected. Moving to a new libcodesign
-release is one command, and the diff records the new digests:
+```powershell
+$env:CGO_ENABLED = '1'
+$env:CC = 'x86_64-w64-mingw32-clang'
+go install github.com/ironpark/zapp/cmd/zapp@latest
+```
+
+The Windows archives use LLVM MinGW and need that toolchain, not MSVC.
+A Windows/Linux `CGO_ENABLED=0` build can run commands that do not need signing;
+signing and notarization return `ErrUnavailable`.
+Unsupported operating systems/architectures do not
+fall back to an external rcodesign executable.
+
+### Updating the bundled libraries
+
+The binaries come from [libcodesign](https://github.com/ironpark/libcodesign)
+releases. `scripts/libcodesign.json` pins the release and each archive's SHA-256.
+Only maintainers need the download script:
 
 ```sh
 python scripts/fetch_libcodesign.py --update v0.1.2
+for target in linux_amd64 linux_arm64 windows_amd64 windows_arm64; do
+  python scripts/fetch_libcodesign.py "$target"
+done
 ```
 
-A Windows/Linux `CGO_ENABLED=0` build can run commands that do not need signing;
-signing and notarization return `ErrUnavailable`. A CGO build requires the static
-archive to be fetched first. Unsupported operating systems/architectures do not
-fall back to an external rcodesign executable.
+Commit the updated pin, four `lib/<target>.a` files, shared `zapp_rcodesign.h`,
+and license notices in `pkg/signing/rcodesign`. Only build inputs and license
+notices are copied from the release; upstream READMEs, Cargo.lock files, and
+version stamps are not bundled. Keep the libraries as regular Git files so
+they are available in Go module downloads.
 
-`.github/workflows/signing.yaml` builds and tests all four targets on native
-runners, against the pinned archives, and checks the Apple-only macOS build. The release workflow consumes
+For release builds, `python scripts/build-native.py linux_amd64 --test` runs
+native tests and writes a version-stamped CLI to `dist/linux_amd64/`. It uses the
+bundled library without downloading it. Use the other target names as needed;
+cross compilation requires `CC` and omitting `--test` unless the host can run
+the target binary.
+
+`.github/workflows/signing.yaml` verifies `go install` and tests all four targets on native
+runners against the bundled archives, and checks the Apple-only macOS build. The release workflow consumes
 those archives alongside GoReleaser's macOS archives, and every archive appears
 in the release's single checksums file.
 

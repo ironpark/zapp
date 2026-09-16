@@ -3,19 +3,13 @@
 package rcodesign
 
 /*
-// scripts/fetch-libcodesign.py unpacks one archive per target below; the system
-// libraries it needs are the same for every architecture of one OS. cgo
-// concatenates these in order, so the archive still precedes the libraries it
-// depends on.
-#cgo linux,amd64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/linux_amd64/include
-#cgo linux,amd64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/linux_amd64/lib/libzapp_rcodesign.a
-#cgo linux,arm64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/linux_arm64/include
-#cgo linux,arm64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/linux_arm64/lib/libzapp_rcodesign.a
+// Prebuilt archives ship in the Go module, so go install needs no download
+// or generation step. Keep each archive before its system library dependencies.
+#cgo linux,amd64 LDFLAGS: ${SRCDIR}/lib/linux_amd64.a
+#cgo linux,arm64 LDFLAGS: ${SRCDIR}/lib/linux_arm64.a
 #cgo linux LDFLAGS: -ldl -lpthread -lm
-#cgo windows,amd64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/windows_amd64/include
-#cgo windows,amd64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/windows_amd64/lib/libzapp_rcodesign.a
-#cgo windows,arm64 CFLAGS: -I${SRCDIR}/../../../third_party/libcodesign/windows_arm64/include
-#cgo windows,arm64 LDFLAGS: ${SRCDIR}/../../../third_party/libcodesign/windows_arm64/lib/libzapp_rcodesign.a
+#cgo windows,amd64 LDFLAGS: ${SRCDIR}/lib/windows_amd64.a
+#cgo windows,arm64 LDFLAGS: ${SRCDIR}/lib/windows_arm64.a
 #cgo windows LDFLAGS: -static -lws2_32 -luserenv -lbcrypt -lntdll -lcrypt32 -lncrypt -lsecur32 -liphlpapi -lole32 -loleaut32 -lruntimeobject
 #include <stdlib.h>
 #include "zapp_rcodesign.h"

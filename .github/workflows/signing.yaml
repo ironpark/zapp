@@ -18,16 +18,22 @@ jobs:
         include:
           - runner: ubuntu-22.04
             target: linux_amd64
+            cc: gcc
           - runner: ubuntu-22.04-arm
             target: linux_arm64
+            cc: gcc
           - runner: windows-2025
             target: windows_amd64
+            cc: x86_64-w64-mingw32-clang
             llvm_host: x86_64
           - runner: windows-11-arm
             target: windows_arm64
+            cc: aarch64-w64-mingw32-clang
             llvm_host: aarch64
     runs-on: ${{ matrix.runner }}
     env:
+      CGO_ENABLED: '1'
+      CC: ${{ matrix.cc }}
       # build-native.py falls back to 'dev' when this is unset.
       ZAPP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name }}
     steps:
@@ -48,7 +54,9 @@ jobs:
           Invoke-WebRequest "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/$name.zip" -OutFile "$env:RUNNER_TEMP/llvm-mingw.zip"
           Expand-Archive "$env:RUNNER_TEMP/llvm-mingw.zip" "$env:RUNNER_TEMP/llvm-mingw"
           "$env:RUNNER_TEMP/llvm-mingw/$name/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Build and test the CLI against the prebuilt library
+      - name: Verify go install without fetching native libraries
+        run: go install ./cmd/zapp
+      - name: Build and test the CLI against the bundled library
         run: python scripts/build-native.py ${{ matrix.target }} --test
       - name: Package binary
         run: python scripts/package-native.py ${{ matrix.target }}

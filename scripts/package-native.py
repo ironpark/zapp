@@ -28,11 +28,14 @@ for pattern in gr.archive_files():
 # The Rust notices are native-only: the macOS build does not link the library,
 # so its archive has nothing to attribute and GoReleaser does not carry these.
 # They ship inside the libcodesign archive and must be redistributed with it.
-unpacked = root / "third_party/libcodesign" / sys.argv[1]
-for name in ("NOTICE", "THIRD_PARTY_LICENSES.html", "Cargo.lock"):
-    source = unpacked / name
+binding = root / "pkg/signing/rcodesign"
+for source, name in (
+    (binding / "LICENSE.libcodesign", "LICENSE"),
+    (binding / "NOTICE.libcodesign", "NOTICE"),
+    (binding / "licenses" / f"{goos}.html", "THIRD_PARTY_LICENSES.html"),
+):
     if not source.is_file():
-        raise SystemExit(f"run scripts/fetch_libcodesign.py {sys.argv[1]} before packaging: {source} is missing")
+        raise SystemExit(f"missing bundled license notice: {source}")
     files.append((source, f"libcodesign/{name}"))
 
 name = gr.archive_name("zapp", goos, arch)

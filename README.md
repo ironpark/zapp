@@ -57,7 +57,7 @@ brew install --cask zapp
 go install github.com/ironpark/zapp/cmd/zapp@latest
 ```
 
-Source builds require Go 1.27.0 or later. Use the command above on macOS. For Linux/Windows builds with signing support, follow the [platform build instructions](docs/signing.md#building).
+Source builds require Go 1.27.0 or later. Linux and Windows (amd64/arm64) include prebuilt signing libraries, so no separate download or Rust build is needed. Enable cgo and install a C compiler: GCC on Linux, LLVM MinGW on Windows. See the [platform build instructions](docs/signing.md#building).
 
 ## Quick start
 

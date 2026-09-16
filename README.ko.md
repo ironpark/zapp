@@ -56,7 +56,7 @@ brew install --cask zapp
 go install github.com/ironpark/zapp/cmd/zapp@latest
 ```
 
-소스 빌드에는 Go 1.27.0 이상이 필요합니다. 위 명령은 macOS에서 사용할 수 있습니다. Linux·Windows에서 서명 기능까지 포함해 빌드하려면 [플랫폼별 빌드 안내](docs/signing.md#building)를 참고하세요.
+소스 빌드에는 Go 1.27.0 이상이 필요합니다. Linux·Windows(amd64/arm64)용 서명 라이브러리를 포함하므로 별도 다운로드나 Rust 빌드 없이 설치할 수 있습니다. cgo를 활성화하고 Linux에서는 GCC, Windows에서는 LLVM MinGW를 준비하세요. 자세한 명령은 [플랫폼별 빌드 안내](docs/signing.md#building)를 참고하세요.
 
 ## 빠른 시작
 

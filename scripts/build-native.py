@@ -34,7 +34,6 @@ def main():
     # same toolchain rather than the host's MSVC.
     env["CC"] = env.get("CC", "gcc" if env["GOOS"] == "linux"
                         else MINGW_ARCHES[env["GOARCH"]] + "-w64-mingw32-clang")
-    fetch_libcodesign.fetch(args.target)
     if args.test:
         subprocess.run(["go", "test", "-count=1", "./pkg/signing/..."], env=env, check=True)
         if env["GOOS"] == "windows":
