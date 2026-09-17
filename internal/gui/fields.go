@@ -260,6 +260,10 @@ func (g *editor) pkgFields() []field {
 		choiceField("Package type", &c.Type, "", "product", "component"),
 		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
+	fields[0].Group = "PACKAGE · Shared settings"
+	if c.Type == "" {
+		fields[0].DisplayValue = "Product (default)"
+	}
 	if !c.HasFullForm() {
 		version := stringField("Version", &c.Version, "Blank reads the app Info.plist")
 		version.SameRow = true
@@ -267,6 +271,9 @@ func (g *editor) pkgFields() []field {
 			stringField("Identifier", &c.Identifier, "Blank reads the app Info.plist"),
 			version,
 			stringField("Install location", &c.InstallLocation, "Blank uses /Applications"))
+		fields[2].Group = "APP · Identity and destination"
+		fields[2].Placeholder = "Automatic · from Info.plist"
+		fields[3].Placeholder = "Automatic · from Info.plist"
 		if g.pkgAdvanced {
 			fields = append(fields, payloadDetailFields(&c.Scripts, &c.MinOS)...)
 			fields = append(fields, jsonField("Licenses", &c.License, `{"default":"license.txt","ko":"license-ko.txt"}`))
@@ -275,34 +282,46 @@ func (g *editor) pkgFields() []field {
 	}
 	if g.pkgRaw {
 		components := jsonField("Components", &c.Components, "JSON array · Ctrl/Cmd+Enter: apply")
+		components.Group = "COMPONENTS · All payloads"
 		components.Height = 180
 		setComponents := components.set
 		components.set = func(value string) error {
 			if strings.TrimSpace(value) == "" {
 				value = "[]"
 			}
-			return setComponents(value)
+			if err := setComponents(value); err != nil {
+				return err
+			}
+			if c.Components == nil {
+				c.Components = []zapp.Component{}
+			}
+			return nil
 		}
 		fields = append(fields, components)
 	} else if len(c.Components) > 0 {
 		g.componentIndex = max(0, min(g.componentIndex, len(c.Components)-1))
 		component := &c.Components[g.componentIndex]
-		version := stringField("Version", &component.Version, "Package version")
+		version := stringField("Version", &component.Version, "Blank uses 1.0")
+		version.Placeholder = "1.0 (default)"
 		version.SameRow = true
-		install := stringField("Install location", &component.InstallLocation, "Destination on the target Mac")
+		install := stringField("Install location", &component.InstallLocation, "Blank uses /")
+		install.Placeholder = "/ (default)"
 		install.SameRow = true
 		fields = append(fields,
 			stringField("Component ID", &component.ID, "Unique package identifier"),
 			version,
 			pathField("Root directory", &component.Root, "Directory containing the payload", pickFolder),
-			stringField("Entry", &component.Entry, "Optional path within the root"),
+			componentEntryField(&component.Entry),
 			install)
+		fields[2].Group = fmt.Sprintf("COMPONENT %d · Selected payload", g.componentIndex+1)
 		if g.pkgAdvanced {
 			fields = append(fields, payloadDetailFields(&component.Scripts, &component.MinOS)...)
 		}
 	}
 	if g.pkgAdvanced {
-		fields = append(fields, jsonField("Distribution", &c.Distribution, "Installer title, resources, license and choices"))
+		distribution := jsonField("Distribution", &c.Distribution, "Applies to the whole installer · JSON")
+		distribution.Group = "INSTALLER · Shared presentation"
+		fields = append(fields, distribution)
 	}
 	return fields
 }
@@ -418,4 +437,18 @@ func positionCoord(pos *zapp.Position, axis int) int {
 		return 0
 	}
 	return pos[axis]
+}
+
+// Entry names one immediate child; blank includes the entire root directory.
+func componentEntryField(value *string) field {
+	f := stringField("Entry", value, "Direct child · blank includes all")
+	f.Placeholder = "All contents of root"
+	f.set = func(s string) error {
+		if s != "" && !strings.Contains(s, "${") && (s == "." || s == ".." || strings.ContainsAny(s, `/\`) || strings.IndexByte(s, 0) >= 0) {
+			return fmt.Errorf("Entry must be a direct child name, such as MyApp.app; choose its parent as Root directory")
+		}
+		*value = s
+		return nil
+	}
+	return f
 }

@@ -36,6 +36,8 @@ func lineWindow(s string, start, count int) []string {
 }
 
 type InputSpec struct {
+	// Group starts a titled section above this row.
+	Group              string
 	Boolean            bool
 	Secret             bool
 	Syntax             string

@@ -10,7 +10,7 @@ import (
 )
 
 func (g *editor) componentPanel() comp.Panel {
-	return comp.Panel{Bounds: comp.Box(24, workspaceTop, 200, g.contentBottom()-workspaceTop), Title: "Components"}
+	return comp.Panel{Bounds: comp.Box(24, workspaceTop, 200, g.contentBottom()-workspaceTop), Title: fmt.Sprintf("Components · %d", len(g.s.Project.PKG.Components))}
 }
 
 // componentPageSize is the number of component rows that fit above the Add and
@@ -29,11 +29,17 @@ func (g *editor) componentButtons() []comp.Button {
 		if label == "" {
 			label = fmt.Sprintf("Component %d", i+1)
 		}
-		out = append(out, comp.Button{Bounds: comp.Box(area.Min.X, area.Min.Y+(i-start)*40, area.Dx(), 32), Label: label, Selected: i == g.componentIndex, Ghost: true, OnClick: g.guard(func() { g.componentIndex = i; g.form.ScrollTo(0); g.rebuild() })})
+		out = append(out, comp.Button{Bounds: comp.Box(area.Min.X, area.Min.Y+(i-start)*40, area.Dx(), 32), Label: label, Selected: i == g.componentIndex && !g.pkgRaw, Ghost: true, OnClick: g.guard(func() {
+			g.componentIndex = i
+			g.pkgRaw = false
+			g.pkgViewScroll[0] = 0
+			g.form.ScrollTo(0)
+			g.rebuild()
+		})})
 	}
 	out = append(out,
 		comp.Button{Bounds: comp.Box(area.Min.X, area.Max.Y-76, area.Dx(), 32), Label: "Add component", Icon: comp.IconPlus, OnClick: g.guard(g.addComponent)},
-		comp.Button{Bounds: comp.Box(area.Min.X, area.Max.Y-36, area.Dx(), 32), Label: "Remove", Icon: comp.IconTrash, Disabled: len(g.s.Project.PKG.Components) == 0, OnClick: g.guard(g.removeComponent)})
+		comp.Button{Bounds: comp.Box(area.Min.X, area.Max.Y-36, area.Dx(), 32), Label: "Remove", Icon: comp.IconTrash, Disabled: g.pkgRaw || len(g.s.Project.PKG.Components) == 0, OnClick: g.guard(g.removeComponent)})
 	return out
 }
 func (g *editor) addComponent() {
@@ -57,6 +63,7 @@ func (g *editor) addComponent() {
 		}
 	}
 	g.s.checkpoint()
+	g.pkgRaw = false
 	c.Components = append(c.Components, zapp.Component{ID: id, InstallLocation: "/Applications"})
 	g.componentIndex = len(c.Components) - 1
 	g.revealComponent()

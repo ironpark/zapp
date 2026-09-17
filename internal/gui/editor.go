@@ -12,6 +12,7 @@ import (
 )
 
 type editor struct {
+	pkgViewScroll                         [2]int
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
 	componentIndex, componentScroll       int
 	signMode, notaryMode                  int
@@ -200,17 +201,17 @@ const workspaceTop = 128
 func (g *editor) contentBottom() int { return g.h - footerHeight - 16 }
 
 func (g *editor) settingsPanel() comp.Panel {
-	width := min(760, g.w-48)
-	x := (g.w - width) / 2
+	x := 24
+	width := g.w - 48
 	if g.helpOpen {
 		width = min(760, g.w-384)
 		x = 24
 	}
 	if g.componentListVisible() {
 		x = 240
-		width = min(760, g.w-x-24)
+		width = g.w - x - 24
 		if g.helpOpen {
-			width = min(width, g.w-x-360)
+			width = min(760, g.w-x-360)
 		}
 	}
 	title := g.section().Name + " settings"

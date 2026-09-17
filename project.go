@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 type Project struct {
@@ -348,7 +349,7 @@ func (p *Project) Clone() *Project {
 	if p.PKG != nil {
 		x := *p.PKG
 		q.PKG = &x
-		x.Components = append([]Component(nil), x.Components...)
+		x.Components = slices.Clone(x.Components)
 		if x.License != nil {
 			x.License = License{}
 			maps.Copy(x.License, p.PKG.License)

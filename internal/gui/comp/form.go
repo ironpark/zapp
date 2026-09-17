@@ -17,6 +17,7 @@ type Form struct {
 // covers all three plus the gap to the next row. Multiline rows are taller so a
 // JSON value is legible without scrolling the box itself.
 const (
+	groupGutter    = 32
 	labelGutter    = 25
 	hintGutter     = 19
 	boxHeight      = 32
@@ -55,6 +56,9 @@ func (f Form) row(start int) (end, height int) {
 		height = max(height, rowSpan(f.Inputs[end]))
 		end++
 	}
+	if f.Inputs[start].Group != "" {
+		height += groupGutter
+	}
 	return
 }
 
@@ -80,6 +84,9 @@ func (f Form) cellBounds(index int) image.Rectangle {
 	for start := 0; start < len(f.Inputs); {
 		end, span := f.row(start)
 		if index < end {
+			if f.Inputs[start].Group != "" {
+				y += groupGutter
+			}
 			row := Box(f.Bounds.Min.X, y+labelGutter, f.Bounds.Dx(), boxSpan(f.Inputs[index]))
 			return SplitRow(row, end-start, 12)[index-start]
 		}
@@ -140,8 +147,15 @@ func (f Form) Draw(dst *ebiten.Image, p *Painter, active int, draft *Input, poin
 	for i, spec := range f.Inputs {
 		r := f.FieldBounds(i)
 		row := image.Rect(r.Min.X, r.Min.Y-labelGutter, r.Max.X, r.Max.Y+hintGutter+20)
+		if spec.Group != "" {
+			row.Min.Y -= groupGutter
+		}
 		if !row.Overlaps(bounds) {
 			continue
+		}
+		if spec.Group != "" {
+			p.Text(canvas, p.Fit(spec.Group, f.Bounds.Dx(), 12), f.Bounds.Min.X, row.Min.Y+3, 12, p.Theme.Accent)
+			Rect(canvas, Box(f.Bounds.Min.X, row.Min.Y+24, f.Bounds.Dx(), 1), p.Theme.Border)
 		}
 		if spec.Browse {
 			(Button{Bounds: f.BrowseBounds(i), Label: "Browse"}).Draw(canvas, p, pointer)

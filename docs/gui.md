@@ -26,13 +26,19 @@ migrated to the version 1 project format first.
 Each step can be enabled or disabled. Disabled sections are omitted from the
 saved project. Their values are retained while toggling within the same editor
 session. Tab dots show enabled/disabled steps; an error dot identifies the step
-that needs attention. Non-DMG settings use a width-limited form with a **Help**
-button to open or hide the step guide.
+that needs attention. Non-DMG settings fill the available width until **Help**
+is opened, making room for the step guide beside the form.
 
 **PKG** has a **Single app / Components** selector. Basic settings appear first;
 **Advanced settings** reveals scripts, minimum OS, licenses and distribution.
-Components have an add/remove list and a detail form. **Form / JSON** switches
-to a highlighted source editor; valid edits apply before switching. Removing a
+Components have an add/remove list and a detail form. Shared package settings, the selected payload and installer presentation have separate group headings. **Form / JSON** switches
+to a highlighted source editor; valid edits apply before switching. The component
+list and view switch stay in place, and each view retains its scroll position.
+Click a component to return to its Form view; removal is available in Form view.
+Entry accepts one direct child name (for example `MyApp.app`), not a nested path;
+leave it blank to include the entire root. In Components mode, a blank install
+location uses `/` and a blank version uses `1.0`. Single app mode defaults to
+`/Applications` and reads package identity and version from the app. Removing a
 component referenced by distribution choices is blocked until those references
 are removed. Switching back to a single app requires custom components and
 distribution settings to be cleared; the generated default component can be

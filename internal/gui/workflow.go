@@ -117,7 +117,7 @@ func (g *editor) selectNotaryMethod(index int) {
 	g.rebuild()
 }
 func (g *editor) componentListVisible() bool {
-	return g.tab == tabPKG && g.s.Project.PKG != nil && g.s.Project.PKG.HasFullForm() && !g.pkgRaw
+	return g.tab == tabPKG && g.s.Project.PKG != nil && g.s.Project.PKG.HasFullForm()
 }
 func (g *editor) workflowSegments() []comp.Segmented {
 	if g.tab == tabDMG || !g.enabled() {
@@ -141,7 +141,7 @@ func (g *editor) workflowSegments() []comp.Segmented {
 			}
 		}})
 		if mode == 1 {
-			out = append(out, g.sourceSegment(panel, g.pkgRaw, func(raw bool) { g.pkgRaw = raw }))
+			out = append(out, g.packageSourceSegment(panel))
 		}
 	case tabDep:
 		out = append(out, g.sourceSegment(panel, g.depRaw, func(raw bool) { g.depRaw = raw }))
@@ -233,4 +233,21 @@ func (g *editor) goToIssue() {
 	g.revealComponent()
 	g.selected = issue.item
 	g.showFieldError(issue.tab, issue.label, fmt.Errorf("%s", issue.message))
+}
+
+// Keep each editor's scroll position while preserving the surrounding layout.
+func (g *editor) packageSourceSegment(panel image.Rectangle) comp.Segmented {
+	mode := 0
+	if g.pkgRaw {
+		mode = 1
+	}
+	return comp.Segmented{Bounds: comp.Box(panel.Max.X-220, panel.Min.Y+8, 128, 32), Labels: []string{"Form", "JSON"}, Selected: mode, OnSelect: func(index int) {
+		if index == mode || !g.commit() {
+			return
+		}
+		g.pkgViewScroll[mode] = g.form.Offset()
+		g.pkgRaw = index == 1
+		g.rebuild()
+		g.form.ScrollTo(g.pkgViewScroll[index])
+	}}
 }

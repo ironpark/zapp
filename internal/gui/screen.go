@@ -126,7 +126,7 @@ var stepHelp = map[int][][2]string{
 	tabPKG: {
 		{"SINGLE APP", "Leave identity and version blank to read Info.plist. The default destination is /Applications."},
 		{"PACKAGE TYPE", "Default produces a product installer. Component produces a single component package."},
-		{"MULTIPLE COMPONENTS", "Use multiple components for custom roots and installer choices. Components, distribution and licenses accept JSON."},
+		{"COMPONENT PAYLOAD", "Root is the source directory. Entry selects one direct child; blank includes all contents. A blank install location uses /."},
 	},
 	tabDep: {
 		{"SEARCH DIRECTORIES", "Enter one directory per line. Spaces within a path are preserved; empty lines are ignored."},
