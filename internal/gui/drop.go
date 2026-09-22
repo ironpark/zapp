@@ -119,8 +119,7 @@ func (g *editor) addDroppedPaths(paths []string, point image.Point) (int, error)
 	for _, key := range keys {
 		// Keep the first item at the drop point and lay out additional items
 		// with enough space to distinguish them before the user arranges them.
-		itemX, itemY := nx, ny
-		g.s.Project.DMG.Contents[key] = zapp.Content{Pos: &zapp.Position{itemX, itemY}}
+		g.s.Project.DMG.Contents[key] = zapp.Content{Pos: &zapp.Position{nx, ny}}
 		nx += spacing
 		if nx >= l.W {
 			nx = min(l.W-1, l.IconSize/2)

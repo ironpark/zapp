@@ -3,8 +3,8 @@ package gui
 import (
 	"fmt"
 	"image"
+	"slices"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
@@ -51,14 +51,7 @@ func (g *editor) addComponent() {
 	id := ""
 	for n := 1; id == ""; n++ {
 		candidate := fmt.Sprintf("component-%d", n)
-		exists := false
-		for _, item := range c.Components {
-			if item.ID == candidate {
-				exists = true
-				break
-			}
-		}
-		if !exists {
+		if !slices.ContainsFunc(c.Components, func(item zapp.Component) bool { return item.ID == candidate }) {
 			id = candidate
 		}
 	}
@@ -78,16 +71,14 @@ func (g *editor) removeComponent() {
 	id := c.Components[g.componentIndex].ID
 	if c.Distribution != nil {
 		for _, choice := range c.Distribution.Choices {
-			for _, pkg := range choice.Packages {
-				if pkg == id {
-					g.report(fmt.Errorf("remove %s from distribution choices before deleting it", id), "")
-					return
-				}
+			if slices.Contains(choice.Packages, id) {
+				g.report(fmt.Errorf("remove %s from distribution choices before deleting it", id), "")
+				return
 			}
 		}
 	}
 	g.s.checkpoint()
-	c.Components = append(c.Components[:g.componentIndex], c.Components[g.componentIndex+1:]...)
+	c.Components = slices.Delete(c.Components, g.componentIndex, g.componentIndex+1)
 	g.clearIssue(tabPKG)
 	if c.Components == nil {
 		c.Components = []zapp.Component{}
@@ -95,16 +86,6 @@ func (g *editor) removeComponent() {
 	g.componentIndex = max(0, g.componentIndex-1)
 	g.revealComponent()
 	g.rebuild()
-}
-func (g *editor) drawComponentList(dst *ebiten.Image) {
-	if !g.componentListVisible() {
-		return
-	}
-	g.componentPanel().Draw(dst, g.ui)
-	if len(g.s.Project.PKG.Components) == 0 {
-		area := g.componentPanel().Content()
-		g.ui.Wrapped(dst, "Add a component to configure its payload and destination.", area.Min.X, area.Min.Y, area.Dx(), 13, g.ui.Theme.Muted, 4)
-	}
 }
 func (g *editor) scrollComponents(point image.Point, delta int) bool {
 	if !g.componentListVisible() || !point.In(g.componentPanel().Bounds) || delta == 0 {
@@ -116,6 +97,10 @@ func (g *editor) scrollComponents(point image.Point, delta int) bool {
 }
 
 func (g *editor) revealComponent() {
+	if g.desktop != nil {
+		g.desktop.revealComponent = g.componentIndex
+		return
+	}
 	visible := g.componentPageSize()
 	if g.componentIndex < g.componentScroll {
 		g.componentScroll = g.componentIndex

@@ -6,12 +6,15 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 type editor struct {
+	previewBounds                         image.Rectangle
+	desktop                               *desktopModel
+	previewSurface                        *ebiten.Image
 	pkgViewScroll                         [2]int
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
 	componentIndex, componentScroll       int
@@ -91,14 +94,14 @@ func Run(ctx context.Context, s *Session) error {
 	defer painter.Close()
 	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ebiten.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
 	g.rebuild()
-	ebiten.SetWindowTitle("Zapp — Project settings")
-	ebiten.SetWindowSize(g.w, g.h)
 	ebiten.SetWindowSizeLimits(1080, 720, -1, -1)
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowClosingHandled(true)
-	stopPointer := comp.ObservePointer()
-	defer stopPointer()
-	return ebiten.RunGame(g)
+	defer func() {
+		if g.previewSurface != nil {
+			g.previewSurface.Deallocate()
+		}
+	}()
+	return g.runWidgets()
 }
 func (g *editor) Layout(w, h int) (int, int) {
 	g.w = w
@@ -118,6 +121,7 @@ func (g *editor) Layout(w, h int) (int, int) {
 	return w, h
 }
 func (g *editor) report(err error, success string) {
+	defer g.invalidate()
 	g.failed = err != nil
 	if err != nil {
 		g.status = err.Error()
@@ -205,7 +209,6 @@ func (g *editor) settingsPanel() comp.Panel {
 	width := g.w - 48
 	if g.helpOpen {
 		width = min(760, g.w-384)
-		x = 24
 	}
 	if g.componentListVisible() {
 		x = 240
@@ -248,6 +251,9 @@ func (g *editor) formArea() image.Rectangle {
 	return area
 }
 func (g *editor) syncForm() {
+	if g.desktop != nil {
+		return
+	}
 	specs := make([]comp.InputSpec, len(g.fields))
 	for i, f := range g.fields {
 		specs[i] = f.InputSpec
@@ -265,38 +271,13 @@ func (g *editor) focus(i int) {
 	i = max(0, min(i, len(g.fields)-1))
 	g.active = i
 	g.input = comp.NewInput(g.fields[i].InputSpec)
+	if g.desktop != nil {
+		id := g.fieldIdentity(i)
+		g.desktop.focus = &id
+	}
 	g.revealField(i)
 }
-func (g *editor) editInput() {
-	before := g.input.Text()
-	result := g.input.Handle(comp.CaptureKeyboard(), comp.SystemClipboard{})
-	if before != g.input.Text() {
-		g.clearFieldError()
-		g.previewInput()
-	}
-	if result.Err != nil {
-		g.report(result.Err, "")
-		return
-	}
-	switch result.Intent {
-	case comp.InputOpenChoice:
-		g.openChoice()
-	case comp.InputCancel:
-		g.rebuild()
-	case comp.InputSubmit:
-		g.commit()
-	case comp.InputNext, comp.InputPrevious:
-		index := g.active
-		if !g.commit() || len(g.fields) == 0 {
-			return
-		}
-		delta := 1
-		if result.Intent == comp.InputPrevious {
-			delta = -1
-		}
-		g.focus((index + delta + len(g.fields)) % len(g.fields))
-	}
-}
+
 func (g *editor) switchTab(index int) {
 	if index < 0 || index >= len(sections) || !g.commit() {
 		return
@@ -305,67 +286,4 @@ func (g *editor) switchTab(index int) {
 	g.form.ScrollTo(0)
 	g.selected = ""
 	g.rebuild()
-}
-
-func (g *editor) Update() error {
-	if g.quit {
-		return ebiten.Termination
-	}
-	if err := g.ctx.Err(); err != nil {
-		return err
-	}
-	if g.picking != nil {
-		g.pollPicker()
-		return nil
-	}
-	if ebiten.IsWindowBeingClosed() && g.build == nil {
-		if !g.dirty() {
-			return ebiten.Termination
-		}
-		g.confirmClose = true
-	}
-	g.pollAppIcons()
-	g.pollBuild()
-	if g.build != nil {
-		in := captureTick(g.w, g.h)
-		if ebiten.IsWindowBeingClosed() {
-			g.build.closeRequested = true
-			if g.build.finished {
-				g.finishClose()
-				return nil
-			}
-			g.dismissBuild()
-		}
-		g.buildDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape))
-		return nil
-	}
-	in := captureTick(g.w, g.h)
-	if in.pos != g.hoverPoint || in.click {
-		g.hoverPoint, g.hoverTicks = in.pos, 0
-	} else {
-		g.hoverTicks = min(40, g.hoverTicks+1)
-	}
-	if g.confirmClose && g.closeDialog().Handle(in.mouse, in.click, inpututil.IsKeyJustPressed(ebiten.KeyEscape)) {
-		return nil
-	}
-	if g.choiceOpen {
-		g.handleChoice(in, comp.CaptureKeyboard())
-		return nil
-	}
-	if files := ebiten.DroppedFiles(); files != nil {
-		x, y := ebiten.CursorPosition()
-		g.dropFiles(files, image.Pt(x, y))
-		return nil
-	}
-	if g.handleShortcuts() {
-		return nil
-	}
-	g.handleTyping()
-	if in.click && g.handleClick(in) {
-		return nil
-	}
-	g.updatePan(in)
-	g.updateDrag(in)
-	g.scrollForm(in)
-	return nil
 }

@@ -1,7 +1,11 @@
 # GUI components
 
-`comp` is the reusable presentation layer for the Ebitengine editor. It does not
-import Zapp's project model or packaging code.
+The running GUI uses ggui for controls, focus, input, accessibility and dialogs.
+`comp` supplies draft/value specifications and custom DMG painting. Its legacy
+geometry is kept for transaction regression tests; ggui owns the running layout. It does not import Zapp's project model or
+packaging code. Its imperative controls remain available for model-level tests;
+they do not drive the app's input loop. See `../ggui_runtime.go`, `../ggui_form.go`
+and `../ggui_designer.go` for the running presentation layer.
 
 | Component | Owns |
 | --- | --- |

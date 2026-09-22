@@ -10,6 +10,7 @@ import (
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 	"github.com/ironpark/zapp/pkg/dmg"
+	"github.com/ironpark/zapp/pkg/udif"
 )
 
 // field binds reusable input presentation to a project-specific setter.
@@ -108,6 +109,7 @@ func (g *editor) rebuild() {
 }
 
 func (g *editor) rebuildFields() {
+	defer g.invalidate()
 	g.restoreLive()
 	defer g.syncForm()
 	g.projectDirty = g.s.Dirty()
@@ -136,6 +138,7 @@ func (g *editor) refreshDerived() {
 		g.previewSig = sig
 		g.refreshPreview()
 		g.refreshItemKinds()
+		g.assetsChanged()
 	}
 }
 
@@ -148,6 +151,10 @@ func (g *editor) projectFields() []field {
 		outDir,
 	}
 }
+
+// withDefaultChoice prefixes a parser's canonical name list with the blank entry
+// the forms use for "leave at the default".
+func withDefaultChoice(names []string) []string { return append([]string{""}, names...) }
 
 func (g *editor) dmgFields() []field {
 	if g.dmgYAML {
@@ -173,8 +180,8 @@ func (g *editor) dmgFormFields() []field {
 	if g.dmgAdvanced {
 		fields = append(fields,
 			pathField("Disk icon", &c.Icon, "ICNS or PNG; not the app icon", pickIcon),
-			choiceField("Filesystem", &c.FS, "", "hfsplus", "apfs", "apfs-case-sensitive"),
-			choiceField("Compression", &c.Format, "", "udzo", "ulfo"),
+			choiceField("Filesystem", &c.FS, withDefaultChoice(dmg.FileSystemNames)...),
+			choiceField("Compression", &c.Format, withDefaultChoice(udif.FormatNames)...),
 			pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 		)
 	}
@@ -195,8 +202,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 	if !found {
 		return zapp.Content{}, false
 	}
-	x, y := i.X, i.Y
-	return zapp.Content{Pos: &zapp.Position{x, y}, Name: i.Name, Link: i.Link, Icon: i.Icon}, true
+	return zapp.Content{Pos: &zapp.Position{i.X, i.Y}, Name: i.Name, Link: i.Link, Icon: i.Icon}, true
 }
 
 // itemIconFieldIndex is the position of the "Item icon" field within
@@ -207,10 +213,7 @@ const itemIconFieldIndex = 3
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
 	key := g.selected
 	fields := []field{{Label: "Name", Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
-		g.s.materialize()
-		i := c.Contents[key]
-		i.Name = v
-		c.Contents[key] = i
+		g.editSelectedContent(func(c *zapp.Content) { c.Name = v })
 		return nil
 	}}}
 	// Both coordinates go through Session.move, so a typed value is clamped to
@@ -230,10 +233,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 	}
 	icon := pathField("Item icon", &item.Icon, "Blank uses the original icon", pickItemIcon)
 	icon.set = func(value string) error {
-		g.s.materialize()
-		i := c.Contents[key]
-		i.Icon = value
-		c.Contents[key] = i
+		g.editSelectedContent(func(c *zapp.Content) { c.Icon = value })
 		return nil
 	}
 	icon.Placeholder = "PNG, JPG or ICNS"

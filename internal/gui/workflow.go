@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"runtime"
+	"slices"
 
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
@@ -144,11 +145,15 @@ func (g *editor) workflowSegments() []comp.Segmented {
 			out = append(out, g.packageSourceSegment(panel))
 		}
 	case tabDep:
-		out = append(out, g.sourceSegment(panel, g.depRaw, func(raw bool) { g.depRaw = raw }))
+		out = append(out, g.sourceSegment(panel, g.depRaw, func(raw bool) { g.depRaw = raw }, nil))
 	}
 	return out
 }
-func (g *editor) sourceSegment(panel image.Rectangle, raw bool, set func(bool)) comp.Segmented {
+
+// sourceSegment is the Form/raw-text toggle every editable section shows. A
+// non-nil scroll gives the section a remembered offset per view; otherwise both
+// views open at the top.
+func (g *editor) sourceSegment(panel image.Rectangle, raw bool, set func(bool), scroll *[2]int) comp.Segmented {
 	mode := 0
 	if raw {
 		mode = 1
@@ -158,11 +163,17 @@ func (g *editor) sourceSegment(panel image.Rectangle, raw bool, set func(bool)) 
 		labels = []string{"List", "Text"}
 	}
 	return comp.Segmented{Bounds: comp.Box(panel.Max.X-220, panel.Min.Y+8, 128, 32), Labels: labels, Selected: mode, OnSelect: func(index int) {
-		if g.commit() {
-			set(index == 1)
-			g.form.ScrollTo(0)
-			g.rebuild()
+		if index == mode || !g.commit() {
+			return
 		}
+		offset := 0
+		if scroll != nil {
+			scroll[mode] = g.form.Offset()
+			offset = scroll[index]
+		}
+		set(index == 1)
+		g.rebuild()
+		g.form.ScrollTo(offset)
 	}}
 }
 func (g *editor) workflowButtons() []comp.Button {
@@ -171,24 +182,7 @@ func (g *editor) workflowButtons() []comp.Button {
 		panel := g.settingsPanel().Bounds
 		out = append(out, comp.Button{Bounds: comp.Box(panel.Max.X-80, panel.Min.Y+8, 64, 32), Label: "Help", Ghost: true, Selected: g.helpOpen, OnClick: func() { g.helpOpen = !g.helpOpen; g.syncForm() }})
 		if g.tab == tabPKG {
-			icon := comp.IconChevronDown
-			if g.pkgAdvanced {
-				icon = comp.IconChevronUp
-			}
-			out = append(out, comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Advanced settings", Icon: icon, Selected: g.pkgAdvanced, OnClick: g.guard(func() {
-				g.pkgAdvanced = !g.pkgAdvanced
-				g.rebuild()
-				if g.pkgAdvanced {
-					for i, f := range g.fields {
-						if f.Label == "Scripts directory" || f.Label == "Distribution" {
-							g.form.ScrollBy(g.form.FieldBounds(i).Min.Y - g.form.Bounds.Min.Y - 25)
-							break
-						}
-					}
-				} else {
-					g.form.ScrollTo(0)
-				}
-			})})
+			out = append(out, g.advancedButton(panel, &g.pkgAdvanced, "Scripts directory", "Distribution"))
 		}
 		if g.tab == tabDep && !g.depRaw {
 			out = append(out, comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Add directory", Icon: comp.IconPlus, OnClick: g.guard(func() { g.browse(len(g.s.Project.Dep.Libs)) })})
@@ -199,7 +193,7 @@ func (g *editor) workflowButtons() []comp.Button {
 					out = append(out, comp.Button{Bounds: bounds, Label: "Remove path", Icon: comp.IconTrash, IconOnly: true, Ghost: true, OnClick: g.guard(func() {
 						g.s.checkpoint()
 						c := g.s.Project.Dep
-						c.Libs = append(c.Libs[:i], c.Libs[i+1:]...)
+						c.Libs = slices.Delete(c.Libs, i, i+1)
 						g.clearIssue(tabDep)
 						g.rebuild()
 					})})
@@ -237,17 +231,5 @@ func (g *editor) goToIssue() {
 
 // Keep each editor's scroll position while preserving the surrounding layout.
 func (g *editor) packageSourceSegment(panel image.Rectangle) comp.Segmented {
-	mode := 0
-	if g.pkgRaw {
-		mode = 1
-	}
-	return comp.Segmented{Bounds: comp.Box(panel.Max.X-220, panel.Min.Y+8, 128, 32), Labels: []string{"Form", "JSON"}, Selected: mode, OnSelect: func(index int) {
-		if index == mode || !g.commit() {
-			return
-		}
-		g.pkgViewScroll[mode] = g.form.Offset()
-		g.pkgRaw = index == 1
-		g.rebuild()
-		g.form.ScrollTo(g.pkgViewScroll[index])
-	}}
+	return g.sourceSegment(panel, g.pkgRaw, func(raw bool) { g.pkgRaw = raw }, &g.pkgViewScroll)
 }

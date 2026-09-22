@@ -78,3 +78,7 @@ func (p *Painter) drawIcon(dst *ebiten.Image, icon Icon, bounds image.Rectangle,
 	op.Filter = ebiten.FilterLinear
 	dst.DrawImage(img, op)
 }
+
+// IconImage returns a borrowed icon texture for the ggui presentation layer.
+// The painter retains ownership and releases it in Close.
+func (p *Painter) IconImage(icon Icon) *ebiten.Image { return p.icons[icon] }

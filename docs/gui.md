@@ -5,7 +5,7 @@ zapp gui
 zapp gui --config release/.zapp.yaml
 ```
 
-`gui` opens an Ebitengine desktop window. It discovers `.zapp.yaml` in the current
+`gui` opens a [ggui](https://github.com/ironpark/ggui) desktop window rendered by Ebitengine. It discovers `.zapp.yaml` in the current
 directory or its parents, just like the other project commands. `--config` (or
 `ZAPP_CONFIG`) selects a YAML or JSON project explicitly. If there is no project,
 the GUI starts an unsaved draft; the file is created when you click **Save**.
@@ -25,14 +25,14 @@ migrated to the version 1 project format first.
 
 Each step can be enabled or disabled. Disabled sections are omitted from the
 saved project. Their values are retained while toggling within the same editor
-session. Tab dots show enabled/disabled steps; an error dot identifies the step
-that needs attention. Non-DMG settings fill the available width until **Help**
+session. The step toolbar shows whether the selected step is enabled. Validation errors
+are shown inline and can be revisited with **Go to issue**. Non-DMG settings fill the available width until **Help**
 is opened, making room for the step guide beside the form.
 
 **PKG** has a **Single app / Components** selector. Basic settings appear first;
 **Advanced settings** reveals scripts, minimum OS, licenses and distribution.
 Components have an add/remove list and a detail form. Shared package settings, the selected payload and installer presentation have separate group headings. **Form / JSON** switches
-to a highlighted source editor; valid edits apply before switching. The component
+to a multiline source editor; valid edits apply before switching. The component
 list and view switch stay in place, and each view retains its scroll position.
 Click a component to return to its Form view; removal is available in Form view.
 Entry accepts one direct child name (for example `MyApp.app`), not a nested path;
@@ -102,22 +102,19 @@ images are limited to 8192 pixels per side and 32 million pixels in total.
 
 ## Editing and saving
 
-- **Enter** applies a single-line field. **Ctrl/Cmd+Enter** applies a multiline field. JSON/YAML use Tab for indentation;
-  Shift+Tab moves to the previous field.
-- **Tab / Shift+Tab** applies the current field and focuses the next/previous one.
+- **Enter** applies a single-line field. **Ctrl/Cmd+Enter** applies a multiline field.
+- **Tab / Shift+Tab** applies the current field and focuses the next/previous control, scrolling offscreen fields into view.
 - **Ctrl/Cmd+A**, **C**, **X**, **V** select all, copy, cut and paste within a field.
   Arrow keys move the cursor; multiline fields also support Up/Down.
 - **Esc** cancels the current field edit.
 - **Ctrl/Cmd+S** saves all tabs together.
-- **Ctrl/Cmd+1–6** switches tabs. **Tab** also focuses the first field when none
-  is being edited. Choice fields open a dropdown below the input with a click, Enter, Space or
-  Down. Click an option or use Up/Down and Enter to select; Esc or an outside
+- **Ctrl/Cmd+1–6** switches tabs. **Tab** moves through tabs, fields and actions. Choice fields open a dropdown with a click, Enter or Space. Click an option or use Up/Down and Enter to select; Esc or an outside
   click dismisses the list without changing the value.
 - With an icon selected and no text field active, **arrow keys** move it one
   pixel; **Shift+arrow** moves it ten pixels.
 - **Undo / Redo** revert or restore settings and icon moves. **Ctrl/Cmd+Z** undoes
-  a committed change, or cancels an active field edit; **Ctrl/Cmd+Shift+Z** redoes
-  a committed change when no field is active.
+  typing within a text field, or a committed project change outside an active edit.
+  **Ctrl/Cmd+Shift+Z** redoes it.
 - Scroll the settings panel to reach additional fields.
 
 **Save** checks schema and layout values but permits drafts whose build inputs
@@ -179,13 +176,13 @@ path. Hover tabs and toolbar buttons for enabled-state and shortcut hints.
 
 With no input focused, **Delete / Backspace** removes the selected DMG item and
 **Escape** clears its selection. Removal changes only the layout, and Undo restores
-the item. **Shift+Tab** starts at the last field when no input is focused.
+the item. **Shift+Tab** moves backward through controls.
 
 The **Link** toggle in Item details switches the selected item between copying its
 contents and creating a symbolic link to its source path. Name and position are
 preserved, and Undo restores the previous mode.
 
-Undo, Redo and Add file use embedded SVG icon buttons with hover tooltips.
+Undo, Redo and Add file have named controls with hover tooltips.
 Save, Validate and Remove from DMG show icons alongside their labels.
 
 **Validate** is in the top header beside **Save**. The compact bottom status bar
@@ -204,9 +201,9 @@ icons stored in Asset Catalogs asynchronously, refreshing both preview and list.
 The DMG preview uses a **Fit / 100%** segmented toggle. **Layout settings** has a
 **Form / YAML** view switch in its upper-right corner. YAML edits the DMG section
 itself (without an outer `dmg:` key), including advanced settings and contents.
-The editor uses a fixed-width font and highlights keys, strings, numbers, booleans,
-and comments. Click to place the cursor, use the wheel to scroll, and press Tab
-to insert two spaces; Enter retains indentation.
+The editor uses ggui’s multiline text field with a fixed-width font, selection,
+clipboard, typing undo and IME support. Tab moves focus; Enter inserts a newline.
+Syntax colors and automatic indentation are not supplied by this text field.
 
 **Ctrl/Cmd+Enter** applies the YAML draft; **Escape** discards it. Switching back to
 Form applies valid changes too. Invalid YAML, duplicate/unknown keys, and invalid
@@ -229,7 +226,7 @@ settings in Form mode. Opening it reveals the advanced fields; closing it return
 to the basic fields. The control remains available while the form scrolls.
 
 Select a copied item and use **Item icon → Browse** to choose PNG, JPG/JPEG or ICNS.
-The preview and Contents list update immediately. The reset icon beside the
+The preview and Contents list update immediately. The **Reset item icon** action below the
 field restores the original icon; both selection and reset support Undo/Redo.
 The project stores the path in `dmg.contents.<source>.icon` (relative to the
 project file when selected with Browse). Only the copy inside the DMG is changed.
@@ -240,3 +237,38 @@ icon must be reset before enabling Link. Finder ignores custom symlink icons.
 Signed bundles and signed Mach-O executables reject custom icons at validation
 and build time because Finder resource forks invalidate strict signature checks.
 For a signed app, change its bundled app icon before signing instead.
+
+## GUI implementation
+
+The desktop is composed like ggui's `examples/sqlite`: a reactive model,
+`Row`/`Column`/`Expanded` layouts, native `Scroll`, labelled fields and dialogs.
+There is no absolute-positioned widget scene or full-screen revision counter.
+
+- `ggui_model.go` exposes per-field value/error state and separate workspace,
+  status, history and modal state. Project/session transactions own save, undo,
+  validation and builds.
+- `ggui_view.go` composes the toolbar, underline tabs, settings, component sidebar,
+  Help and dialogs. Settings expand until Help is opened. The toolbar also offers
+  light/dark themes.
+- `ggui_form.go` builds labelled controls and grouped rows. ggui handles clipping,
+  keyboard focus and automatic reveal. Each form/source view retains its scroll
+  position. Path fields accept a dropped file or folder.
+- `ggui_designer.go` composes resizable DMG panels around a custom Finder canvas.
+  Canvas input/drop coordinates are local to the space assigned by the layout.
+- `ggui_runtime.go` connects lifecycle, shortcuts and native ggui file dialogs.
+  The ggui version is pinned to a commit because its API is under development.
+
+`go test ./internal/gui/...` runs headless widget tests, including save/undo,
+invalid JSON, mode changes, focus reveal, native picker stubs, file drops,
+canvas dragging and modal actions. Native IME composition still needs testing
+in a running desktop app.
+
+Like the SQLite example, an opt-in GPU renderer writes screenshots using a
+fresh temporary project; it does not modify the working project:
+
+```sh
+ZAPP_GUI_RENDER_DIR=/tmp/zapp-previews go test ./internal/gui -run '^$' -count=1
+```
+
+The output covers all steps, component/JSON/Help views, dialogs and light/dark
+appearance at 1080 and 1200 pixels. Rendering requires a desktop GPU session.

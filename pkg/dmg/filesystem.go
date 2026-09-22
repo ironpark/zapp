@@ -25,6 +25,11 @@ const (
 	APFSCaseSensitive FileSystem = "apfs-case-sensitive"
 )
 
+// FileSystemNames are the canonical names ParseFileSystem accepts, in the order
+// a chooser should offer them. Callers that present a list read it from here so
+// a new filesystem cannot appear in a picker the parser rejects.
+var FileSystemNames = []string{string(HFSPlus), string(APFS), string(APFSCaseSensitive)}
+
 func (f FileSystem) String() string { return string(f.orDefault()) }
 
 // orDefault resolves the zero value, so nothing downstream compares against "".

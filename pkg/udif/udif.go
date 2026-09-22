@@ -66,6 +66,10 @@ func (f Format) String() string {
 
 // ParseFormat resolves a format name, ignoring case, and treats an unset name
 // as the default. It is the single place that knows which names are accepted.
+// FormatNames are the canonical compression names ParseFormat accepts, in the
+// order a chooser should offer them. Aliases stay parse-only.
+var FormatNames = []string{"udzo", "ulfo"}
+
 func ParseFormat(name string) (Format, error) {
 	switch strings.ToLower(name) {
 	case "", "udzo", "zlib":

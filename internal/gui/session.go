@@ -233,8 +233,7 @@ func (s *Session) materialize() {
 	items := s.layout().Items
 	c.Contents = map[string]zapp.Content{}
 	for _, item := range items {
-		x, y := item.X, item.Y
-		c.Contents[item.Path] = zapp.Content{Pos: &zapp.Position{x, y}, Name: item.Name, Link: item.Link, Icon: item.Icon}
+		c.Contents[item.Path] = zapp.Content{Pos: &zapp.Position{item.X, item.Y}, Name: item.Name, Link: item.Link, Icon: item.Icon}
 	}
 }
 

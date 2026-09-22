@@ -139,7 +139,7 @@ func (g *editor) validatePaths() bool {
 				g.tab = tabDMG
 				g.selected = path
 				g.rebuild()
-				if len(g.inspector.Inputs) > itemIconFieldIndex {
+				if len(g.fields)-g.inspectorStart > itemIconFieldIndex {
 					g.focus(g.inspectorStart + itemIconFieldIndex)
 					g.fieldError(err)
 				} else {

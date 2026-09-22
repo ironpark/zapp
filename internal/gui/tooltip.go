@@ -3,9 +3,6 @@ package gui
 import (
 	"fmt"
 	"image"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 // Tooltips reveal paths and shortcuts without adding permanent screen chrome.
@@ -21,11 +18,11 @@ func (g *editor) tooltipAt(point image.Point) string {
 				case "Form":
 					return "Edit with fields. Valid source edits are applied when switching."
 				case "JSON":
-					return "Edit JSON · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: indent"
+					return "Edit JSON · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: next control"
 				case "Text":
 					return "One search directory per line · Ctrl/Cmd+Enter: apply"
 				case "YAML":
-					return "Edit DMG YAML · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: indent"
+					return "Edit DMG YAML · Ctrl/Cmd+Enter: apply · Esc: cancel · Tab: next control"
 				}
 			}
 		}
@@ -71,15 +68,13 @@ func (g *editor) tooltipAt(point image.Point) string {
 	if !g.enabled() {
 		return ""
 	}
-	for i, field := range g.fields {
-		form, local := g.fieldForm(i)
-		if point.In(form.FieldBounds(local).Intersect(form.Bounds)) {
-			if field.Browse {
-				return field.Value
-			}
-			if field.Number != nil {
-				return "Up / Down: step by 1 · Shift: step by 10 · Enter: apply · Esc: cancel"
-			}
+	if i, ok := g.fieldAt(point); ok {
+		switch field := g.fields[i]; {
+		case field.Browse:
+			return field.Value
+		case field.Number != nil:
+			return "Up / Down: step by 1 · Shift: step by 10 · Enter: apply · Esc: cancel"
+		default:
 			return field.Hint
 		}
 	}
@@ -97,26 +92,4 @@ func (g *editor) tooltipAt(point image.Point) string {
 		}
 	}
 	return ""
-}
-
-func (g *editor) drawTooltip(dst *ebiten.Image, pointer image.Point) {
-	if g.hoverTicks < 30 || g.drag != "" || g.panning {
-		return
-	}
-	message := g.tooltipAt(pointer)
-	if message == "" {
-		return
-	}
-	p := g.ui
-	measured := p.Measure(message, 12)
-	width := min(g.w-48, 600, measured+24)
-	x := min(pointer.X+12, g.w-24-width)
-	height := 76
-	if measured <= width-24 {
-		height = 36
-	}
-	y := min(pointer.Y+24, g.h-footerHeight-height-12)
-	box := comp.Box(max(24, x), max(12, y), width, height)
-	comp.Surface(dst, box, comp.Radius, p.Theme.Hover, p.Theme.Border)
-	p.Wrapped(dst, message, box.Min.X+12, box.Min.Y+10, box.Dx()-24, 12, p.Theme.Text, 3)
 }

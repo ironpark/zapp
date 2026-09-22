@@ -95,6 +95,7 @@ func (g *editor) pollAppIcons() {
 				g.assets[key] = texture
 			}
 			g.pruneAssets()
+			g.assetsChanged()
 		default:
 			return
 		}

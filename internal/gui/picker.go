@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	guiruntime "github.com/ironpark/ggui/runtime"
 	"image"
 	"os"
 	"os/exec"
@@ -82,6 +83,29 @@ func (g *editor) startPicker(index int, mode pickMode, title, initial string) {
 	}
 	results := make(chan pickResult, 1)
 	g.picking = results
+	if g.desktop != nil && g.desktop.dialogs != nil {
+		dialog := guiruntime.FileDialog{Title: title, Directory: initial}
+		if extensions := pickerExtensions(mode); len(extensions) > 0 {
+			dialog.Filters = []guiruntime.FileFilter{{Name: title, Extensions: extensions}}
+		}
+		var path string
+		var err error
+		switch mode {
+		case pickFolder:
+			path, err = g.desktop.dialogs.PickFolder(dialog)
+		case pickSave:
+			path, err = g.desktop.dialogs.SaveFile(dialog)
+		default:
+			path, err = g.desktop.dialogs.OpenFile(dialog)
+		}
+		if errors.Is(err, guiruntime.ErrCanceled) {
+			path, err = "", nil
+		}
+		results <- pickResult{index, path, err}
+		g.pollPicker()
+		g.invalidate()
+		return
+	}
 	go func() {
 		path, err := choosePath(ctx, mode, title, initial)
 		results <- pickResult{index, path, err}

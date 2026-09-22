@@ -2,7 +2,9 @@ package gui
 
 import (
 	"fmt"
+	"image"
 	"path/filepath"
+	"slices"
 
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
@@ -82,24 +84,36 @@ func (g *editor) controls() []comp.Button {
 		}
 	}
 	if g.tab == tabDMG && g.enabled() && !g.dmgYAML {
-		panel := g.settingsPanel().Bounds
-		icon := comp.IconChevronDown
-		if g.dmgAdvanced {
-			icon = comp.IconChevronUp
-		}
-		buttons = append(buttons, comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Advanced settings", Icon: icon, Selected: g.dmgAdvanced, OnClick: g.guard(func() {
-			g.dmgAdvanced = !g.dmgAdvanced
-			g.rebuild()
-			if g.dmgAdvanced {
-				g.form.ScrollBy(g.form.FieldBounds(6).Min.Y - g.form.Bounds.Min.Y - 25)
-			} else {
-				g.form.ScrollTo(0)
-			}
-		})})
+		buttons = append(buttons, g.advancedButton(g.settingsPanel().Bounds, &g.dmgAdvanced, "Disk icon", ""))
 	}
 
 	return append(buttons, g.workflowButtons()...)
 }
+
+// advancedButton is the disclosure control that reveals a section's advanced
+// fields and scrolls the first one into view. Both editable sections use it, so
+// the chevron, geometry and scroll behaviour are stated once.
+func (g *editor) advancedButton(panel image.Rectangle, flag *bool, labels ...string) comp.Button {
+	icon := comp.IconChevronDown
+	if *flag {
+		icon = comp.IconChevronUp
+	}
+	return comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Advanced settings", Icon: icon, Selected: *flag, OnClick: g.guard(func() {
+		*flag = !*flag
+		g.rebuild()
+		if !*flag {
+			g.form.ScrollTo(0)
+			return
+		}
+		for i, f := range g.fields {
+			if slices.Contains(labels, f.Label) {
+				g.form.ScrollBy(g.form.FieldBounds(i).Min.Y - g.form.Bounds.Min.Y - 25)
+				return
+			}
+		}
+	})}
+}
+
 func (g *editor) switchPackageForm() {
 	p := g.s.Project.PKG
 	if !p.HasFullForm() {

@@ -18,8 +18,6 @@ const (
 type section struct {
 	Name        string
 	Description string
-	// Credentials marks steps whose help text warns about secret handling.
-	Credentials bool
 	fields      func(*editor) []field
 	present     func(*zapp.Project) bool
 	flip        func(p, scratch *zapp.Project)
@@ -69,14 +67,12 @@ var sections = []section{{
 }, {
 	Name:        "Signing",
 	Description: "Choose credentials to sign your app and installers.",
-	Credentials: true,
 	fields:      (*editor).signFields,
 	present:     func(p *zapp.Project) bool { return p.Sign != nil },
 	flip:        func(p, s *zapp.Project) { toggleSection(&p.Sign, &s.Sign) },
 }, {
 	Name:        "Notarization",
 	Description: "Configure Apple notarization and ticket stapling for distribution.",
-	Credentials: true,
 	fields:      (*editor).notarizeFields,
 	present:     func(p *zapp.Project) bool { return p.Notarize != nil },
 	flip:        func(p, s *zapp.Project) { toggleSection(&p.Notarize, &s.Notarize) },

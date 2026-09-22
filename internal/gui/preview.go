@@ -29,6 +29,9 @@ func (t previewTransform) content(x, y float64) (float64, float64) {
 	return (x - t.x) / t.scale, (y - t.y) / t.scale
 }
 func (g *editor) previewArea() image.Rectangle {
+	if g.desktop != nil {
+		return g.previewBounds
+	}
 	panel := g.previewPanel().Bounds
 	return image.Rect(panel.Min.X+16, panel.Min.Y+76, panel.Max.X-16, panel.Max.Y-58)
 }
@@ -195,8 +198,7 @@ func (g *editor) refreshPreview() {
 			// Resolve clones internally, so one scratch project serves every item.
 			one := p.Clone()
 			for i, item := range items {
-				x, y := item.X, item.Y
-				one.DMG.Contents = map[string]zapp.Content{item.Path: {Pos: &zapp.Position{x, y}, Link: item.Link, Name: item.Name, Icon: item.Icon}}
+				one.DMG.Contents = map[string]zapp.Content{item.Path: {Pos: &zapp.Position{item.X, item.Y}, Link: item.Link, Name: item.Name, Icon: item.Icon}}
 				if resolved, err := one.Resolve(); err == nil {
 					paths[i] = resolved.DMG.Contents[0].Path
 					icons[i] = resolved.DMG.Contents[0].Icon
@@ -254,8 +256,10 @@ func (g *editor) pruneAssets() {
 }
 
 func (g *editor) drawPreview(dst *ebiten.Image) {
-	g.previewPanel().Draw(dst, g.ui)
-	comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
+	if g.desktop == nil {
+		g.previewPanel().Draw(dst, g.ui)
+		comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
+	}
 	c := g.s.Project.DMG
 	l := g.s.layout()
 	size, label, items := l.IconSize, l.LabelSize, l.Items
@@ -327,6 +331,9 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
 	dst = full
+	if g.desktop != nil {
+		return
+	}
 	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%", l.W, l.H, t.scale*100), g.previewArea().Min.X, g.contentBottom()-42, 13, g.ui.Theme.Muted)
 	if len(items) == 0 {
 		g.ui.Wrapped(canvas, "Drop files or folders here, or set the app path in Project.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
@@ -69,6 +68,17 @@ func (g *editor) removeSelected() {
 	g.report(nil, "Removed from DMG. Source file unchanged. Undo restores the item.")
 }
 
+// fieldAt resolves the field under the pointer through each form's own single
+// row walk, instead of asking every field for its bounds.
+func (g *editor) fieldAt(point image.Point) (int, bool) {
+	if i, ok := g.form.Hit(point); ok {
+		return i, true
+	}
+	if i, ok := g.inspector.Hit(point); ok {
+		return i + g.inspectorStart, true
+	}
+	return 0, false
+}
 func (g *editor) fieldForm(index int) (*comp.Form, int) {
 	if index >= g.inspectorStart {
 		return &g.inspector, index - g.inspectorStart
@@ -76,6 +86,13 @@ func (g *editor) fieldForm(index int) (*comp.Form, int) {
 	return &g.form, index
 }
 func (g *editor) revealField(index int) {
+	if g.desktop != nil {
+		if index >= 0 && index < len(g.fields) {
+			id := g.fieldIdentity(index)
+			g.desktop.focus = &id
+		}
+		return
+	}
 	form, local := g.fieldForm(index)
 	form.Reveal(local)
 }
@@ -86,6 +103,15 @@ func (g *editor) itemListLimit() int {
 	return max(0, len(g.s.layout().Items)*itemRowHeight-g.itemsPanel().Content().Dy())
 }
 func (g *editor) revealItem() {
+	if g.desktop != nil {
+		for i, item := range g.s.layout().Items {
+			if item.Path == g.selected {
+				g.desktop.offset("items").Set(float64(i * 48))
+				break
+			}
+		}
+		return
+	}
 	area := g.itemsPanel().Content()
 	for i, item := range g.s.layout().Items {
 		if item.Path != g.selected {
@@ -117,62 +143,6 @@ func (g *editor) selectListItem(point image.Point) bool {
 		g.inspector.ScrollTo(0)
 	}
 	return true
-}
-func (g *editor) drawItems(dst *ebiten.Image, pointer image.Point) {
-	p, t := g.ui, g.ui.Theme
-	panel := g.itemsPanel()
-	items := g.s.layout().Items
-	panel.Title = fmt.Sprintf("Contents · %d", len(items))
-	panel.Draw(dst, p)
-	area := panel.Content()
-	canvas := dst.SubImage(area.Intersect(dst.Bounds())).(*ebiten.Image)
-	limit := g.itemListLimit()
-	g.itemScroll = max(0, min(g.itemScroll, limit))
-	if len(items) == 0 {
-		p.Wrapped(canvas, "Drop files onto the preview to add contents.", area.Min.X, area.Min.Y, area.Dx(), 13, t.Muted, 3)
-	}
-	for i, item := range items {
-		row := comp.Box(area.Min.X, area.Min.Y+i*itemRowHeight-g.itemScroll, area.Dx(), itemRowHeight-2)
-		if !row.Overlaps(area) {
-			continue
-		}
-		if item.Path == g.selected {
-			comp.RoundedRect(canvas, row, 6, t.Selection)
-		} else if pointer.In(row) {
-			comp.RoundedRect(canvas, row, 6, t.Hover)
-		}
-		name := item.Name
-		if name == "" {
-			name = item.title()
-		}
-		kind := g.itemKinds[item.Path]
-		iconBounds := comp.Box(row.Min.X+4, row.Min.Y+5, 30, 30)
-		drawFileIcon(canvas, g.assets["item:"+item.Path], iconBounds)
-		if item.Link {
-			drawFileIcon(canvas, g.assets["badge:alias"], iconBounds)
-		}
-		p.Text(canvas, p.Fit(name, row.Dx()-46, 13), row.Min.X+40, row.Min.Y+3, 13, t.Text)
-		p.Text(canvas, p.Fit(kind+" · "+item.Path, row.Dx()-46, 11), row.Min.X+40, row.Min.Y+23, 11, t.Muted)
-	}
-	comp.Scrollbar(dst, comp.Box(area.Max.X+6, area.Min.Y, 3, area.Dy()), g.itemScroll, limit, t.Muted)
-	g.inspectorPanel().Draw(dst, p)
-	if g.selected != "" {
-		g.linkToggle().Draw(dst, p, pointer)
-	}
-	if g.selected == "" || len(g.inspector.Inputs) == 0 {
-		a := g.inspectorPanel().Content()
-		p.Wrapped(dst, "Select an item in the list or preview to edit its name and position.", a.Min.X, a.Min.Y, a.Dx(), 13, t.Muted, 4)
-	} else {
-		active := -1
-		if g.active >= g.inspectorStart {
-			active = g.active - g.inspectorStart
-		}
-		g.inspector.Draw(dst, p, active, &g.input, pointer)
-		if item, ok := g.selectedContent(); ok && item.Link {
-			area := g.inspectorArea()
-			p.Wrapped(dst, "Link icons follow the target. Turn off Link to use a custom icon.", area.Min.X, area.Max.Y-66, area.Dx(), 12, t.Muted, 3)
-		}
-	}
 }
 
 // editSelectedContent materializes the contents map, applies f to the selected
