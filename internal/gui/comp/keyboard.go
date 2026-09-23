@@ -3,38 +3,19 @@ package comp
 import (
 	"slices"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/ironpark/ggfx"
 )
 
 // Keyboard is a per-tick snapshot. Tests can supply it without starting a window.
 type Keyboard struct {
 	Command, Shift    bool
 	Text              string
-	Pressed, Repeated []ebiten.Key
+	Pressed, Repeated []ggfx.Key
 }
 
-func (k Keyboard) JustPressed(key ebiten.Key) bool {
+func (k Keyboard) JustPressed(key ggfx.Key) bool {
 	return slices.Contains(k.Pressed, key)
 }
-func (k Keyboard) Repeats(key ebiten.Key) bool {
+func (k Keyboard) Repeats(key ggfx.Key) bool {
 	return k.JustPressed(key) || slices.Contains(k.Repeated, key)
-}
-func CommandKey() bool {
-	return ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyMeta)
-}
-func KeyRepeated(key ebiten.Key) bool {
-	n := inpututil.KeyPressDuration(key)
-	return inpututil.IsKeyJustPressed(key) || (n > 25 && n%3 == 0)
-}
-func CaptureKeyboard() Keyboard {
-	k := Keyboard{Command: CommandKey(), Shift: ebiten.IsKeyPressed(ebiten.KeyShift), Text: string(ebiten.AppendInputChars(nil))}
-	for _, key := range []ebiten.Key{ebiten.KeyEscape, ebiten.KeyTab, ebiten.KeyEnter, ebiten.KeySpace, ebiten.KeyA, ebiten.KeyC, ebiten.KeyX, ebiten.KeyV, ebiten.KeyArrowLeft, ebiten.KeyArrowRight, ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyHome, ebiten.KeyEnd, ebiten.KeyBackspace, ebiten.KeyDelete} {
-		if inpututil.IsKeyJustPressed(key) {
-			k.Pressed = append(k.Pressed, key)
-		} else if KeyRepeated(key) {
-			k.Repeated = append(k.Repeated, key)
-		}
-	}
-	return k
 }

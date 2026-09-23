@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 )
 
 func TestYAMLHighlightKeepsSourceAndQuotedComments(t *testing.T) {
@@ -32,11 +32,11 @@ func TestYAMLHighlightKeepsSourceAndQuotedComments(t *testing.T) {
 
 func TestCodeIndentAndScroll(t *testing.T) {
 	i := NewInput(InputSpec{Multiline: true, Syntax: "yaml", Value: "window:"})
-	i.Handle(Keyboard{Pressed: []ebiten.Key{ebiten.KeyEnter}}, nil)
+	i.Handle(Keyboard{Pressed: []ggfx.Key{ggfx.KeyEnter}}, nil)
 	if i.Text() != "window:\n  " {
 		t.Fatal("newline did not indent")
 	}
-	i.Handle(Keyboard{Pressed: []ebiten.Key{ebiten.KeyTab}}, nil)
+	i.Handle(Keyboard{Pressed: []ggfx.Key{ggfx.KeyTab}}, nil)
 	if i.Text() != "window:\n    " {
 		t.Fatal("Tab did not indent")
 	}
@@ -75,7 +75,7 @@ func TestJSONHighlightAndIndent(t *testing.T) {
 		t.Fatal("JSON tokens lost source or colors")
 	}
 	i := NewInput(InputSpec{Multiline: true, Syntax: "json", Value: "["})
-	i.Handle(Keyboard{Pressed: []ebiten.Key{ebiten.KeyEnter}}, nil)
+	i.Handle(Keyboard{Pressed: []ggfx.Key{ggfx.KeyEnter}}, nil)
 	if i.Text() != "[\n  " {
 		t.Fatalf("JSON indentation: %q", i.Text())
 	}

@@ -65,6 +65,31 @@ func (g *editor) fieldIdentity(i int) fieldIdentity {
 func (g *editor) matchesField(id fieldIdentity) bool {
 	return id.index >= 0 && id.index < len(g.fields) && g.fieldIdentity(id.index) == id
 }
+
+// allowClose decides a close request from the window's button or the
+// platform quit command. A running build is cancelled first and the decision
+// waits until it has stopped (pollBuild calls finishClose); unsaved edits open
+// the confirm dialog, whose buttons end the app through requestQuit.
+func (m *desktopModel) allowClose() bool {
+	g := m.editor
+	if g.build != nil {
+		g.build.closeRequested = true
+		if g.build.finished {
+			g.finishClose()
+		} else if !g.build.cancelling {
+			g.dismissBuild()
+		}
+		m.sync()
+		return false
+	}
+	if g.dirty() {
+		g.confirmClose = true
+		m.sync()
+		return false
+	}
+	return true
+}
+
 func newDesktopModel(g *editor) *desktopModel {
 	m := &desktopModel{
 		editor:          g,

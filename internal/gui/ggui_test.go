@@ -259,3 +259,51 @@ func TestDesktopIdleAndValueEditsRetainFieldModels(t *testing.T) {
 		}
 	}
 }
+
+func closeProbe(t *testing.T, g *editor) *ggui.Probe {
+	t.Helper()
+	m := newDesktopModel(g)
+	p := ggui.ProbeBuilder(func() ggui.Widget { return desktopView(m) }, ggui.Sz(g.w, g.h))
+	m.dialogs = p.Dialogs()
+	p.Setup(func() { uitheme.Set(editorTheme(true)) })
+	p.OnCloseRequest(m.allowClose)
+	t.Cleanup(p.Close)
+	p.Frame()
+	return p
+}
+func TestCloseRequestClosesCleanProject(t *testing.T) {
+	g := testEditor(t)
+	if !closeProbe(t, g).RequestClose() {
+		t.Fatal("a project without edits should close at once")
+	}
+}
+func TestCloseRequestAsksBeforeDiscardingEdits(t *testing.T) {
+	g := testEditor(t)
+	g.tab = tabProject
+	g.rebuild()
+	p := closeProbe(t, g)
+	tapTextField(t, p, "Output directory")
+	setTextField(t, p, "Output directory", "unsaved")
+	if p.RequestClose() {
+		t.Fatal("unsaved edits were closed without asking")
+	}
+	if !g.confirmClose {
+		t.Fatal("close request did not open the confirm dialog")
+	}
+	p.Frame()
+	p.Tap("Discard changes")
+	if !g.quit {
+		t.Fatal("discarding did not end the app")
+	}
+}
+func TestCloseRequestCancelsRunningBuild(t *testing.T) {
+	g := testEditor(t)
+	cancelled := false
+	g.build = &buildJob{cancel: func() { cancelled = true }}
+	if closeProbe(t, g).RequestClose() {
+		t.Fatal("closed while a build was running")
+	}
+	if !g.build.closeRequested || !cancelled {
+		t.Fatalf("build was not cancelled: requested=%v cancelled=%v", g.build.closeRequested, cancelled)
+	}
+}

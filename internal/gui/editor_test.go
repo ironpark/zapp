@@ -4,13 +4,13 @@ import (
 	"image"
 	"testing"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 )
 
 func testEditor(t *testing.T) *editor {
 	t.Helper()
 	s := fixture(t, ".zapp.yaml", "version: 1\ndmg: {}\npkg: {}\n")
-	g := &editor{s: s, w: 1200, h: 840, active: -1, assets: map[string]*ebiten.Image{}}
+	g := &editor{s: s, w: 1200, h: 840, active: -1, assets: map[string]*ggfx.Image{}}
 	g.rebuild()
 	return g
 }

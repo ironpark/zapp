@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 )
 
@@ -20,7 +20,7 @@ func (t Toggle) Click(point image.Point) bool {
 		}
 	}}).Click(point)
 }
-func (t Toggle) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
+func (t Toggle) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	fg, track := p.Theme.Text, p.Theme.Border
 	if t.Checked {
 		track = p.Theme.Accent

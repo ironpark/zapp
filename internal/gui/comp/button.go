@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 )
 
@@ -37,7 +37,7 @@ func ClickButtons(buttons []Button, point image.Point) bool {
 	}
 	return false
 }
-func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
+func (b Button) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	t := p.Theme
 	bg, fg := t.Panel, t.Text
 	if pointer.In(b.Bounds) {
@@ -78,7 +78,7 @@ func (b Button) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
 	if clip.Empty() {
 		return
 	}
-	canvas := dst.SubImage(clip).(*ebiten.Image)
+	canvas := dst.SubImage(clip).(*ggfx.Image)
 	iconWidth := 0
 	if b.Icon != "" {
 		iconWidth = 18

@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
@@ -31,11 +31,11 @@ func TestChoiceDropdownSelectCancelAndKeyboard(t *testing.T) {
 	if bounds.Min.Y <= g.form.FieldBounds(index).Max.Y || bounds.Max.Y > g.settingsPanel().Bounds.Max.Y {
 		t.Fatal("dropdown not below field within panel")
 	}
-	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ebiten.Key{ebiten.KeyArrowDown}})
+	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ggfx.Key{ggfx.KeyArrowDown}})
 	if g.s.Project.DMG.FS != "" {
 		t.Fatal("navigation committed value")
 	}
-	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ebiten.Key{ebiten.KeyEscape}})
+	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ggfx.Key{ggfx.KeyEscape}})
 	if g.choiceOpen || g.s.Project.DMG.FS != "" {
 		t.Fatal("escape did not cancel")
 	}
@@ -47,8 +47,8 @@ func TestChoiceDropdownSelectCancelAndKeyboard(t *testing.T) {
 	}
 	g.focus(index)
 	g.openChoice()
-	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ebiten.Key{ebiten.KeyArrowUp}})
-	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ebiten.Key{ebiten.KeyEnter}})
+	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ggfx.Key{ggfx.KeyArrowUp}})
+	g.handleChoice(tick{}, comp.Keyboard{Pressed: []ggfx.Key{ggfx.KeyEnter}})
 	if g.s.Project.DMG.FS != "hfsplus" {
 		t.Fatal("keyboard selection failed")
 	}

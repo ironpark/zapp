@@ -14,7 +14,7 @@ func (g *editor) tooltipAt(point image.Point) string {
 				case "Fit":
 					return "Fit the whole DMG window in the preview"
 				case "100%":
-					return "Actual size · Space + drag to pan"
+					return "Actual size · Drag empty space to pan"
 				case "Form":
 					return "Edit with fields. Valid source edits are applied when switching."
 				case "JSON":

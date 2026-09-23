@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
@@ -18,7 +18,7 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(), modeButtons([]string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
 		ggui.Expanded(canvas),
-		ui.Caption("Arrow keys move · Shift: 10 px · Space + drag to pan"),
+		ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan"),
 	).Gap(12).Align(ggui.AlignStretch))
 	contents := ggui.EachKeyed(m.Items, func(i layoutItem) string { return i.Path }, func(item ggui.EachItem[layoutItem]) ggui.Widget {
 		return ggui.Reactive(func() ggui.Widget {
@@ -81,13 +81,13 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 		if g.previewSurface != nil {
 			g.previewSurface.Deallocate()
 		}
-		g.previewSurface = ebiten.NewImage(g.previewBounds.Dx(), g.previewBounds.Dy())
+		g.previewSurface = ggfx.NewImage(g.previewBounds.Dx(), g.previewBounds.Dy())
 	}
 	g.previewSurface.Clear()
 	g.drawPreview(g.previewSurface)
-	op := &ebiten.DrawImageOptions{}
+	op := &ggfx.DrawImageOptions{}
 	op.GeoM = dst.Geo(r.Origin)
-	op.Filter = ebiten.FilterLinear
+	op.Filter = ggfx.FilterLinear
 	dst.Clip(r).Image.DrawImage(g.previewSurface, op)
 	if c.model.DropHover.Get() {
 		dst.StrokeRoundRect(r, 0, 2, uitheme.From(ggui.Untrack(ggui.UseEnv)).Primary)

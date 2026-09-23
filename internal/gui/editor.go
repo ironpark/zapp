@@ -5,7 +5,7 @@ import (
 	"image"
 	"os"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
@@ -14,7 +14,7 @@ import (
 type editor struct {
 	previewBounds                         image.Rectangle
 	desktop                               *desktopModel
-	previewSurface                        *ebiten.Image
+	previewSurface                        *ggfx.Image
 	pkgViewScroll                         [2]int
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
 	componentIndex, componentScroll       int
@@ -43,19 +43,21 @@ type editor struct {
 	ui                                       *comp.Painter
 	status                                   string
 	failed, confirmClose, quit, projectDirty bool
-	selected                                 string
-	drag                                     string
-	dragX, dragY                             float64
-	dragMoved                                bool
-	assets                                   map[string]*ebiten.Image
-	itemKinds                                map[string]string
-	previewError                             string
-	previewSig                               string
-	liveBase                                 *zapp.Project
-	dmgAdvanced                              bool
-	choiceOpen                               bool
-	choiceIndex                              int
-	previewActual, panning                   bool
+	// wake asks the window loop for another frame; nil outside a live window.
+	wake                   func()
+	selected               string
+	drag                   string
+	dragX, dragY           float64
+	dragMoved              bool
+	assets                 map[string]*ggfx.Image
+	itemKinds              map[string]string
+	previewError           string
+	previewSig             string
+	liveBase               *zapp.Project
+	dmgAdvanced            bool
+	choiceOpen             bool
+	choiceIndex            int
+	previewActual, panning bool
 	// pan is the actual-size view offset; panStart and panOrigin capture where
 	// the current drag began.
 	pan, panStart, panOrigin image.Point
@@ -92,10 +94,8 @@ func Run(ctx context.Context, s *Session) error {
 		return err
 	}
 	defer painter.Close()
-	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ebiten.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
+	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
 	g.rebuild()
-	ebiten.SetWindowSizeLimits(1080, 720, -1, -1)
-	ebiten.SetWindowClosingHandled(true)
 	defer func() {
 		if g.previewSurface != nil {
 			g.previewSurface.Deallocate()
@@ -119,6 +119,14 @@ func (g *editor) Layout(w, h int) (int, int) {
 		g.revealField(g.active)
 	}
 	return w, h
+}
+
+// requestQuit ends the app at the next frame, and makes sure there is one.
+func (g *editor) requestQuit() {
+	g.quit = true
+	if g.wake != nil {
+		g.wake()
+	}
 }
 func (g *editor) report(err error, success string) {
 	defer g.invalidate()

@@ -8,25 +8,20 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
-// Opt-in GPU snapshots follow ggui/examples/sqlite's render harness. The normal
-// test suite stays headless; snapshots run on the engine's main thread.
+// Opt-in GPU snapshots follow ggui's example render harness. The normal test
+// suite stays headless. The graphics driver only draws and reads back pixels
+// inside a frame, so the snapshots run in the frames of a hidden window.
 func TestMain(m *testing.M) {
 	if dir := os.Getenv("ZAPP_GUI_RENDER_DIR"); dir != "" {
-		ebiten.SetWindowSize(320, 240)
-		ebiten.SetWindowTitle("Zapp layout previews")
-		game := &desktopRenderer{directory: dir}
-		err := ebiten.RunGame(game)
-		if err == nil {
-			err = game.err
-		}
-		if err != nil {
+		r := &desktopRenderer{directory: dir}
+		if err := r.run(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -37,22 +32,24 @@ func TestMain(m *testing.M) {
 
 type desktopRenderer struct {
 	directory string
-	done      bool
-	err       error
 }
 
-func (r *desktopRenderer) Layout(int, int) (int, int) { return 320, 240 }
-func (r *desktopRenderer) Update() error {
-	if r.done {
-		return ebiten.Termination
-	}
-	return nil
-}
-func (r *desktopRenderer) Draw(*ebiten.Image) {
-	if !r.done {
-		r.err = r.render()
-		r.done = true
-	}
+// run renders every snapshot in the first frame of a window that is never
+// shown, then ends the loop.
+func (r *desktopRenderer) run() error {
+	return ggfx.Run(ggfx.HandlerFunc(func(ev ggfx.Event) error {
+		switch ev.(type) {
+		case ggfx.StartEvent:
+			_, err := ggfx.NewWindow(&ggfx.WindowOptions{Title: "Zapp layout previews", Width: 320, Height: 240, Hidden: true})
+			return err
+		case ggfx.FrameEvent:
+			if err := r.render(); err != nil {
+				return err
+			}
+			return ggfx.Termination
+		}
+		return nil
+	}), nil)
 }
 func (r *desktopRenderer) render() error {
 	if err := os.MkdirAll(r.directory, 0755); err != nil {
@@ -78,7 +75,7 @@ func (r *desktopRenderer) render() error {
 		if err != nil {
 			return err
 		}
-		g := &editor{ctx: context.Background(), s: s, w: width, h: 760, active: -1, ui: painter, assets: map[string]*ebiten.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
+		g := &editor{ctx: context.Background(), s: s, w: width, h: 760, active: -1, ui: painter, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
 		g.rebuild()
 		m := newDesktopModel(g)
 		p := ggui.ProbeBuilder(func() ggui.Widget { return ggui.Provide(ggui.ReducedMotionKey, true, desktopView(m)) }, ggui.Sz(width, 760))
@@ -116,7 +113,7 @@ func (r *desktopRenderer) render() error {
 			}
 			m.sync()
 			p.Frame()
-			img := ebiten.NewImage(width, 760)
+			img := ggfx.NewImage(width, 760)
 			img.Fill(ggui.Untrack(uitheme.Use).Bg)
 			p.Draw(img)
 			file, err := os.Create(filepath.Join(r.directory, fmt.Sprintf("%d-%s.png", width, name)))

@@ -138,12 +138,12 @@ func (g *editor) closeDialog() comp.Dialog {
 	return comp.Dialog{Visible: g.confirmClose, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 500, 190), Title: "Save changes before closing?", Message: "Your project has unsaved edits.", OnCancel: func() { g.confirmClose = false }, Actions: []comp.Button{
 		{Label: "Save & close", Primary: true, OnClick: func() {
 			if g.save() {
-				g.quit = true
+				g.requestQuit()
 			} else {
 				g.confirmClose = false
 			}
 		}},
-		{Label: "Discard changes", OnClick: func() { g.quit = true }},
+		{Label: "Discard changes", OnClick: func() { g.requestQuit() }},
 		{Label: "Keep editing", OnClick: func() { g.confirmClose = false }},
 	}}
 }

@@ -7,7 +7,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
 )
@@ -43,12 +43,12 @@ func rasterizeIcon(data []byte) (*image.RGBA, error) {
 	return img, nil
 }
 
-func loadIcons() (map[Icon]*ebiten.Image, error) {
+func loadIcons() (map[Icon]*ggfx.Image, error) {
 	entries, err := iconFiles.ReadDir("icons")
 	if err != nil {
 		return nil, err
 	}
-	icons := make(map[Icon]*ebiten.Image, len(entries))
+	icons := make(map[Icon]*ggfx.Image, len(entries))
 	for _, entry := range entries {
 		data, err := iconFiles.ReadFile("icons/" + entry.Name())
 		var img *image.RGBA
@@ -61,24 +61,24 @@ func loadIcons() (map[Icon]*ebiten.Image, error) {
 			}
 			return nil, fmt.Errorf("icon %s: %w", entry.Name(), err)
 		}
-		icons[Icon(entry.Name()[:len(entry.Name())-4])] = ebiten.NewImageFromImage(img)
+		icons[Icon(entry.Name()[:len(entry.Name())-4])] = ggfx.NewImageFromImage(img)
 	}
 	return icons, nil
 }
 
-func (p *Painter) drawIcon(dst *ebiten.Image, icon Icon, bounds image.Rectangle, tint color.RGBA) {
+func (p *Painter) drawIcon(dst *ggfx.Image, icon Icon, bounds image.Rectangle, tint color.RGBA) {
 	img := p.icons[icon]
 	if img == nil || bounds.Empty() {
 		return
 	}
-	op := &ebiten.DrawImageOptions{}
+	op := &ggfx.DrawImageOptions{}
 	op.GeoM.Scale(float64(bounds.Dx())/float64(img.Bounds().Dx()), float64(bounds.Dy())/float64(img.Bounds().Dy()))
 	op.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
 	op.ColorScale.ScaleWithColor(tint)
-	op.Filter = ebiten.FilterLinear
+	op.Filter = ggfx.FilterLinear
 	dst.DrawImage(img, op)
 }
 
 // IconImage returns a borrowed icon texture for the ggui presentation layer.
 // The painter retains ownership and releases it in Close.
-func (p *Painter) IconImage(icon Icon) *ebiten.Image { return p.icons[icon] }
+func (p *Painter) IconImage(icon Icon) *ggfx.Image { return p.icons[icon] }

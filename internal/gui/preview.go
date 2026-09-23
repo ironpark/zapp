@@ -13,8 +13,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/vector"
 	"github.com/ironpark/zapp"
 	"github.com/ironpark/zapp/internal/gui/comp"
 	"github.com/ironpark/zapp/pkg/icns"
@@ -117,7 +117,7 @@ func (g *editor) loadAsset(key, path string) error {
 	if err != nil {
 		return err
 	}
-	asset := ebiten.NewImageFromImage(img)
+	asset := ggfx.NewImageFromImage(img)
 	g.assets[cacheKey] = asset
 	g.assets[key] = asset
 	return nil
@@ -165,7 +165,7 @@ func (g *editor) refreshPreview() {
 	g.appIconPaths = make(map[string]string)
 	// Drop the previous logical keys so items removed from the layout stop
 	// pinning their textures; the "file:" entries below survive as the cache.
-	maps.DeleteFunc(g.assets, func(k string, _ *ebiten.Image) bool {
+	maps.DeleteFunc(g.assets, func(k string, _ *ggfx.Image) bool {
 		return !strings.HasPrefix(k, assetCachePrefix)
 	})
 	bg := g.assetPath(c.Background)
@@ -238,13 +238,13 @@ func (g *editor) refreshPreview() {
 // pruneAssets releases cached textures that no live preview key references.
 // Every path typed during a session would otherwise hold a GPU texture forever.
 func (g *editor) pruneAssets() {
-	live := map[*ebiten.Image]bool{}
+	live := map[*ggfx.Image]bool{}
 	for key, img := range g.assets {
 		if img != nil && !strings.HasPrefix(key, assetCachePrefix) {
 			live[img] = true
 		}
 	}
-	maps.DeleteFunc(g.assets, func(key string, img *ebiten.Image) bool {
+	maps.DeleteFunc(g.assets, func(key string, img *ggfx.Image) bool {
 		if !strings.HasPrefix(key, assetCachePrefix) || live[img] {
 			return false
 		}
@@ -255,7 +255,7 @@ func (g *editor) pruneAssets() {
 	})
 }
 
-func (g *editor) drawPreview(dst *ebiten.Image) {
+func (g *editor) drawPreview(dst *ggfx.Image) {
 	if g.desktop == nil {
 		g.previewPanel().Draw(dst, g.ui)
 		comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
@@ -265,7 +265,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	size, label, items := l.IconSize, l.LabelSize, l.Items
 	t := g.transform()
 	full := dst
-	dst = dst.SubImage(g.previewArea().Intersect(dst.Bounds())).(*ebiten.Image)
+	dst = dst.SubImage(g.previewArea().Intersect(dst.Bounds())).(*ggfx.Image)
 	headerHeight := max(1, int(math.Round(28*t.scale)))
 	header := comp.Box(t.bounds.Min.X, t.bounds.Min.Y-headerHeight, t.bounds.Dx(), headerHeight)
 	chrome := color.RGBA{232, 231, 229, 255}
@@ -292,12 +292,12 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	if t.bounds.Empty() {
 		return
 	}
-	canvas := dst.SubImage(t.bounds.Intersect(dst.Bounds())).(*ebiten.Image)
+	canvas := dst.SubImage(t.bounds.Intersect(dst.Bounds())).(*ggfx.Image)
 	if bg := g.assets["background"]; bg != nil {
-		op := &ebiten.DrawImageOptions{}
+		op := &ggfx.DrawImageOptions{}
 		op.GeoM.Scale(t.scale, t.scale)
 		op.GeoM.Translate(t.x, t.y)
-		op.Filter = ebiten.FilterLinear
+		op.Filter = ggfx.FilterLinear
 		canvas.DrawImage(bg, op)
 	}
 	for _, item := range items {
@@ -340,7 +340,7 @@ func (g *editor) drawPreview(dst *ebiten.Image) {
 	}
 	message := "Approximate preview · Drop files or folders to add"
 	if g.previewActual {
-		message = "Space + drag to pan · Fit shows the whole window"
+		message = "Drag empty space to pan · Fit shows the whole window"
 	}
 	if slices.ContainsFunc(items, func(item layoutItem) bool { return item.Path == g.selected }) {
 		message = "Arrows: move · Shift: 10 px · Delete: remove"

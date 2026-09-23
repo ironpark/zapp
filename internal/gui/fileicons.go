@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 )
 
 //go:embed assets/fileicons/*.png
@@ -73,7 +73,7 @@ func fileIconForPath(path string) string {
 	return kind
 }
 
-func (g *editor) defaultFileIcon(name string) *ebiten.Image {
+func (g *editor) defaultFileIcon(name string) *ggfx.Image {
 	key := assetCachePrefix + "embedded:" + name
 	if img := g.assets[key]; img != nil {
 		return img
@@ -86,19 +86,19 @@ func (g *editor) defaultFileIcon(name string) *ebiten.Image {
 	if err != nil {
 		return nil
 	}
-	texture := ebiten.NewImageFromImage(img)
+	texture := ggfx.NewImageFromImage(img)
 	g.assets[key] = texture
 	return texture
 }
 
-func drawFileIcon(dst *ebiten.Image, icon *ebiten.Image, bounds image.Rectangle) {
+func drawFileIcon(dst *ggfx.Image, icon *ggfx.Image, bounds image.Rectangle) {
 	if icon == nil || bounds.Empty() {
 		return
 	}
 	ratio := min(float64(bounds.Dx())/float64(icon.Bounds().Dx()), float64(bounds.Dy())/float64(icon.Bounds().Dy()))
-	op := &ebiten.DrawImageOptions{}
+	op := &ggfx.DrawImageOptions{}
 	op.GeoM.Scale(ratio, ratio)
 	op.GeoM.Translate(float64(bounds.Min.X)+(float64(bounds.Dx())-float64(icon.Bounds().Dx())*ratio)/2, float64(bounds.Min.Y)+(float64(bounds.Dy())-float64(icon.Bounds().Dy())*ratio)/2)
-	op.Filter = ebiten.FilterLinear
+	op.Filter = ggfx.FilterLinear
 	dst.DrawImage(icon, op)
 }

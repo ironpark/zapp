@@ -92,7 +92,7 @@ Define shared paths and build steps in `.zapp.yaml`. See the [annotated example]
 
 ### Select a configuration file
 
-You can also edit the project in the Ebitengine desktop GUI:
+You can also edit the project in the ggui desktop GUI:
 
 ```sh
 zapp gui

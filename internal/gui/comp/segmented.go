@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 )
 
@@ -32,7 +32,7 @@ func (s Segmented) Click(point image.Point) bool {
 	ClickButtons(s.Buttons(), point)
 	return true
 }
-func (s Segmented) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
+func (s Segmented) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	Surface(dst, s.Bounds, Radius, p.Theme.Input, p.Theme.Border)
 	// Drawing never dispatches a click, so lay the segments out directly rather
 	// than building a Button with a closure per segment on every frame.

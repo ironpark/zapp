@@ -189,9 +189,9 @@ func helpView(tab int) ggui.Widget {
 func closeDialogView(m *desktopModel) ggui.Widget {
 	g := m.editor
 	open := ggui.Bind(m.Close.Get, func(v bool) { g.confirmClose = v; m.sync() })
-	return ui.Dialog(open, ggui.Column(ggui.Text("Your project has unsaved edits."), ggui.Row(ui.Button("Keep editing", func() { g.confirmClose = false; m.sync() }).Ghost(), ui.Button("Discard changes", func() { g.quit = true }).Outline(), ui.Button("Save & close", g.action(func() {
+	return ui.Dialog(open, ggui.Column(ggui.Text("Your project has unsaved edits."), ggui.Row(ui.Button("Keep editing", func() { g.confirmClose = false; m.sync() }).Ghost(), ui.Button("Discard changes", func() { g.requestQuit() }).Outline(), ui.Button("Save & close", g.action(func() {
 		if g.save() {
-			g.quit = true
+			g.requestQuit()
 		} else {
 			g.confirmClose = false
 		}

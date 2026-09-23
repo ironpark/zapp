@@ -4,7 +4,7 @@ import (
 	"image"
 	"slices"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
@@ -46,11 +46,11 @@ func (g *editor) choose(index int) {
 	g.commit()
 }
 func (g *editor) handleChoice(in tick, k comp.Keyboard) {
-	if k.JustPressed(ebiten.KeyEscape) {
+	if k.JustPressed(ggfx.KeyEscape) {
 		g.closeChoice()
 		return
 	}
-	if k.JustPressed(ebiten.KeyTab) {
+	if k.JustPressed(ggfx.KeyTab) {
 		g.closeChoice()
 		delta := 1
 		if k.Shift {
@@ -59,13 +59,13 @@ func (g *editor) handleChoice(in tick, k comp.Keyboard) {
 		g.focus((g.active + delta + len(g.fields)) % len(g.fields))
 		return
 	}
-	if k.Repeats(ebiten.KeyArrowDown) {
+	if k.Repeats(ggfx.KeyArrowDown) {
 		g.choiceIndex = (g.choiceIndex + 1) % len(g.input.Spec.Choices)
 	}
-	if k.Repeats(ebiten.KeyArrowUp) {
+	if k.Repeats(ggfx.KeyArrowUp) {
 		g.choiceIndex = (g.choiceIndex + len(g.input.Spec.Choices) - 1) % len(g.input.Spec.Choices)
 	}
-	if k.JustPressed(ebiten.KeyEnter) || k.JustPressed(ebiten.KeySpace) {
+	if k.JustPressed(ggfx.KeyEnter) || k.JustPressed(ggfx.KeySpace) {
 		g.choose(g.choiceIndex)
 		return
 	}
@@ -78,7 +78,7 @@ func (g *editor) handleChoice(in tick, k comp.Keyboard) {
 		}
 	}
 }
-func (g *editor) drawChoice(dst *ebiten.Image, pointer image.Point) {
+func (g *editor) drawChoice(dst *ggfx.Image, pointer image.Point) {
 	bounds := g.choiceBounds()
 	p, t := g.ui, g.ui.Theme
 	comp.Surface(dst, bounds, comp.Radius, t.Panel, t.Border)

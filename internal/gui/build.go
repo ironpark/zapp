@@ -126,7 +126,7 @@ func (g *editor) finishClose() {
 	if g.dirty() {
 		g.confirmClose = true
 	} else {
-		g.quit = true
+		g.requestQuit()
 	}
 }
 

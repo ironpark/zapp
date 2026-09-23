@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 )
 
@@ -43,7 +43,7 @@ func (d Dialog) Handle(point image.Point, click, cancel bool) bool {
 	}
 	return true
 }
-func (d Dialog) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
+func (d Dialog) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	if !d.Visible {
 		return
 	}

@@ -1,4 +1,4 @@
-// Package comp provides reusable Ebitengine UI components. It has no project,
+// Package comp provides reusable ggfx UI components. It has no project,
 // filesystem-layout or packaging knowledge; applications own value validation
 // and decide when to apply a component's draft or requested action.
 package comp
@@ -10,9 +10,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
-	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/text/v2"
+	"github.com/ironpark/ggfx/vector"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
@@ -44,7 +44,8 @@ type Painter struct {
 	Theme     Theme
 	font      *opentype.Font
 	faces     map[int]font.Face
-	icons     map[Icon]*ebiten.Image
+	goxFaces  map[font.Face]*text.GoXFace
+	icons     map[Icon]*ggfx.Image
 }
 
 func NewPainter(ttf []byte, theme Theme) (*Painter, error) {
@@ -75,6 +76,7 @@ func (p *Painter) Close() {
 		_ = f.Close()
 	}
 	p.faces = nil
+	p.goxFaces = nil
 }
 func (p *Painter) face(size int) font.Face { return cachedFace(p.font, p.faces, size) }
 
@@ -93,8 +95,33 @@ func cachedFace(f *opentype.Font, cache map[int]font.Face, size int) font.Face {
 	return face
 }
 func (p *Painter) Measure(s string, size int) int { return font.MeasureString(p.face(size), s).Ceil() }
-func (p *Painter) Text(dst *ebiten.Image, s string, x, y, size int, c color.Color) {
-	text.Draw(dst, s, p.face(size), x, y+size, c)
+func (p *Painter) Text(dst *ggfx.Image, s string, x, y, size int, c color.Color) {
+	p.drawText(dst, s, p.face(size), x, y+size, c)
+}
+
+// goxFace adapts a cached x/image face for text/v2. A GoXFace owns its glyph
+// image cache, so one is kept per face rather than rebuilt per draw.
+func (p *Painter) goxFace(f font.Face) *text.GoXFace {
+	if p.goxFaces == nil {
+		p.goxFaces = map[font.Face]*text.GoXFace{}
+	}
+	if g := p.goxFaces[f]; g != nil {
+		return g
+	}
+	g := text.NewGoXFace(f)
+	p.goxFaces[f] = g
+	return g
+}
+
+// drawText puts the baseline at y, which is what text v1's Draw did, so every
+// caller's layout maths is unchanged. text/v2 positions the top of the line box
+// instead, hence the ascent offset.
+func (p *Painter) drawText(dst *ggfx.Image, s string, f font.Face, x, y int, c color.Color) {
+	face := p.goxFace(f)
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(x), float64(y)-face.Metrics().HAscent)
+	op.ColorScale.ScaleWithColor(c)
+	text.Draw(dst, s, face, op)
 }
 
 // TextY centers the font's cap height in a control, independent of its height.
@@ -125,7 +152,7 @@ func (p *Painter) Fit(s string, width, size int) string {
 	r := []rune(s)
 	return string(r[:p.fitRunes(r, "…", width, size)]) + "…"
 }
-func (p *Painter) Wrapped(dst *ebiten.Image, s string, x, y, width, size int, c color.Color, maxLines int) {
+func (p *Painter) Wrapped(dst *ggfx.Image, s string, x, y, width, size int, c color.Color, maxLines int) {
 	for i := 0; i < maxLines && s != ""; i++ {
 		r := []rune(s)
 		n := p.fitRunes(r, "", width, size)
@@ -150,12 +177,12 @@ func (p *Painter) Wrapped(dst *ebiten.Image, s string, x, y, width, size int, c 
 		s = strings.TrimLeftFunc(string(r[n:]), unicode.IsSpace)
 	}
 }
-func Rect(dst *ebiten.Image, r image.Rectangle, c color.Color) {
+func Rect(dst *ggfx.Image, r image.Rectangle, c color.Color) {
 	if !r.Empty() {
 		vector.FillRect(dst, float32(r.Min.X), float32(r.Min.Y), float32(r.Dx()), float32(r.Dy()), c, false)
 	}
 }
-func Border(dst *ebiten.Image, r image.Rectangle, c color.Color) {
+func Border(dst *ggfx.Image, r image.Rectangle, c color.Color) {
 	if !r.Empty() {
 		vector.StrokeRect(dst, float32(r.Min.X)+.5, float32(r.Min.Y)+.5, float32(r.Dx()-1), float32(r.Dy()-1), 1, c, false)
 	}
@@ -172,7 +199,7 @@ const (
 )
 
 // RoundedRect draws a subtly rounded surface with antialiased corners.
-func RoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, c color.Color) {
+func RoundedRect(dst *ggfx.Image, r image.Rectangle, radius int, c color.Color) {
 	if r.Empty() {
 		return
 	}
@@ -189,7 +216,7 @@ func RoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, c color.Color
 		}
 	}
 }
-func Surface(dst *ebiten.Image, r image.Rectangle, radius int, fill, border color.Color) {
+func Surface(dst *ggfx.Image, r image.Rectangle, radius int, fill, border color.Color) {
 	RoundedRect(dst, r, radius, border)
 	RoundedRect(dst, r.Inset(1), max(0, radius-1), fill)
 }

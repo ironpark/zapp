@@ -4,12 +4,12 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 )
 
 // Scrollbar draws the thumb for a view scrolled by offset out of limit within
 // track. The form and the contents list share it so both stay the same shape.
-func Scrollbar(dst *ebiten.Image, track image.Rectangle, offset, limit int, c color.Color) {
+func Scrollbar(dst *ggfx.Image, track image.Rectangle, offset, limit int, c color.Color) {
 	if limit <= 0 || track.Empty() {
 		return
 	}

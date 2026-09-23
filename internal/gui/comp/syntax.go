@@ -6,8 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
+	"github.com/ironpark/ggfx"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/opentype"
@@ -118,13 +117,13 @@ func (p *Painter) codeMeasure(s string, size int) int { return p.codeRunes(s, si
 // codeText draws s starting at the given advance and returns the advance after
 // it. Runes sharing a face are batched into one draw call; only a fallback glyph
 // breaks the run.
-func (p *Painter) codeText(dst *ebiten.Image, s string, x, y, size int, start fixed.Int26_6, c color.Color) fixed.Int26_6 {
+func (p *Painter) codeText(dst *ggfx.Image, s string, x, y, size int, start fixed.Int26_6, c color.Color) fixed.Int26_6 {
 	var run []rune
 	var runFace font.Face
 	var runAt fixed.Int26_6
 	flush := func() {
 		if len(run) > 0 {
-			text.Draw(dst, string(run), runFace, x+runAt.Round(), y+size, c)
+			p.drawText(dst, string(run), runFace, x+runAt.Round(), y+size, c)
 			run = run[:0]
 		}
 	}
@@ -138,7 +137,7 @@ func (p *Painter) codeText(dst *ebiten.Image, s string, x, y, size int, start fi
 	flush()
 	return end
 }
-func (p *Painter) drawYAMLLine(dst *ebiten.Image, s string, x, y, size int) {
+func (p *Painter) drawYAMLLine(dst *ggfx.Image, s string, x, y, size int) {
 	var advance fixed.Int26_6
 	for _, token := range yamlTokens(s) {
 		c := p.Theme.Text

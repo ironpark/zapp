@@ -96,7 +96,7 @@ zapp gui                       # 프로젝트 자동 탐색 또는 새 초안
 zapp gui --config .zapp.yaml    # 지정한 YAML/JSON 설정 열기
 ```
 
-Ebitengine 기반 GUI에서 프로젝트, DMG, PKG, 의존성, 서명, 공증을 탭으로
+ggui 기반 GUI에서 프로젝트, DMG, PKG, 의존성, 서명, 공증을 탭으로
 편집합니다. DMG 탭에서는 배경과 앱 아이콘을 미리 보고, 아이콘을 드래그해
 배치할 수 있습니다. **Save**로 설정을 저장한 뒤 기존 `zapp build`나 `zapp dmg`로
 빌드하세요. **Validate**는 빌드 없이 입력을 검사합니다.

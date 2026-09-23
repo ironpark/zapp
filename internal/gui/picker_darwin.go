@@ -18,7 +18,7 @@ func pickerMain(fn func()) {
 }
 
 // AppKit panels belong to the editor window. All panel access happens on the
-// Cocoa main queue; the Ebitengine update goroutine remains free to render.
+// Cocoa main queue; the ggui frame goroutine remains free to render.
 func choosePath(ctx context.Context, mode pickMode, title, initial string) (string, error) {
 	results := make(chan pickResult, 1)
 	var panel objc.ID // accessed only on the main queue

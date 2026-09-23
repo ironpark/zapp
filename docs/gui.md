@@ -5,7 +5,7 @@ zapp gui
 zapp gui --config release/.zapp.yaml
 ```
 
-`gui` opens a [ggui](https://github.com/ironpark/ggui) desktop window rendered by Ebitengine. It discovers `.zapp.yaml` in the current
+`gui` opens a [ggui](https://github.com/ironpark/ggui) desktop window rendered by ggfx. It discovers `.zapp.yaml` in the current
 directory or its parents, just like the other project commands. `--config` (or
 `ZAPP_CONFIG`) selects a YAML or JSON project explicitly. If there is no project,
 the GUI starts an unsaved draft; the file is created when you click **Save**.
@@ -146,7 +146,7 @@ cleanup before continuing the normal unsaved-changes flow.
 
 ## Desktop requirements
 
-The GUI uses Ebitengine 2.10 and builds with the regular `cmd/zapp` binary, including
+The GUI uses ggui on ggfx and builds with the regular `cmd/zapp` binary, including
 `CGO_ENABLED=0` builds. Linux GUI use requires an X11/XWayland session and OpenGL
 runtime libraries. CLI commands and help do not open a window. Clipboard support
 on Linux requires `xclip` or `xsel`. File pickers use native macOS panels attached to the editor window,
@@ -157,8 +157,7 @@ On macOS, local window-event coordinates are used so remote and assistive input
 can select and drag items independently of the physical system pointer.
 
 The DMG preview offers **Fit** and **100%** view modes. At 100%, drag empty
-preview space or hold **Space** while dragging to pan. Dragging an icon normally
-still edits its position. View panning does not change the saved DMG layout;
+preview space to pan. Dragging an icon still edits its position. View panning does not change the saved DMG layout;
 clicking either view button recenters the preview.
 
 Empty text inputs show example values or automatic-value placeholders; placeholders

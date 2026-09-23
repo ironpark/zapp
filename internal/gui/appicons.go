@@ -5,7 +5,7 @@ import (
 	"image/png"
 	"path/filepath"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/zapp/pkg/appbundle"
 )
 
@@ -89,7 +89,7 @@ func (g *editor) pollAppIcons() {
 			if err != nil {
 				continue
 			}
-			texture := ebiten.NewImageFromImage(img)
+			texture := ggfx.NewImageFromImage(img)
 			g.assets[nativeAppIconKey(result.path)] = texture
 			for _, key := range keys {
 				g.assets[key] = texture

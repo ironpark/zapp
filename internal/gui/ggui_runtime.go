@@ -1,11 +1,11 @@
 package gui
 
 import (
+	"context"
 	"fmt"
 	"image/color"
 	"runtime"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/ironpark/ggui"
 	_ "github.com/ironpark/ggui/inspect/panel"
 	uitheme "github.com/ironpark/ggui/ui/theme"
@@ -51,9 +51,20 @@ func (g *editor) runWidgets() error {
 		return false
 	})
 	for i := range sections {
-		app.Shortcut(fmt.Sprintf("%s%d", prefix, i+1), ready(func() { m.selectTab(i) }))
+		// ggui names number keys after their Ebitengine key name, so the chord
+		// for the "1" key is "digit1"; a bare "1" is not a key it knows.
+		app.Shortcut(fmt.Sprintf("%sdigit%d", prefix, i+1), ready(func() { m.selectTab(i) }))
 	}
+	// Anything that ends the app from inside a frame or a click has already
+	// missed this frame's quit check, and ggui paints no idle frames, so it
+	// asks for the next one.
+	g.wake = func() { app.Post(func() {}) }
+	app.OnCloseRequest(m.allowClose)
 	var runErr error
+	// Cancellation is only observed inside a frame, so wake the window when the
+	// context ends. Post is safe from another goroutine.
+	stopWake := context.AfterFunc(g.ctx, func() { app.Post(func() {}) })
+	defer stopWake()
 	app.OnFrame(func() {
 		if err := g.ctx.Err(); err != nil {
 			runErr = err
@@ -69,19 +80,13 @@ func (g *editor) runWidgets() error {
 		if g.picking != nil {
 			g.pollPicker()
 		}
-		if ebiten.IsWindowBeingClosed() {
-			if g.build != nil {
-				g.build.closeRequested = true
-				if g.build.finished {
-					g.finishClose()
-				} else if !g.build.cancelling {
-					g.dismissBuild()
-				}
-			} else if g.dirty() {
-				g.confirmClose = true
-			} else {
-				g.quit = true
-			}
+		// ggui only schedules a frame while something is moving, but these
+		// pollers drain channels that background goroutines fill. Keep asking
+		// for frames while any of that work is outstanding, or a finished
+		// build, an extracted icon or a chosen path would sit unnoticed until
+		// the pointer happened to move.
+		if g.build != nil || g.picking != nil || len(g.appIconPending) > 0 {
+			app.Post(func() {})
 		}
 		m.sync()
 		if m.focus != nil {

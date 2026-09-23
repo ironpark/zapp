@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 	"unicode/utf8"
 )
@@ -62,7 +62,7 @@ func (t Tabs) Buttons() []Button {
 	return buttons
 }
 func (t Tabs) Click(point image.Point) bool { return ClickButtons(t.Buttons(), point) }
-func (t Tabs) Draw(dst *ebiten.Image, p *Painter, pointer image.Point) {
+func (t Tabs) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	t.layout(func(i int, bounds image.Rectangle) {
 		fg := p.Theme.Muted
 		if pointer.In(bounds) && !t.Items[i].Disabled {

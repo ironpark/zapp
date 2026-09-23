@@ -1,7 +1,7 @@
 package comp
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"image"
 )
 
@@ -138,12 +138,12 @@ func (f *Form) Reveal(index int) {
 	}
 	f.ScrollTo(offset)
 }
-func (f Form) Draw(dst *ebiten.Image, p *Painter, active int, draft *Input, pointer image.Point) {
+func (f Form) Draw(dst *ggfx.Image, p *Painter, active int, draft *Input, pointer image.Point) {
 	bounds := f.Bounds.Intersect(dst.Bounds())
 	if bounds.Empty() {
 		return
 	}
-	canvas := dst.SubImage(bounds).(*ebiten.Image)
+	canvas := dst.SubImage(bounds).(*ggfx.Image)
 	for i, spec := range f.Inputs {
 		r := f.FieldBounds(i)
 		row := image.Rect(r.Min.X, r.Min.Y-labelGutter, r.Max.X, r.Max.Y+hintGutter+20)

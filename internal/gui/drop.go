@@ -9,7 +9,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/zapp"
 )
 
@@ -29,7 +29,7 @@ func droppedPaths(files fs.FS) ([]string, error) {
 			if err != nil {
 				return err
 			}
-			source, real := file.(ebiten.AbsPather)
+			source, real := file.(ggfx.AbsPather)
 			var absolute string
 			if real {
 				absolute = source.AbsPath()

@@ -9,7 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/ironpark/ggfx"
 )
 
 // lineWindow returns up to count lines of s starting at line start. A JSON
@@ -259,10 +259,10 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 	if len(k.Pressed) > 0 || len(k.Repeated) > 0 || k.Text != "" {
 		i.manualScroll = false
 	}
-	if k.JustPressed(ebiten.KeyEscape) {
+	if k.JustPressed(ggfx.KeyEscape) {
 		return InputResult{Intent: InputCancel}
 	}
-	if k.JustPressed(ebiten.KeyTab) {
+	if k.JustPressed(ggfx.KeyTab) {
 		if i.Spec.Syntax != "" && !k.Shift && !k.Command {
 			i.Insert("  ")
 			return InputResult{}
@@ -273,64 +273,64 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 		return InputResult{Intent: InputNext}
 	}
 	if len(i.Spec.Choices) > 0 {
-		if k.JustPressed(ebiten.KeyEnter) || k.JustPressed(ebiten.KeySpace) || k.JustPressed(ebiten.KeyArrowDown) {
+		if k.JustPressed(ggfx.KeyEnter) || k.JustPressed(ggfx.KeySpace) || k.JustPressed(ggfx.KeyArrowDown) {
 			return InputResult{Intent: InputOpenChoice}
 		}
 		return InputResult{}
 	}
 	if k.Command {
-		if k.JustPressed(ebiten.KeyA) {
+		if k.JustPressed(ggfx.KeyA) {
 			i.SelectAll()
 		}
-		if (k.JustPressed(ebiten.KeyC) || k.JustPressed(ebiten.KeyX)) && i.selectAll && clipboard != nil {
+		if (k.JustPressed(ggfx.KeyC) || k.JustPressed(ggfx.KeyX)) && i.selectAll && clipboard != nil {
 			if err := clipboard.WriteText(i.Text()); err != nil {
 				return InputResult{Err: err}
 			}
-			if k.JustPressed(ebiten.KeyX) {
+			if k.JustPressed(ggfx.KeyX) {
 				i.SetText("")
 			}
 		}
-		if k.JustPressed(ebiten.KeyV) && clipboard != nil {
+		if k.JustPressed(ggfx.KeyV) && clipboard != nil {
 			s, err := clipboard.ReadText()
 			if err != nil {
 				return InputResult{Err: err}
 			}
 			i.Insert(s)
 		}
-		if k.JustPressed(ebiten.KeyEnter) {
+		if k.JustPressed(ggfx.KeyEnter) {
 			return InputResult{Intent: InputSubmit}
 		}
 		return InputResult{}
 	}
-	if k.Repeats(ebiten.KeyArrowLeft) {
+	if k.Repeats(ggfx.KeyArrowLeft) {
 		i.SetCursor(i.cursor - 1)
 	}
-	if k.Repeats(ebiten.KeyArrowRight) {
+	if k.Repeats(ggfx.KeyArrowRight) {
 		i.SetCursor(i.cursor + 1)
 	}
 	if i.Spec.Number != nil {
-		if k.Repeats(ebiten.KeyArrowUp) {
+		if k.Repeats(ggfx.KeyArrowUp) {
 			i.StepNumber(1, k.Shift)
 		}
-		if k.Repeats(ebiten.KeyArrowDown) {
+		if k.Repeats(ggfx.KeyArrowDown) {
 			i.StepNumber(-1, k.Shift)
 		}
 	}
 	if i.Spec.Multiline {
-		if k.Repeats(ebiten.KeyArrowUp) {
+		if k.Repeats(ggfx.KeyArrowUp) {
 			i.verticalCursor(-1)
 		}
-		if k.Repeats(ebiten.KeyArrowDown) {
+		if k.Repeats(ggfx.KeyArrowDown) {
 			i.verticalCursor(1)
 		}
 	}
-	if k.Repeats(ebiten.KeyHome) {
+	if k.Repeats(ggfx.KeyHome) {
 		i.SetCursor(0)
 	}
-	if k.Repeats(ebiten.KeyEnd) {
+	if k.Repeats(ggfx.KeyEnd) {
 		i.SetCursor(len(i.buffer))
 	}
-	if k.Repeats(ebiten.KeyBackspace) {
+	if k.Repeats(ggfx.KeyBackspace) {
 		if i.selectAll {
 			i.SetText("")
 		} else if i.cursor > 0 {
@@ -338,14 +338,14 @@ func (i *Input) Handle(k Keyboard, clipboard Clipboard) InputResult {
 			i.cursor--
 		}
 	}
-	if k.Repeats(ebiten.KeyDelete) {
+	if k.Repeats(ggfx.KeyDelete) {
 		if i.selectAll {
 			i.SetText("")
 		} else if i.cursor < len(i.buffer) {
 			i.buffer = slices.Delete(i.buffer, i.cursor, i.cursor+1)
 		}
 	}
-	if k.JustPressed(ebiten.KeyEnter) {
+	if k.JustPressed(ggfx.KeyEnter) {
 		if i.Spec.Multiline {
 			indent := ""
 			if i.Spec.Syntax != "" {
@@ -387,7 +387,7 @@ func mask(n int) string {
 	return strings.Repeat("•", n)
 }
 
-func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focused bool) {
+func (i Input) Draw(dst *ggfx.Image, p *Painter, bounds image.Rectangle, focused bool) {
 	t := p.Theme
 	p.Text(dst, p.Fit(i.Spec.Label, bounds.Dx(), 14), bounds.Min.X, bounds.Min.Y-25, 14, t.Text)
 	border := t.Border
@@ -431,7 +431,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 	if clipped.Empty() {
 		return
 	}
-	clip := dst.SubImage(clipped).(*ebiten.Image)
+	clip := dst.SubImage(clipped).(*ggfx.Image)
 	value := i.Spec.Value
 	if i.Spec.DisplayValue != "" {
 		value = i.Spec.DisplayValue
@@ -443,7 +443,7 @@ func (i Input) Draw(dst *ebiten.Image, p *Painter, bounds image.Rectangle, focus
 		if textBounds.Empty() {
 			return
 		}
-		clip = dst.SubImage(textBounds).(*ebiten.Image)
+		clip = dst.SubImage(textBounds).(*ggfx.Image)
 		// Choices have focus styling but no text-editing cursor.
 		focused = false
 	}
