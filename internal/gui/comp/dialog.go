@@ -1,8 +1,9 @@
 package comp
 
 import (
-	"github.com/ironpark/ggfx"
 	"image"
+
+	"github.com/ironpark/ggfx"
 )
 
 type Dialog struct {

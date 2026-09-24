@@ -2,12 +2,9 @@ package gui
 
 import (
 	"fmt"
-	"image"
 	"path/filepath"
-	"slices"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 // These declarations bind reusable controls to editor actions. Guards live
@@ -18,100 +15,6 @@ func (g *editor) guard(action func()) func() {
 			action()
 		}
 	}
-}
-func (g *editor) tabs() comp.Tabs {
-	items := make([]comp.Tab, len(sections))
-	for i, s := range sections {
-		items[i] = comp.Tab{Label: s.Name}
-		if s.Optional() {
-			items[i].Status = comp.StatusDisabled
-			if s.Enabled(g.s.Project) {
-				items[i].Status = comp.StatusEnabled
-			}
-		}
-		if g.issueOn(i) {
-			items[i].Status = comp.StatusError
-		}
-	}
-	var measure func(string, int) int
-	if g.ui != nil {
-		measure = g.ui.Measure
-	}
-	return comp.Tabs{Measure: measure, Bounds: comp.Box(24, 68, g.w-48-402, 44), Items: items, Selected: g.tab, Gap: 4, OnSelect: g.switchTab}
-}
-func (g *editor) stepToggle() comp.Toggle {
-	label := "Disabled"
-	if g.enabled() {
-		label = "Enabled"
-	}
-	return comp.Toggle{Bounds: comp.Box(g.w-148, 74, 124, 32), Label: label, Checked: g.enabled(), OnChange: g.guard(g.toggle)}
-}
-func (g *editor) controls() []comp.Button {
-	buttons := []comp.Button{
-		{Bounds: comp.Box(g.w-456, 12, 36, 36), Ghost: true, Label: "Undo", Icon: comp.IconUndo, IconOnly: true, Disabled: !g.s.CanUndo(), OnClick: g.guard(func() { g.history(false) })},
-		{Bounds: comp.Box(g.w-412, 12, 36, 36), Ghost: true, Label: "Redo", Icon: comp.IconRedo, IconOnly: true, Disabled: !g.s.CanRedo(), OnClick: g.guard(func() { g.history(true) })},
-		{Bounds: comp.Box(g.w-240, 12, 104, 36), Ghost: true, Label: "Save", Icon: comp.IconSave, OnClick: func() { g.save() }},
-		{Bounds: comp.Box(g.w-368, 12, 120, 36), Ghost: true, Label: "Validate", Icon: comp.IconCheck, OnClick: g.validate},
-		{Bounds: comp.Box(g.w-128, 12, 104, 36), Label: "Build", Icon: comp.IconPlay, Primary: true, Disabled: g.build != nil, OnClick: g.startBuild},
-	}
-	if g.tab == tabDMG && g.enabled() {
-		items := g.itemsPanel().Bounds
-		inspector := g.inspectorPanel().Bounds
-		buttons = append(buttons,
-			comp.Button{Bounds: comp.Box(items.Max.X-48, items.Min.Y+8, 32, 32), Label: "Add file", Icon: comp.IconPlus, IconOnly: true, OnClick: g.guard(g.addFile)},
-			comp.Button{Bounds: comp.Box(inspector.Min.X+16, inspector.Max.Y-48, inspector.Dx()-32, 32), Label: "Remove from DMG", Icon: comp.IconTrash, Disabled: g.selected == "", OnClick: g.removeSelected},
-			comp.Button{Bounds: comp.Box(g.w-302, 74, 146, 32), Label: "Default layout", Disabled: g.s.Project.DMG.Contents == nil, OnClick: g.guard(func() {
-				g.s.checkpoint()
-				g.s.Project.DMG.Contents = nil
-				g.selected = ""
-				g.rebuild()
-				g.report(nil, "Default layout restored. Undo restores your custom contents.")
-			})},
-		)
-	}
-	if g.tab == tabDMG && g.enabled() && g.selected != "" {
-		item, ok := g.selectedContent()
-		if ok && item.Icon != "" && len(g.inspector.Inputs) > itemIconFieldIndex {
-			field := g.inspector.FieldBounds(itemIconFieldIndex)
-			bounds := comp.Box(g.inspector.Bounds.Max.X-26, field.Min.Y-25, 24, 22)
-			if bounds.In(g.inspector.Bounds) {
-				buttons = append(buttons, comp.Button{Bounds: bounds, Label: "Reset item icon", Icon: comp.IconUndo, IconOnly: true, OnClick: g.guard(func() {
-					g.s.checkpoint()
-					g.editSelectedContent(func(c *zapp.Content) { c.Icon = "" })
-					g.rebuild()
-				})})
-			}
-		}
-	}
-	if g.tab == tabDMG && g.enabled() && !g.dmgYAML {
-		buttons = append(buttons, g.advancedButton(g.settingsPanel().Bounds, &g.dmgAdvanced, "Disk icon", ""))
-	}
-
-	return append(buttons, g.workflowButtons()...)
-}
-
-// advancedButton is the disclosure control that reveals a section's advanced
-// fields and scrolls the first one into view. Both editable sections use it, so
-// the chevron, geometry and scroll behaviour are stated once.
-func (g *editor) advancedButton(panel image.Rectangle, flag *bool, labels ...string) comp.Button {
-	icon := comp.IconChevronDown
-	if *flag {
-		icon = comp.IconChevronUp
-	}
-	return comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Advanced settings", Icon: icon, Selected: *flag, OnClick: g.guard(func() {
-		*flag = !*flag
-		g.rebuild()
-		if !*flag {
-			g.form.ScrollTo(0)
-			return
-		}
-		for i, f := range g.fields {
-			if slices.Contains(labels, f.Label) {
-				g.form.ScrollBy(g.form.FieldBounds(i).Min.Y - g.form.Bounds.Min.Y - 25)
-				return
-			}
-		}
-	})}
 }
 
 func (g *editor) switchPackageForm() {
@@ -133,19 +36,6 @@ func (g *editor) switchPackageForm() {
 		p.Components = nil
 	}
 	g.rebuild()
-}
-func (g *editor) closeDialog() comp.Dialog {
-	return comp.Dialog{Visible: g.confirmClose, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 500, 190), Title: "Save changes before closing?", Message: "Your project has unsaved edits.", OnCancel: func() { g.confirmClose = false }, Actions: []comp.Button{
-		{Label: "Save & close", Primary: true, OnClick: func() {
-			if g.save() {
-				g.requestQuit()
-			} else {
-				g.confirmClose = false
-			}
-		}},
-		{Label: "Discard changes", OnClick: func() { g.requestQuit() }},
-		{Label: "Keep editing", OnClick: func() { g.confirmClose = false }},
-	}}
 }
 
 func (g *editor) defaultComponent() zapp.Component {

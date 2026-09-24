@@ -115,7 +115,6 @@ func (g *editor) rebuildFields() {
 	g.projectDirty = g.s.Dirty()
 	g.fields = nil
 	g.active = -1
-	g.choiceOpen = false
 	if g.enabled() {
 		g.fields = g.section().fields(g)
 	}
@@ -202,7 +201,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 	if !found {
 		return zapp.Content{}, false
 	}
-	return zapp.Content{Pos: &zapp.Position{i.X, i.Y}, Name: i.Name, Link: i.Link, Icon: i.Icon}, true
+	return i.content(), true
 }
 
 // itemIconFieldIndex is the position of the "Item icon" field within

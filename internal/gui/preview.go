@@ -198,7 +198,7 @@ func (g *editor) refreshPreview() {
 			// Resolve clones internally, so one scratch project serves every item.
 			one := p.Clone()
 			for i, item := range items {
-				one.DMG.Contents = map[string]zapp.Content{item.Path: {Pos: &zapp.Position{item.X, item.Y}, Link: item.Link, Name: item.Name, Icon: item.Icon}}
+				one.DMG.Contents = map[string]zapp.Content{item.Path: item.content()}
 				if resolved, err := one.Resolve(); err == nil {
 					paths[i] = resolved.DMG.Contents[0].Path
 					icons[i] = resolved.DMG.Contents[0].Icon

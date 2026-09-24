@@ -6,14 +6,6 @@ import (
 	"slices"
 )
 
-// tick is the per-frame input snapshot. The pointer is sampled once: pos is the
-// live position that drag and pan follow, while mouse is where a click is
-// routed — the press position, which can differ from pos on a fast click.
-type tick struct {
-	pos, mouse image.Point
-	click      bool
-}
-
 // history keeps toolbar and keyboard feedback consistent after restoring state.
 func (g *editor) history(redo bool) {
 	if g.active >= 0 {
@@ -38,13 +30,13 @@ func (g *editor) history(redo bool) {
 }
 
 // selectPreviewItem picks the topmost icon under the pointer and begins a drag.
-func (g *editor) selectPreviewItem(in tick) {
+func (g *editor) selectPreviewItem(point image.Point) {
 	t := g.transform()
-	if !in.mouse.In(g.previewArea()) || !in.mouse.In(t.bounds) {
+	if !point.In(g.previewArea()) || !point.In(t.bounds) {
 		return
 	}
 	l := g.s.layout()
-	x, y := t.content(float64(in.mouse.X), float64(in.mouse.Y))
+	x, y := t.content(float64(point.X), float64(point.Y))
 	reach := float64(l.IconSize) / 2
 	g.selected = ""
 	for _, item := range slices.Backward(l.Items) {
@@ -60,10 +52,10 @@ func (g *editor) selectPreviewItem(in tick) {
 }
 
 // startPan begins a space-drag pan, which is only offered at actual size.
-func (g *editor) startPan(in tick) {
-	if !g.previewActual || !in.mouse.In(g.previewArea()) || g.drag != "" {
+func (g *editor) startPan(point image.Point) {
+	if !g.previewActual || !point.In(g.previewArea()) || g.drag != "" {
 		return
 	}
 	g.panning = true
-	g.panStart, g.panOrigin = in.mouse, g.pan
+	g.panStart, g.panOrigin = point, g.pan
 }

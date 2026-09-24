@@ -222,6 +222,12 @@ type layoutItem struct {
 	Icon       string
 }
 
+// content is the item as a project entry: a materialized layout, a preview
+// resolution and the inspector all store it in this one shape.
+func (i layoutItem) content() zapp.Content {
+	return zapp.Content{Pos: &zapp.Position{i.X, i.Y}, Name: i.Name, Link: i.Link, Icon: i.Icon}
+}
+
 func (i layoutItem) title() string {
 	return dmg.Item{Name: i.Name, Path: i.Path}.ImageName()
 }
@@ -233,7 +239,7 @@ func (s *Session) materialize() {
 	items := s.layout().Items
 	c.Contents = map[string]zapp.Content{}
 	for _, item := range items {
-		c.Contents[item.Path] = zapp.Content{Pos: &zapp.Position{item.X, item.Y}, Name: item.Name, Link: item.Link, Icon: item.Icon}
+		c.Contents[item.Path] = item.content()
 	}
 }
 

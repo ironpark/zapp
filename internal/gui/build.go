@@ -23,12 +23,16 @@ type buildJob struct {
 	err                                  error
 }
 
-type buildLogger struct{ events chan string }
+type buildLogger struct {
+	events chan string
+	wake   func()
+}
 
 func (l buildLogger) Printf(format string, args ...any) (int, error) {
 	s := fmt.Sprintf(format, args...)
 	select {
 	case l.events <- strings.TrimSpace(s):
+		l.wake()
 	default:
 	}
 	return len(s), nil
@@ -61,9 +65,11 @@ func (g *editor) startBuild() {
 	g.build = job
 	project := g.s.Project.Clone()
 	g.report(nil, "Building project…")
+	wake := g.wakeFunc()
 	go func() {
-		artifacts, err := runProjectBuild(ctx, project, buildLogger{job.events})
+		artifacts, err := runProjectBuild(ctx, project, buildLogger{job.events, wake})
 		job.done <- buildResult{artifacts, err}
+		wake()
 	}()
 }
 
@@ -72,17 +78,23 @@ func (g *editor) pollBuild() {
 	if j == nil || j.finished {
 		return
 	}
+	// A burst of log lines shows only its last one, so report once after
+	// draining rather than syncing the UI per line.
+	latest := ""
 drain:
 	for {
 		select {
 		case message := <-j.events:
 			if !j.cancelling {
-				j.message = message
-				g.report(nil, message)
+				latest = message
 			}
 		default:
 			break drain
 		}
+	}
+	if latest != "" {
+		j.message = latest
+		g.report(nil, latest)
 	}
 	select {
 	case result := <-j.done:

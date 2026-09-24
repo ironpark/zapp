@@ -1,8 +1,9 @@
 package comp
 
 import (
-	"github.com/ironpark/ggfx"
 	"image"
+
+	"github.com/ironpark/ggfx"
 )
 
 // Form lays out rows of inputs and owns its scroll offset. Field

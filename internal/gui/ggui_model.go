@@ -37,7 +37,6 @@ type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
 	Enabled, Full, Raw, Advanced, Actual, DefaultLayout bool
 	Selected                                            string
-	EnabledMask                                         uint8
 	IssueTab                                            int
 }
 type componentRow struct {
@@ -45,8 +44,8 @@ type componentRow struct {
 	Label string
 }
 type modalState struct {
-	Title, Message                             string
-	Build, Finished, Cancelling, Issue, Picker bool
+	Title, Message                     string
+	Build, Finished, Cancelling, Issue bool
 }
 type fieldIdentity struct {
 	tab, component, index int
@@ -137,11 +136,6 @@ func (g *editor) action(fn func()) func() {
 func (m *desktopModel) sync() {
 	g := m.editor
 	v := workspaceState{Tab: g.tab, Component: g.componentIndex, Enabled: g.enabled(), Selected: g.selected, Actual: g.previewActual, IssueTab: -1}
-	for i, s := range sections {
-		if s.Enabled(g.s.Project) {
-			v.EnabledMask |= 1 << i
-		}
-	}
 	if g.issue != nil {
 		v.IssueTab = g.issue.tab
 	}
@@ -223,7 +217,7 @@ func (m *desktopModel) sync() {
 	m.Items.Set(items)
 	modal := modalState{}
 	if g.picking != nil {
-		modal = modalState{Title: "Choose a path", Message: "Select a path in the system dialog.", Picker: true}
+		modal = modalState{Title: "Choose a path", Message: "Select a path in the system dialog."}
 	} else if g.build != nil {
 		d := g.buildDialog()
 		modal = modalState{Title: d.Title, Message: d.Message, Build: true, Finished: g.build.finished, Cancelling: g.build.cancelling, Issue: g.issue != nil}
@@ -274,10 +268,19 @@ func (m *desktopModel) selectTab(i int) {
 	m.sync()
 }
 func (m *desktopModel) source(raw bool) {
-	g := m.editor
+	m.editor.setRaw(raw)
+	m.sync()
+}
+func (m *desktopModel) advanced() {
+	m.editor.toggleAdvanced()
+	m.sync()
+}
+
+// setRaw switches the current tab between its form and its raw text view. An
+// invalid draft blocks the switch, so it reports whether the view changed.
+func (g *editor) setRaw(raw bool) bool {
 	if !g.commit() {
-		m.sync()
-		return
+		return false
 	}
 	switch g.tab {
 	case tabDMG:
@@ -288,13 +291,13 @@ func (m *desktopModel) source(raw bool) {
 		g.depRaw = raw
 	}
 	g.rebuild()
-	m.sync()
+	return true
 }
-func (m *desktopModel) advanced() {
-	g := m.editor
+
+// toggleAdvanced shows or hides the current tab's advanced fields.
+func (g *editor) toggleAdvanced() bool {
 	if !g.commit() {
-		m.sync()
-		return
+		return false
 	}
 	if g.tab == tabDMG {
 		g.dmgAdvanced = !g.dmgAdvanced
@@ -302,7 +305,7 @@ func (m *desktopModel) advanced() {
 		g.pkgAdvanced = !g.pkgAdvanced
 	}
 	g.rebuild()
-	m.sync()
+	return true
 }
 func (m *desktopModel) selectComponent(i int) {
 	g := m.editor

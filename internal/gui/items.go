@@ -18,11 +18,6 @@ func (g *editor) itemsPanel() comp.Panel {
 func (g *editor) inspectorPanel() comp.Panel {
 	return comp.Panel{Bounds: comp.Box(g.w-268, g.contentBottom()-376, 244, 376), Title: "Item details", TitleInset: 96}
 }
-func (g *editor) linkToggle() comp.Toggle {
-	panel := g.inspectorPanel().Bounds
-	item, _ := g.s.layout().find(g.selected)
-	return comp.Toggle{Bounds: comp.Box(panel.Max.X-116, panel.Min.Y+8, 100, 32), Label: "Link", Checked: item.Link, OnChange: g.toggleItemLink}
-}
 
 func (g *editor) toggleItemLink() {
 	if g.tab != tabDMG || !g.enabled() || g.selected == "" || !g.commit() {
@@ -68,17 +63,6 @@ func (g *editor) removeSelected() {
 	g.report(nil, "Removed from DMG. Source file unchanged. Undo restores the item.")
 }
 
-// fieldAt resolves the field under the pointer through each form's own single
-// row walk, instead of asking every field for its bounds.
-func (g *editor) fieldAt(point image.Point) (int, bool) {
-	if i, ok := g.form.Hit(point); ok {
-		return i, true
-	}
-	if i, ok := g.inspector.Hit(point); ok {
-		return i + g.inspectorStart, true
-	}
-	return 0, false
-}
 func (g *editor) fieldForm(index int) (*comp.Form, int) {
 	if index >= g.inspectorStart {
 		return &g.inspector, index - g.inspectorStart
@@ -126,23 +110,6 @@ func (g *editor) revealItem() {
 		}
 	}
 	g.itemScroll = max(0, min(g.itemScroll, g.itemListLimit()))
-}
-func (g *editor) selectListItem(point image.Point) bool {
-	area := g.itemsPanel().Content()
-	if !point.In(area) {
-		return false
-	}
-	if !g.commit() {
-		return true
-	}
-	items := g.s.layout().Items
-	index := (point.Y - area.Min.Y + g.itemScroll) / itemRowHeight
-	if index < len(items) {
-		g.selected = items[index].Path
-		g.rebuild()
-		g.inspector.ScrollTo(0)
-	}
-	return true
 }
 
 // editSelectedContent materializes the contents map, applies f to the selected

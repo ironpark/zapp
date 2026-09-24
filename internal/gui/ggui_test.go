@@ -1,13 +1,14 @@
 package gui
 
 import (
+	"os"
+	"path/filepath"
+	"testing"
+
 	"github.com/ironpark/ggui"
 	guiruntime "github.com/ironpark/ggui/runtime"
 	uitheme "github.com/ironpark/ggui/ui/theme"
 	"github.com/ironpark/zapp"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 func widgetProbe(t *testing.T, g *editor) *ggui.Probe {

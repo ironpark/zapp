@@ -3,7 +3,6 @@ module github.com/ironpark/zapp
 go 1.27.0
 
 require (
-	github.com/atotto/clipboard v0.1.4
 	github.com/ebitengine/purego v0.11.0
 	github.com/fatih/color v1.19.0
 	github.com/goccy/go-yaml v1.19.2

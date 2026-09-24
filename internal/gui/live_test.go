@@ -48,19 +48,10 @@ func TestLiveYAMLAndAdvanced(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
 	g.rebuild()
-	for _, button := range g.controls() {
-		if button.Label != "Advanced settings" {
-			continue
-		}
-		if !button.Bounds.In(g.settingsPanel().Bounds) || button.Bounds.Overlaps(g.form.Bounds) {
-			t.Fatal("advanced outside panel or overlaps inputs")
-		}
-		button.OnClick()
-		if !g.dmgAdvanced || g.form.Offset() == 0 {
-			t.Fatal("advanced did not expand and reveal fields")
-		}
+	if !g.toggleAdvanced() || !g.dmgAdvanced {
+		t.Fatal("advanced did not expand")
 	}
-	g.switchLayoutView(1)
+	g.setRaw(true)
 	g.focus(0)
 	g.input.SetText("title: Live\nwindow: {width: 800, height: 480}")
 	g.previewInput()

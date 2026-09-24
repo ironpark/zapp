@@ -120,10 +120,6 @@ type Clipboard interface {
 	ReadText() (string, error)
 	WriteText(string) error
 }
-type SystemClipboard struct{}
-
-func (SystemClipboard) ReadText() (string, error) { return readClipboard() }
-func (SystemClipboard) WriteText(s string) error  { return writeClipboard(s) }
 
 func NewInput(spec InputSpec) Input {
 	return Input{Spec: spec, buffer: []rune(spec.Value), cursor: len([]rune(spec.Value))}

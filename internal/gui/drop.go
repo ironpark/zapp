@@ -1,80 +1,13 @@
 package gui
 
 import (
-	"fmt"
 	"image"
-	"io/fs"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 
-	"github.com/ironpark/ggfx"
 	"github.com/ironpark/zapp"
 )
-
-// droppedPaths descends only through virtual grouping directories. An actual
-// dropped directory (including an app bundle) is one item, never its children.
-func droppedPaths(files fs.FS) ([]string, error) {
-	var paths []string
-	var visit func(string) error
-	visit = func(name string) error {
-		entries, err := fs.ReadDir(files, name)
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			child := path.Join(name, entry.Name())
-			file, err := files.Open(child)
-			if err != nil {
-				return err
-			}
-			source, real := file.(ggfx.AbsPather)
-			var absolute string
-			if real {
-				absolute = source.AbsPath()
-			}
-			file.Close()
-			if real && filepath.IsAbs(absolute) {
-				paths = append(paths, absolute)
-				continue
-			}
-			if !entry.IsDir() {
-				return fmt.Errorf("cannot determine the original path of %s", child)
-			}
-			if err := visit(child); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	err := visit(".")
-	return paths, err
-}
-
-func (g *editor) dropFiles(files fs.FS, point image.Point) {
-	if g.tab != tabDMG || !g.enabled() || !point.In(g.previewArea()) {
-		return
-	}
-	if !g.commit() {
-		return
-	}
-	paths, err := droppedPaths(files)
-	if err != nil {
-		g.report(err, "")
-		return
-	}
-	count, err := g.addDroppedPaths(paths, point)
-	if err != nil {
-		g.report(err, "")
-		return
-	}
-	if count == 0 {
-		g.report(nil, "These items are already in the layout.")
-		return
-	}
-	g.report(nil, fmt.Sprintf("Added %d item(s). Drag to arrange; Undo removes this batch.", count))
-}
 
 func (g *editor) addDroppedPaths(paths []string, point image.Point) (int, error) {
 	if g.tab != tabDMG || !g.enabled() || !point.In(g.previewArea()) {

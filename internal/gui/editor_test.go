@@ -26,16 +26,12 @@ func TestTabComponentRejectsNavigationWithInvalidDraft(t *testing.T) {
 		}
 	}
 	g.input.SetText("8")
-	tabs := g.tabs()
-	target := tabs.Buttons()[2].Bounds.Min.Add(image.Pt(2, 2))
-	if !tabs.Click(target) {
-		t.Fatal("tab click was not consumed")
-	}
+	g.switchTab(2)
 	if g.tab != 1 || g.active < 0 || g.input.Text() != "8" {
 		t.Fatal("invalid draft lost during tab transition")
 	}
 	g.input.SetText("96")
-	g.tabs().Click(target)
+	g.switchTab(2)
 	if g.tab != 2 || g.s.Project.DMG.IconSize != 96 {
 		t.Fatal("valid draft did not apply before navigation")
 	}
@@ -149,8 +145,8 @@ func TestAdvancedChoice(t *testing.T) {
 	for i, f := range g.fields {
 		if f.Label == "Filesystem" {
 			g.focus(i)
-			g.openChoice()
-			g.choose(1)
+			g.input.SetText(g.input.Spec.Choices[1])
+			g.commit()
 			break
 		}
 	}

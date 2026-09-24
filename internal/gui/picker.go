@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	guiruntime "github.com/ironpark/ggui/runtime"
 	"image"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	guiruntime "github.com/ironpark/ggui/runtime"
 )
 
 type pickMode string
@@ -106,9 +107,11 @@ func (g *editor) startPicker(index int, mode pickMode, title, initial string) {
 		g.invalidate()
 		return
 	}
+	wake := g.wakeFunc()
 	go func() {
 		path, err := choosePath(ctx, mode, title, initial)
 		results <- pickResult{index, path, err}
+		wake()
 	}()
 }
 

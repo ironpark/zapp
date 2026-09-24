@@ -52,17 +52,6 @@ func TestCodeIndentAndScroll(t *testing.T) {
 	}
 }
 
-func TestSegmentedSelection(t *testing.T) {
-	selected := 0
-	s := Segmented{Bounds: Box(0, 0, 140, 30), Labels: []string{"Fit", "100%"}, Selected: 0, OnSelect: func(index int) { selected = index }}
-	if !s.Click(s.Buttons()[1].Bounds.Min.Add(image.Pt(3, 3))) || selected != 1 {
-		t.Fatal("segment selection failed")
-	}
-	if s.Click(image.Pt(160, 40)) {
-		t.Fatal("outside click consumed")
-	}
-}
-
 func TestJSONHighlightAndIndent(t *testing.T) {
 	line := `{"id":"app","selected":true,"size":42}`
 	var source strings.Builder

@@ -58,11 +58,12 @@ func (g *editor) loadAppIcon(key, path string) {
 		g.appIconPending = make(map[string]bool)
 	}
 	g.appIconPending[path] = true
-	ctx := g.ctx
+	ctx, wake := g.ctx, g.wakeFunc()
 	go func() {
 		data := nativeAppIcon(ctx, path)
 		select {
 		case g.appIconResults <- appIconResult{path, data}:
+			wake()
 		case <-ctx.Done():
 		}
 	}()

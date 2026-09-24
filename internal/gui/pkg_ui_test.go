@@ -1,45 +1,24 @@
 package gui
 
 import (
-	"github.com/ironpark/zapp"
 	"image"
 	"testing"
+
+	"github.com/ironpark/zapp"
 )
 
-func TestPackageSourceSwitchKeepsLayoutAndScroll(t *testing.T) {
-	for _, width := range []int{1080, 1200} {
-		g := testEditor(t)
-		g.tab = tabPKG
-		g.w = width
-		g.h = 720
-		g.helpOpen = true
-		g.pkgAdvanced = true
-		g.s.Project.PKG.Components = []zapp.Component{{ID: "app", Root: "payload"}}
-		g.rebuild()
-		panel := g.settingsPanel().Bounds
-		g.form.ScrollTo(150)
-		formOffset := g.form.Offset()
-		segment := g.packageSourceSegment(panel)
-		segment.OnSelect(1)
-		if !g.componentListVisible() || g.settingsPanel().Bounds != panel || g.packageSourceSegment(panel).Bounds != segment.Bounds {
-			t.Fatal("source switch moved workspace")
-		}
-		g.form.ScrollTo(90)
-		rawOffset := g.form.Offset()
-		g.packageSourceSegment(panel).OnSelect(0)
-		if g.form.Offset() != formOffset {
-			t.Fatal("form scroll position lost")
-		}
-		g.packageSourceSegment(panel).OnSelect(1)
-		if g.form.Offset() != rawOffset {
-			t.Fatal("JSON scroll position lost")
-		}
-		g.focus(2)
-		g.input.SetText("[")
-		g.packageSourceSegment(panel).OnSelect(0)
-		if !g.pkgRaw || g.input.Text() != "[" {
-			t.Fatal("invalid JSON draft lost")
-		}
+func TestPackageSourceSwitchKeepsInvalidDraft(t *testing.T) {
+	g := testEditor(t)
+	g.tab = tabPKG
+	g.s.Project.PKG.Components = []zapp.Component{{ID: "app", Root: "payload"}}
+	g.rebuild()
+	if !g.setRaw(true) || !g.pkgRaw {
+		t.Fatal("did not switch to JSON")
+	}
+	g.focus(2)
+	g.input.SetText("[")
+	if g.setRaw(false) || !g.pkgRaw || g.input.Text() != "[" {
+		t.Fatal("invalid JSON draft lost")
 	}
 }
 

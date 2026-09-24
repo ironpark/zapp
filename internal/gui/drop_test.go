@@ -2,45 +2,11 @@ package gui
 
 import (
 	"image"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
-	"testing/fstest"
 )
 
-// Only actual dropped entries expose AbsPath on their opened file. Grouping
-// directories must be traversed without accidentally adding their whole tree.
-type dropTestFS struct {
-	fs.FS
-	paths map[string]string
-}
-type dropTestFile struct {
-	fs.File
-	absolute string
-}
-
-func (f dropTestFile) AbsPath() string { return f.absolute }
-func (f dropTestFS) Open(name string) (fs.File, error) {
-	file, err := f.FS.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	if absolute, ok := f.paths[name]; ok {
-		return dropTestFile{file, absolute}, nil
-	}
-	return file, nil
-}
-func TestDroppedPathsPreservesDirectoryAndTraversesGroups(t *testing.T) {
-	files := dropTestFS{fstest.MapFS{
-		"group/a.txt":           &fstest.MapFile{Data: []byte("a")},
-		"App.app/Contents/info": &fstest.MapFile{Data: []byte("bundle")},
-	}, map[string]string{"group/a.txt": "/tmp/group/a.txt", "App.app": "/tmp/App.app"}}
-	paths, err := droppedPaths(files)
-	if err != nil || len(paths) != 2 || paths[0] != "/tmp/App.app" || paths[1] != "/tmp/group/a.txt" {
-		t.Fatalf("paths=%v err=%v", paths, err)
-	}
-}
 func TestDropBatchCoordinatesDuplicatesAndUndo(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG

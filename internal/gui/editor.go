@@ -15,7 +15,6 @@ type editor struct {
 	previewBounds                         image.Rectangle
 	desktop                               *desktopModel
 	previewSurface                        *ggfx.Image
-	pkgViewScroll                         [2]int
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
 	componentIndex, componentScroll       int
 	signMode, notaryMode                  int
@@ -43,7 +42,8 @@ type editor struct {
 	ui                                       *comp.Painter
 	status                                   string
 	failed, confirmClose, quit, projectDirty bool
-	// wake asks the window loop for another frame; nil outside a live window.
+	// wake schedules the UI thread to apply finished background work and act
+	// on quit; nil outside a live window.
 	wake                   func()
 	selected               string
 	drag                   string
@@ -55,14 +55,10 @@ type editor struct {
 	previewSig             string
 	liveBase               *zapp.Project
 	dmgAdvanced            bool
-	choiceOpen             bool
-	choiceIndex            int
 	previewActual, panning bool
 	// pan is the actual-size view offset; panStart and panOrigin capture where
 	// the current drag began.
 	pan, panStart, panOrigin image.Point
-	hoverPoint               image.Point
-	hoverTicks               int
 }
 
 // systemFontPaths are probed in order for a Unicode-capable UI font. Absent
@@ -115,10 +111,17 @@ func (g *editor) Layout(w, h int) (int, int) {
 		}
 	}
 	g.inspector.SetBounds(g.inspectorArea())
-	if g.choiceOpen {
-		g.revealField(g.active)
-	}
 	return w, h
+}
+
+// wakeFunc returns the hook that asks the UI thread to apply finished
+// background work, or a no-op outside a live window. A goroutine captures it
+// before it starts rather than reading the field concurrently.
+func (g *editor) wakeFunc() func() {
+	if g.wake != nil {
+		return g.wake
+	}
+	return func() {}
 }
 
 // requestQuit ends the app at the next frame, and makes sure there is one.
@@ -252,9 +255,6 @@ func (g *editor) formArea() image.Rectangle {
 	}
 	if g.tab == tabDMG && !g.dmgYAML {
 		area.Max.Y -= 44
-	}
-	if g.choiceOpen && g.active >= 0 {
-		area.Max.Y -= len(g.input.Spec.Choices)*choiceRowHeight + 8
 	}
 	return area
 }

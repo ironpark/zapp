@@ -22,31 +22,6 @@ func TestDisabledButtonConsumesWithoutActivation(t *testing.T) {
 	}
 }
 
-func TestTabsHitExactlyTheirDrawnBounds(t *testing.T) {
-	selected := -1
-	tabs := Tabs{Bounds: Box(17, 40, 317, 37), Items: []Tab{{Label: "One"}, {Label: "Two", Disabled: true}, {Label: "Three"}}, Gap: 7, OnSelect: func(i int) { selected = i }}
-	buttons := tabs.Buttons()
-	if buttons[2].Bounds.Max.X >= tabs.Bounds.Max.X || buttons[2].Bounds.Dx() <= buttons[0].Bounds.Dx() {
-		t.Fatal("tabs must follow label widths, leaving unused space")
-	}
-	for i, b := range buttons {
-		selected = -1
-		if !tabs.Click(b.Bounds.Min.Add(image.Pt(1, 1))) {
-			t.Fatal("missed drawn tab")
-		}
-		if i == 1 {
-			if selected != -1 {
-				t.Fatal("disabled tab activated")
-			}
-		} else if selected != i {
-			t.Fatalf("selected %d, want %d", selected, i)
-		}
-	}
-	if tabs.Click(image.Pt(buttons[0].Bounds.Max.X+1, 41)) {
-		t.Fatal("tab gap consumed as a tab")
-	}
-}
-
 func TestDialogBlocksBackgroundAndHandlesCancel(t *testing.T) {
 	activated, cancelled := false, false
 	d := Dialog{Visible: true, Bounds: Box(100, 100, 500, 190), Actions: []Button{{Label: "Confirm", OnClick: func() { activated = true }}}, OnCancel: func() { cancelled = true }}

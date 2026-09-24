@@ -36,9 +36,9 @@ func TestStapleToggleAndUndo(t *testing.T) {
 	g.tab = tabNotarize
 	g.rebuild()
 	g.focus(len(g.fields) - 1)
-	g.openChoice()
-	if !g.s.Project.Notarize.Staple || g.choiceOpen {
-		t.Fatal("toggle opened a menu or did not apply")
+	g.input.SetText("true")
+	if !g.commit() || !g.s.Project.Notarize.Staple {
+		t.Fatal("toggle did not apply")
 	}
 	g.history(false)
 	if g.s.Project.Notarize.Staple {

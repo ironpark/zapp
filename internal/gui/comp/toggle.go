@@ -1,25 +1,18 @@
 package comp
 
 import (
-	"github.com/ironpark/ggfx"
 	"image"
+
+	"github.com/ironpark/ggfx"
 )
 
-// Toggle requests a boolean change; the owner may reject it during validation.
+// Toggle draws a boolean field's on/off track.
 type Toggle struct {
-	Bounds   image.Rectangle
-	Label    string
-	Checked  bool
-	OnChange func()
+	Bounds  image.Rectangle
+	Label   string
+	Checked bool
 }
 
-func (t Toggle) Click(point image.Point) bool {
-	return (Button{Bounds: t.Bounds, OnClick: func() {
-		if t.OnChange != nil {
-			t.OnChange()
-		}
-	}}).Click(point)
-}
 func (t Toggle) Draw(dst *ggfx.Image, p *Painter, pointer image.Point) {
 	fg, track := p.Theme.Text, p.Theme.Border
 	if t.Checked {

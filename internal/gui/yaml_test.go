@@ -1,43 +1,11 @@
 package gui
 
 import (
-	"image"
 	"strings"
 	"testing"
 
 	"github.com/ironpark/zapp"
 )
-
-func TestSegmentedWorkspaceBounds(t *testing.T) {
-	for _, size := range []image.Point{{1080, 720}, {1200, 840}, {1600, 1000}} {
-		g := testEditor(t)
-		g.tab = tabDMG
-		g.w, g.h = size.X, size.Y
-		g.rebuild()
-		segments := g.segmentedControls()
-		if len(segments) != 2 {
-			t.Fatal("missing segmented controls")
-		}
-		panels := []image.Rectangle{g.previewPanel().Bounds, g.settingsPanel().Bounds}
-		for i, segment := range segments {
-			if !segment.Bounds.In(panels[i]) {
-				t.Fatalf("%v: segment outside panel", size)
-			}
-			for _, button := range g.controls() {
-				if button.Bounds.Overlaps(segment.Bounds) {
-					t.Fatalf("%v: segment overlaps %s", size, button.Label)
-				}
-			}
-		}
-		g.switchLayoutView(1)
-		if !g.form.FieldBounds(0).In(g.form.Bounds) {
-			t.Fatalf("%v: YAML editor outside form", size)
-		}
-		if g.form.Limit() != 0 {
-			t.Fatalf("%v: YAML panel scrolls instead of its text", size)
-		}
-	}
-}
 
 func TestYAMLViewRoundTripAndUndo(t *testing.T) {
 	g := testEditor(t)
@@ -45,7 +13,7 @@ func TestYAMLViewRoundTripAndUndo(t *testing.T) {
 	g.s.Project.DMG.Contents = map[string]zapp.Content{}
 	g.s.Project.DMG.Window.Width = 640
 	g.rebuild()
-	g.switchLayoutView(1)
+	g.setRaw(true)
 	if !g.dmgYAML || g.fields[0].Syntax != "yaml" {
 		t.Fatal("YAML view missing")
 	}
@@ -58,7 +26,7 @@ func TestYAMLViewRoundTripAndUndo(t *testing.T) {
 	if !g.commit() || g.s.Project.DMG.Window.Width != 800 || g.s.Project.DMG.Contents == nil {
 		t.Fatalf("YAML edit not applied correctly: width=%d contents=%#v status=%s draft=%s", g.s.Project.DMG.Window.Width, g.s.Project.DMG.Contents, g.status, g.input.Text())
 	}
-	g.switchLayoutView(0)
+	g.setRaw(false)
 	if g.dmgYAML || g.fields[0].Label != "Title" {
 		t.Fatal("form view not restored")
 	}
@@ -73,10 +41,10 @@ func TestInvalidYAMLRetainsDraftAndMode(t *testing.T) {
 		g := testEditor(t)
 		g.tab = tabDMG
 		g.rebuild()
-		g.switchLayoutView(1)
+		g.setRaw(true)
 		g.focus(0)
 		g.input.SetText(draft)
-		g.switchLayoutView(0)
+		g.setRaw(false)
 		if !g.dmgYAML || g.input.Text() != draft || g.input.Spec.Error == "" {
 			t.Fatalf("invalid draft not retained: %q", draft)
 		}
@@ -91,9 +59,9 @@ func TestLayoutViewSwitchDoesNotCreateChanges(t *testing.T) {
 	g.tab = tabDMG
 	g.rebuild()
 	for range 3 {
-		g.switchLayoutView(1)
+		g.setRaw(true)
 		g.focus(0)
-		g.switchLayoutView(0)
+		g.setRaw(false)
 	}
 	if g.s.CanUndo() || g.s.Dirty() {
 		t.Fatal("view switching changed project")

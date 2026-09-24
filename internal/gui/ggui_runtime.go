@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"runtime"
 
 	"github.com/ironpark/ggui"
 	_ "github.com/ironpark/ggui/inspect/panel"
@@ -31,10 +30,6 @@ func (g *editor) runWidgets() error {
 	app := ggui.New(ggui.Config{Title: "Zapp — Project settings", Width: g.w, Height: g.h, Resizable: true, Inspector: "f1", Accessibility: ggui.AccessibilityAlways}, func() ggui.Widget { return desktopView(m) })
 	m.dialogs = app.Dialogs()
 	app.Setup(func() { uitheme.Bind(m.Dark, editorTheme(true), editorTheme(false)) })
-	prefix := "ctrl+"
-	if runtime.GOOS == "darwin" {
-		prefix = "cmd+"
-	}
 	ready := func(fn func()) func() {
 		return g.action(func() {
 			if g.build == nil && !g.confirmClose && g.picking == nil {
@@ -42,7 +37,8 @@ func (g *editor) runWidgets() error {
 			}
 		})
 	}
-	app.Shortcut(prefix+"s", ready(func() { g.save() }))
+	// "cmd" is ggui's platform command modifier: Meta on macOS, Ctrl elsewhere.
+	app.Shortcut("cmd+s", ready(func() { g.save() }))
 	app.OnKey(func(e ggui.KeyEvent) bool {
 		if e.Kind == ggui.KeyPress && e.Mods.Cmd() && e.Key == ggui.KeyZ && g.active < 0 {
 			ready(func() { g.history(e.Mods.Shift) })()
@@ -53,19 +49,15 @@ func (g *editor) runWidgets() error {
 	for i := range sections {
 		// ggui names number keys after their Ebitengine key name, so the chord
 		// for the "1" key is "digit1"; a bare "1" is not a key it knows.
-		app.Shortcut(fmt.Sprintf("%sdigit%d", prefix, i+1), ready(func() { m.selectTab(i) }))
+		app.Shortcut(fmt.Sprintf("cmd+digit%d", i+1), ready(func() { m.selectTab(i) }))
 	}
-	// Anything that ends the app from inside a frame or a click has already
-	// missed this frame's quit check, and ggui paints no idle frames, so it
-	// asks for the next one.
-	g.wake = func() { app.Post(func() {}) }
-	app.OnCloseRequest(m.allowClose)
 	var runErr error
-	// Cancellation is only observed inside a frame, so wake the window when the
-	// context ends. Post is safe from another goroutine.
-	stopWake := context.AfterFunc(g.ctx, func() { app.Post(func() {}) })
-	defer stopWake()
-	app.OnFrame(func() {
+	// pump applies whatever background work has finished and acts on quit or
+	// cancellation. It runs as posted work on the UI thread whenever a
+	// goroutine, requestQuit or the context asks, instead of in an OnFrame
+	// handler: ggui keeps drawing every frame while any OnFrame handler is
+	// registered, so this is what lets an idle window stop painting.
+	pump := func() {
 		if err := g.ctx.Err(); err != nil {
 			runErr = err
 			app.Close()
@@ -80,27 +72,12 @@ func (g *editor) runWidgets() error {
 		if g.picking != nil {
 			g.pollPicker()
 		}
-		// ggui only schedules a frame while something is moving, but these
-		// pollers drain channels that background goroutines fill. Keep asking
-		// for frames while any of that work is outstanding, or a finished
-		// build, an extracted icon or a chosen path would sit unnoticed until
-		// the pointer happened to move.
-		if g.build != nil || g.picking != nil || len(g.appIconPending) > 0 {
-			app.Post(func() {})
-		}
 		m.sync()
-		if m.focus != nil {
-			if tree := app.Semantics(); tree != nil {
-				for _, n := range tree.Nodes(ggui.RoleTextField) {
-					if n.ID.ID == *m.focus {
-						app.Perform(n.ID, ggui.Action{Kind: ggui.ActionFocus})
-						m.focus = nil
-						break
-					}
-				}
-			}
-		}
-	})
+	}
+	g.wake = func() { app.Post(pump) }
+	app.OnCloseRequest(m.allowClose)
+	stopWake := context.AfterFunc(g.ctx, g.wake)
+	defer stopWake()
 	err := app.Run()
 	if runErr != nil {
 		return runErr

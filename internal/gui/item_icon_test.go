@@ -38,15 +38,9 @@ func TestItemIconLivePreviewAndReset(t *testing.T) {
 	if g.s.Project.DMG.Contents[g.selected].Link {
 		t.Fatal("custom icon allowed on link")
 	}
-	found := false
-	for _, button := range g.controls() {
-		if button.Label == "Reset item icon" {
-			found = true
-			button.OnClick()
-			break
-		}
-	}
-	if !found || g.s.Project.DMG.Contents[g.selected].Icon != "" {
+	g.focus(g.inspectorStart + itemIconFieldIndex)
+	g.input.SetText("")
+	if !g.commit() || g.s.Project.DMG.Contents[g.selected].Icon != "" {
 		t.Fatal("reset failed")
 	}
 	g.history(false)

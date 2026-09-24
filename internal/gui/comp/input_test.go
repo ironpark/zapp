@@ -2,8 +2,9 @@ package comp
 
 import (
 	"errors"
-	"github.com/ironpark/ggfx"
 	"testing"
+
+	"github.com/ironpark/ggfx"
 )
 
 type memoryClipboard struct {

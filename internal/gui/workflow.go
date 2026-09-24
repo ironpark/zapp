@@ -2,11 +2,7 @@ package gui
 
 import (
 	"fmt"
-	"image"
 	"runtime"
-	"slices"
-
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 type validationIssue struct {
@@ -120,101 +116,7 @@ func (g *editor) selectNotaryMethod(index int) {
 func (g *editor) componentListVisible() bool {
 	return g.tab == tabPKG && g.s.Project.PKG != nil && g.s.Project.PKG.HasFullForm()
 }
-func (g *editor) workflowSegments() []comp.Segmented {
-	if g.tab == tabDMG || !g.enabled() {
-		return nil
-	}
-	panel := g.settingsPanel().Bounds
-	var out []comp.Segmented
-	switch g.tab {
-	case tabSign:
-		out = append(out, comp.Segmented{Bounds: comp.Box(panel.Min.X+16, panel.Min.Y+48, panel.Dx()-32, 32), Labels: []string{"Keychain", "PKCS#12", "PEM"}, Selected: g.signMethod(), OnSelect: g.selectSignMethod})
-	case tabNotarize:
-		out = append(out, comp.Segmented{Bounds: comp.Box(panel.Min.X+16, panel.Min.Y+48, panel.Dx()-32, 32), Labels: []string{"Profile", "Apple ID", "API key"}, Selected: g.notaryMethod(), OnSelect: g.selectNotaryMethod})
-	case tabPKG:
-		mode := 0
-		if g.s.Project.PKG.HasFullForm() {
-			mode = 1
-		}
-		out = append(out, comp.Segmented{Bounds: comp.Box(g.w-384, 74, 228, 32), Labels: []string{"Single app", "Components"}, Selected: mode, OnSelect: func(_ int) {
-			if g.commit() {
-				g.switchPackageForm()
-			}
-		}})
-		if mode == 1 {
-			out = append(out, g.packageSourceSegment(panel))
-		}
-	case tabDep:
-		out = append(out, g.sourceSegment(panel, g.depRaw, func(raw bool) { g.depRaw = raw }, nil))
-	}
-	return out
-}
 
-// sourceSegment is the Form/raw-text toggle every editable section shows. A
-// non-nil scroll gives the section a remembered offset per view; otherwise both
-// views open at the top.
-func (g *editor) sourceSegment(panel image.Rectangle, raw bool, set func(bool), scroll *[2]int) comp.Segmented {
-	mode := 0
-	if raw {
-		mode = 1
-	}
-	labels := []string{"Form", "JSON"}
-	if g.tab == tabDep {
-		labels = []string{"List", "Text"}
-	}
-	return comp.Segmented{Bounds: comp.Box(panel.Max.X-220, panel.Min.Y+8, 128, 32), Labels: labels, Selected: mode, OnSelect: func(index int) {
-		if index == mode || !g.commit() {
-			return
-		}
-		offset := 0
-		if scroll != nil {
-			scroll[mode] = g.form.Offset()
-			offset = scroll[index]
-		}
-		set(index == 1)
-		g.rebuild()
-		g.form.ScrollTo(offset)
-	}}
-}
-func (g *editor) workflowButtons() []comp.Button {
-	var out []comp.Button
-	if g.tab != tabDMG && g.enabled() {
-		panel := g.settingsPanel().Bounds
-		out = append(out, comp.Button{Bounds: comp.Box(panel.Max.X-80, panel.Min.Y+8, 64, 32), Label: "Help", Ghost: true, Selected: g.helpOpen, OnClick: func() { g.helpOpen = !g.helpOpen; g.syncForm() }})
-		if g.tab == tabPKG {
-			out = append(out, g.advancedButton(panel, &g.pkgAdvanced, "Scripts directory", "Distribution"))
-		}
-		if g.tab == tabDep && !g.depRaw {
-			out = append(out, comp.Button{Bounds: comp.Box(panel.Min.X+16, panel.Max.Y-48, panel.Dx()-32, 32), Label: "Add directory", Icon: comp.IconPlus, OnClick: g.guard(func() { g.browse(len(g.s.Project.Dep.Libs)) })})
-			for i := range g.s.Project.Dep.Libs {
-				r := g.form.FieldBounds(i)
-				bounds := comp.Box(r.Max.X+90-28, r.Min.Y-25, 28, 24)
-				if bounds.In(g.form.Bounds) {
-					out = append(out, comp.Button{Bounds: bounds, Label: "Remove path", Icon: comp.IconTrash, IconOnly: true, Ghost: true, OnClick: g.guard(func() {
-						g.s.checkpoint()
-						c := g.s.Project.Dep
-						c.Libs = slices.Delete(c.Libs, i, i+1)
-						g.clearIssue(tabDep)
-						g.rebuild()
-					})})
-				}
-			}
-		}
-		if g.componentListVisible() {
-			out = append(out, g.componentButtons()...)
-		}
-	}
-	if g.issue != nil {
-		out = append(out, comp.Button{Bounds: goToIssueBounds(g.w, g.h), Label: "Go to issue", Ghost: true, OnClick: g.goToIssue})
-	}
-	return out
-}
-
-// goToIssueBounds is shared with the footer so the status text knows exactly how
-// much room the button takes instead of mirroring its width.
-func goToIssueBounds(w, h int) image.Rectangle {
-	return comp.Box(w-132, h-footerHeight, 116, footerHeight)
-}
 func (g *editor) goToIssue() {
 	if g.issue == nil {
 		return
@@ -227,9 +129,4 @@ func (g *editor) goToIssue() {
 	g.revealComponent()
 	g.selected = issue.item
 	g.showFieldError(issue.tab, issue.label, fmt.Errorf("%s", issue.message))
-}
-
-// Keep each editor's scroll position while preserving the surrounding layout.
-func (g *editor) packageSourceSegment(panel image.Rectangle) comp.Segmented {
-	return g.sourceSegment(panel, g.pkgRaw, func(raw bool) { g.pkgRaw = raw }, &g.pkgViewScroll)
 }

@@ -105,9 +105,8 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 		if e.Button != ggui.MouseButtonLeft || !g.commit() {
 			return true
 		}
-		in := tick{pos: point, mouse: point, click: true}
-		g.selectPreviewItem(in)
-		g.startPan(in)
+		g.selectPreviewItem(point)
+		g.startPan(point)
 		c.model.sync()
 	case ggui.PointerDrag:
 		g.moveDesigner(p)

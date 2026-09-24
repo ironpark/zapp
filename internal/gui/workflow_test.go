@@ -85,12 +85,7 @@ func TestDependencyListPickerRemoveAndRaw(t *testing.T) {
 	}
 	g.depRaw = false
 	g.rebuild()
-	for _, b := range g.workflowButtons() {
-		if b.Label == "Remove path" {
-			b.OnClick()
-			break
-		}
-	}
+	removeLibrary(g, 0)
 	if len(g.s.Project.Dep.Libs) != 0 {
 		t.Fatal("row removal failed")
 	}
@@ -174,11 +169,6 @@ func TestWorkflowLayoutAtMinimumSize(t *testing.T) {
 				if panel.Dx() < 400 || !panel.In(image.Rect(0, 0, g.w, g.h)) {
 					t.Fatalf("invalid panel: %v", panel)
 				}
-				for _, s := range g.workflowSegments() {
-					if !s.Bounds.In(image.Rect(0, 0, g.w, g.h)) {
-						t.Fatal("segment out of bounds")
-					}
-				}
 				if g.componentListVisible() && panel.Overlaps(g.componentPanel().Bounds) {
 					t.Fatal("list overlaps form")
 				}
@@ -248,7 +238,7 @@ func TestBuildErrorOffersIssueNavigation(t *testing.T) {
 	}
 }
 
-func TestComponentScrollDoesNotChangeSelection(t *testing.T) {
+func TestRevealComponentScrollsToSelection(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabPKG
 	g.s.Project.PKG.Components = make([]zapp.Component, 30)
@@ -256,9 +246,7 @@ func TestComponentScrollDoesNotChangeSelection(t *testing.T) {
 		g.s.Project.PKG.Components[i].ID = fmt.Sprintf("app-%d", i)
 	}
 	g.rebuild()
-	if !g.scrollComponents(g.componentPanel().Bounds.Min.Add(image.Pt(20, 60)), 10) || g.componentScroll != 10 || g.componentIndex != 0 {
-		t.Fatal("scroll changed selection instead of viewport")
-	}
+	g.componentScroll = 10
 	g.componentIndex = 29
 	g.revealComponent()
 	if g.componentScroll <= 10 {

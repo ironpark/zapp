@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"image"
 	"slices"
 
 	"github.com/ironpark/zapp"
@@ -17,30 +16,6 @@ func (g *editor) componentPanel() comp.Panel {
 // Remove buttons. Drawing, scrolling and revealing must agree on it.
 func (g *editor) componentPageSize() int {
 	return max(1, (g.componentPanel().Content().Dy()-88)/40)
-}
-func (g *editor) componentButtons() []comp.Button {
-	panel := g.componentPanel()
-	area := panel.Content()
-	visible := g.componentPageSize()
-	start := max(0, min(g.componentScroll, len(g.s.Project.PKG.Components)-visible))
-	var out []comp.Button
-	for i := start; i < min(len(g.s.Project.PKG.Components), start+visible); i++ {
-		label := g.s.Project.PKG.Components[i].ID
-		if label == "" {
-			label = fmt.Sprintf("Component %d", i+1)
-		}
-		out = append(out, comp.Button{Bounds: comp.Box(area.Min.X, area.Min.Y+(i-start)*40, area.Dx(), 32), Label: label, Selected: i == g.componentIndex && !g.pkgRaw, Ghost: true, OnClick: g.guard(func() {
-			g.componentIndex = i
-			g.pkgRaw = false
-			g.pkgViewScroll[0] = 0
-			g.form.ScrollTo(0)
-			g.rebuild()
-		})})
-	}
-	out = append(out,
-		comp.Button{Bounds: comp.Box(area.Min.X, area.Max.Y-76, area.Dx(), 32), Label: "Add component", Icon: comp.IconPlus, OnClick: g.guard(g.addComponent)},
-		comp.Button{Bounds: comp.Box(area.Min.X, area.Max.Y-36, area.Dx(), 32), Label: "Remove", Icon: comp.IconTrash, Disabled: g.pkgRaw || len(g.s.Project.PKG.Components) == 0, OnClick: g.guard(g.removeComponent)})
-	return out
 }
 func (g *editor) addComponent() {
 	c := g.s.Project.PKG
@@ -86,14 +61,6 @@ func (g *editor) removeComponent() {
 	g.componentIndex = max(0, g.componentIndex-1)
 	g.revealComponent()
 	g.rebuild()
-}
-func (g *editor) scrollComponents(point image.Point, delta int) bool {
-	if !g.componentListVisible() || !point.In(g.componentPanel().Bounds) || delta == 0 {
-		return false
-	}
-	visible := g.componentPageSize()
-	g.componentScroll = max(0, min(g.componentScroll+delta, len(g.s.Project.PKG.Components)-visible))
-	return true
 }
 
 func (g *editor) revealComponent() {
