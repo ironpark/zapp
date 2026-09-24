@@ -18,7 +18,7 @@ var stepHelp = map[int][][2]string{
 		{"BUILD ORDER", "Libraries are bundled before signing and packaging. Disable this step if your app has no external dependencies."},
 	},
 	tabSign: {
-		{"macOS", "Import your certificate into Keychain, then enter its signing identity. Certificate-file credentials are for Windows and Linux."},
+		{"macOS", "Use a Keychain signing identity, or a PKCS#12 certificate, which is imported into a temporary keychain for the build. PEM certificates are for Windows and Linux."},
 		{"WINDOWS & LINUX", "Use a PKCS#12 or PEM certificate with rcodesign. Supply a password file when the certificate requires it."},
 		{"CREDENTIALS", "Store password file paths here. Certificate passwords are not saved in the project."},
 	},

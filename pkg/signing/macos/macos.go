@@ -14,11 +14,17 @@ import (
 )
 
 // Options are the credentials Apple's tools take. The certificate comes from
-// the keychain, so it is named rather than supplied.
+// the keychain: the user's own, or a temporary one holding a supplied PKCS#12.
 type Options struct {
 	// Identity names a keychain identity. Empty means the best matching
 	// Developer ID is chosen for the artifact being signed.
 	Identity string
+
+	// P12 is a PKCS#12 certificate and private key to sign with instead of the
+	// user's keychains. It is imported into a temporary keychain on first use
+	// and removed by Close.
+	P12         []byte
+	P12Password string
 
 	// Profile is a stored notarytool keychain profile. When it is empty the
 	// Apple ID trio below is used to create a temporary one.
@@ -33,9 +39,11 @@ type Backend struct {
 	opts Options
 
 	// mu guards resolved, which caches the keychain lookup so that describing
-	// and then signing an artifact does not enumerate the keychain twice.
+	// and then signing an artifact does not enumerate the keychain twice, and
+	// keychain, the temporary keychain holding opts.P12 once it is imported.
 	mu       sync.Mutex
 	resolved map[string]Identity
+	keychain *tempKeychain
 }
 
 // New returns a backend that signs with the given credentials.
@@ -84,11 +92,19 @@ func (b *Backend) identity(ctx context.Context, ext string) (Identity, error) {
 		return identity, nil
 	}
 
-	identities, err := listIdentities(ctx)
+	keychain, err := b.keychainPath(ctx)
+	if err != nil {
+		return Identity{}, err
+	}
+	identities, err := listIdentities(ctx, keychain)
 	if err != nil {
 		return Identity{}, err
 	}
 	if len(identities) == 0 {
+		if keychain != "" {
+			return Identity{}, fmt.Errorf("the PKCS#12 certificate holds no valid signing identity; " +
+				"a Developer ID certificate also needs Apple's Developer ID intermediate certificate installed")
+		}
 		return Identity{}, fmt.Errorf("the keychain holds no signing identities")
 	}
 	for _, identity := range identities {
@@ -100,6 +116,38 @@ func (b *Backend) identity(ctx context.Context, ext string) (Identity, error) {
 	return Identity{}, fmt.Errorf("the keychain holds no identity matching %q", want)
 }
 
+// keychainPath imports opts.P12 the first time it is needed and returns the
+// temporary keychain's path, or "" to search the user's keychains. The caller
+// holds b.mu.
+func (b *Backend) keychainPath(ctx context.Context) (string, error) {
+	if len(b.opts.P12) == 0 {
+		return "", nil
+	}
+	if b.keychain == nil {
+		k, err := importP12(ctx, b.opts.P12, b.opts.P12Password)
+		if err != nil {
+			return "", err
+		}
+		b.keychain = k
+	}
+	return b.keychain.path, nil
+}
+
+// Close deletes the temporary keychain a PKCS#12 certificate was imported
+// into and takes it off the user's search list. It runs even when the signing
+// context was cancelled, so a cancelled build does not leave it behind.
+func (b *Backend) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.keychain == nil {
+		return nil
+	}
+	err := b.keychain.close(context.Background())
+	b.keychain = nil
+	b.resolved = map[string]Identity{}
+	return err
+}
+
 // Sign signs with the tool that suits the artifact: an installer package is
 // signed by productsign, everything else by codesign.
 func (b *Backend) Sign(ctx context.Context, path string) error {
@@ -108,11 +156,17 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
+	b.mu.Lock()
+	keychain := ""
+	if b.keychain != nil {
+		keychain = b.keychain.path
+	}
+	b.mu.Unlock()
 	switch ext {
 	case ".pkg":
-		return runProductsign(ctx, path, identity.String())
+		return runProductsign(ctx, path, identity.String(), keychain)
 	case ".app", ".dmg":
-		return runCodesign(ctx, identity.Fingerprint, path)
+		return runCodesign(ctx, identity.Fingerprint, path, keychain)
 	default:
 		return fmt.Errorf("%s is not a kind of artifact zapp signs; expected .app, .dmg or .pkg", path)
 	}

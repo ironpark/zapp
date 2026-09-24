@@ -13,12 +13,13 @@ import (
 var errCodesignFailed = errors.New("codesign command failed")
 
 // runCodesign signs the file with Apple's codesign.
-func runCodesign(ctx context.Context, identityName, filePath string) error {
+// A non-empty keychain restricts the identity search to that keychain.
+func runCodesign(ctx context.Context, identityName, filePath, keychain string) error {
 	if identityName == "" || filePath == "" {
 		return errors.New("identity name and file path are required")
 	}
 
-	if _, err := macexec.Run(ctx, "codesign", codesignArgs(identityName, filePath)...); err != nil {
+	if _, err := macexec.Run(ctx, "codesign", codesignArgs(identityName, filePath, keychain)...); err != nil {
 		return fmt.Errorf("%w: %v%s", errCodesignFailed, err, hint(macexec.Output(err)))
 	}
 
@@ -39,12 +40,10 @@ func hint(output string) string {
 // codesignArgs renders the codesign invocation. The flags are the ones every
 // artifact zapp signs wants: replace any existing signature, sign nested code,
 // and opt into the hardened runtime that notarization requires.
-func codesignArgs(identityName, filePath string) []string {
-	return []string{
-		"--sign", identityName,
-		"--force",
-		"--deep",
-		"--options=runtime",
-		filePath,
+func codesignArgs(identityName, filePath, keychain string) []string {
+	args := []string{"--sign", identityName}
+	if keychain != "" {
+		args = append(args, "--keychain", keychain)
 	}
+	return append(args, "--force", "--deep", "--options=runtime", filePath)
 }

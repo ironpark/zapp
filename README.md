@@ -184,7 +184,7 @@ notarize:
 
 - Skip a step for an individual run with `--no-sign` or `--no-notarize`.
 - Existing `--sign --notarize --profile ... --staple` flags also work.
-- Supply passwords through `ZAPP_P12_PASSWORD`, `ZAPP_PASSWORD`, or their CLI flags. Configuration files cannot contain `sign.p12Password` or `notarize.password`.
+- Supply secrets through `ZAPP_P12_PASSWORD`, `ZAPP_P12_BASE64` (a PKCS#12 certificate as base64, e.g. from a CI secret), `ZAPP_PASSWORD`, or their CLI flags. Configuration files cannot contain `sign.p12Password` or `notarize.password`.
 - `zapp config show` omits passwords.
 
 See [signing and notarization](docs/signing.md) for platform-specific certificates and authentication.
@@ -237,6 +237,17 @@ zapp sign --target="path/to/MyApp.app"
 ```
 ```bash
 zapp sign --identity="Developer ID Application" --target="path/to/MyApp.app"
+```
+
+A PKCS#12 (`.p12`) certificate needs no manual keychain import: on macOS Zapp imports it into a temporary keychain for the run and deletes it afterwards. In CI, pass it as base64 through `ZAPP_P12_BASE64` (or `--p12-base64`). See [signing and notarization](docs/signing.md#pkcs12-certificates-on-macos) for a GitHub Actions example.
+
+```bash
+zapp sign --p12-file="developer-id.p12" --p12-password-file="password.txt" --target="path/to/MyApp.app"
+```
+```bash
+# CI, e.g. GitHub Actions secrets
+ZAPP_P12_BASE64="$CERTIFICATE" ZAPP_P12_PASSWORD="$CERTIFICATE_PASSWORD" \
+  zapp sign --identity="TEAMID1234" --target="path/to/MyApp.app"
 ```
 
 ### 🏷️ Notarization & Stapling

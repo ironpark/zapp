@@ -51,9 +51,10 @@ func subTaskFlags() []cli.Flag {
 	}, append(certificateFlags(), notaryKeyFlag())...)
 }
 
-// certificateFlags name a signing certificate by file. Away from macOS there is
-// no keychain to take an identity from, so these are how a certificate is
-// supplied. macOS always uses Apple's tools and a keychain identity.
+// certificateFlags supply a signing certificate. A PKCS#12 bundle works on every
+// host: macOS imports it into a temporary keychain for the run, elsewhere
+// rcodesign reads it directly. The secrets also read from the environment, so
+// CI can pass them without putting them on the command line.
 func certificateFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -61,8 +62,14 @@ func certificateFlags() []cli.Flag {
 			Usage: "Path to a PKCS#12 certificate bundle to sign with",
 		},
 		&cli.StringFlag{
-			Name:  "p12-password",
-			Usage: "Password for the PKCS#12 bundle",
+			Name:    "p12-base64",
+			Usage:   "PKCS#12 certificate bundle as base64, e.g. from a CI secret (instead of --p12-file)",
+			Sources: cli.EnvVars("ZAPP_P12_BASE64"),
+		},
+		&cli.StringFlag{
+			Name:    "p12-password",
+			Usage:   "Password for the PKCS#12 bundle",
+			Sources: cli.EnvVars("ZAPP_P12_PASSWORD"),
 		},
 		&cli.StringFlag{
 			Name:  "p12-password-file",

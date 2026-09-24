@@ -2,10 +2,12 @@
 // artifacts, over two toolchains that agree on almost nothing else.
 //
 // On macOS the work is done by Apple's own tools, which take a signing identity
-// from the keychain and notarize through notarytool. Everywhere else it is done
-// by rcodesign, which has no keychain to consult and so takes a certificate
-// file, and which talks to the App Store Connect API directly and so takes an
-// API key rather than an Apple ID.
+// from the keychain and notarize through notarytool. A PKCS#12 certificate is
+// imported into a temporary keychain for the run, the way CI imports a
+// certificate secret. Everywhere else it is done by rcodesign, which has no
+// keychain to consult and so takes a certificate file, and which talks to the
+// App Store Connect API directly and so takes an API key rather than an Apple
+// ID.
 //
 // The backends live below this package and know nothing of it: each takes the
 // options it actually needs, and Select translates the credentials a caller
@@ -14,7 +16,10 @@ package signing
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,11 +33,16 @@ type Credentials struct {
 	// means the best matching Developer ID is chosen.
 	Identity string
 
-	// P12File and PEMFile name a signing certificate by file, for rcodesign.
+	// P12File and P12Base64 supply a PKCS#12 certificate and private key: as a
+	// file, or as base64 text, which is how CI secrets usually hold one. Both
+	// toolchains take either; macOS imports it into a temporary keychain.
 	P12File         string
+	P12Base64       string
 	P12Password     string
 	P12PasswordFile string
-	PEMFile         string
+
+	// PEMFile names a PEM certificate and private key, for rcodesign.
+	PEMFile string
 
 	// Profile, or the Apple ID trio, authenticate notarytool.
 	Profile  string
@@ -44,11 +54,73 @@ type Credentials struct {
 	APIKeyFile string
 }
 
-// namesCertificateFile reports whether c carries credentials only rcodesign
-// understands: a certificate held in a file rather than a keychain.
-func (c Credentials) namesCertificateFile() bool {
-	return c.P12File != "" || c.PEMFile != "" || c.P12Password != "" ||
-		c.P12PasswordFile != "" || c.APIKeyFile != ""
+// namesP12 reports whether c supplies a PKCS#12 certificate, in either form.
+func (c Credentials) namesP12() bool { return c.P12File != "" || c.P12Base64 != "" }
+
+// checkP12 rejects PKCS#12 options that cannot mean anything together: the
+// certificate given twice, or a password with no certificate for it to open.
+func (c Credentials) checkP12() error {
+	if c.P12File != "" && c.P12Base64 != "" {
+		return errors.New("pass the PKCS#12 certificate once: --p12-file or --p12-base64, not both")
+	}
+	if !c.namesP12() && (c.P12Password != "" || c.P12PasswordFile != "") {
+		return errors.New("a PKCS#12 password was given without --p12-file or --p12-base64")
+	}
+	return nil
+}
+
+// p12 returns the PKCS#12 bundle's bytes, read from its file or decoded from
+// base64. Whitespace inside the base64 is ignored, since tools such as
+// `openssl base64` wrap their output.
+func (c Credentials) p12() ([]byte, error) {
+	if c.P12Base64 == "" {
+		return os.ReadFile(c.P12File)
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(c.P12Base64), ""))
+	if err != nil {
+		return nil, fmt.Errorf("--p12-base64 is not valid base64: %w", err)
+	}
+	return data, nil
+}
+
+// p12Password returns the bundle's password. A password file takes precedence
+// and only its first line is used, as rcodesign reads one.
+func (c Credentials) p12Password() (string, error) {
+	if c.P12PasswordFile == "" {
+		return c.P12Password, nil
+	}
+	data, err := os.ReadFile(c.P12PasswordFile)
+	if err != nil {
+		return "", err
+	}
+	line, _, _ := strings.Cut(string(data), "\n")
+	return strings.TrimSuffix(line, "\r"), nil
+}
+
+// writeSecretFile writes data to a file only the current user can read, for a
+// tool that takes a path, and returns a function that removes it.
+func writeSecretFile(data []byte, name string) (string, func() error, error) {
+	dir, err := os.MkdirTemp("", "zapp-secret-")
+	if err != nil {
+		return "", nil, err
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", nil, err
+	}
+	return path, func() error { return os.RemoveAll(dir) }, nil
+}
+
+// Close releases whatever a backend holds for its run: the temporary keychain
+// a PKCS#12 import creates on macOS, or the decoded certificate file
+// elsewhere. It is a no-op for backends that hold nothing, including ones a
+// caller supplied, which stay the caller's to release.
+func Close(b Backend) error {
+	if c, ok := b.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }
 
 // namesKeychainIdentity reports whether c carries credentials only Apple's

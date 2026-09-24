@@ -3,6 +3,7 @@ package zapp
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"github.com/ironpark/zapp/internal/fsutil"
 	"github.com/ironpark/zapp/pkg/dep"
@@ -155,17 +156,22 @@ func (p *Plan) BuildPKG(ctx context.Context) (out string, err error) {
 	}
 	return s.Output, nil
 }
-func (p *Plan) Sign(ctx context.Context, target string) error {
+func (p *Plan) Sign(ctx context.Context, target string) (err error) {
 	if p.SignCredentials == nil {
 		return stepError(StepSign, fmt.Errorf("signing is not configured"))
 	}
 	b := p.signBackend
-	var err error
 	if b == nil {
-		b, err = signing.Select(*p.SignCredentials)
-	}
-	if err != nil {
-		return stepError(StepSign, err)
+		if b, err = signing.Select(*p.SignCredentials); err != nil {
+			return stepError(StepSign, err)
+		}
+		// A backend made here is this call's to release: a PKCS#12
+		// certificate lives in a temporary keychain or file until then.
+		defer func() {
+			if closeErr := signing.Close(b); closeErr != nil {
+				err = errors.Join(err, stepError(StepSign, closeErr))
+			}
+		}()
 	}
 	p.log("Signing %s\n", target)
 	return stepError(StepSign, b.Sign(ctx, target))

@@ -311,7 +311,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 		}
 	}
 	if s := p.Sign; s != nil {
-		for _, t := range []target{{"identity", &s.Identity}, {"p12-password", &s.P12Password}} {
+		for _, t := range []target{{"identity", &s.Identity}, {"p12-password", &s.P12Password}, {"p12-base64", &s.P12Base64}} {
 			if err := assign(t.flag, t.dst, false); err != nil {
 				return err
 			}

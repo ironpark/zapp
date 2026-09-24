@@ -11,8 +11,9 @@ import (
 
 // runProductsign signs the installer package at path with identity, replacing
 // it with the signed copy. Unlike codesign, productsign cannot sign in place,
-// so it writes to a temporary file which is then swapped over the original.
-func runProductsign(ctx context.Context, path, identity string) error {
+// so it writes to a temporary file which is then swapped over the original. A
+// non-empty keychain restricts the identity search to that keychain.
+func runProductsign(ctx context.Context, path, identity, keychain string) error {
 	if identity == "" || path == "" {
 		return fmt.Errorf("identity and path are required")
 	}
@@ -26,7 +27,11 @@ func runProductsign(ctx context.Context, path, identity string) error {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	signedPath := filepath.Join(tempDir, filepath.Base(path))
-	if _, err := macexec.Run(ctx, "productsign", "--sign", identity, path, signedPath); err != nil {
+	args := []string{"--sign", identity}
+	if keychain != "" {
+		args = append(args, "--keychain", keychain)
+	}
+	if _, err := macexec.Run(ctx, "productsign", append(args, path, signedPath)...); err != nil {
 		return fmt.Errorf("failed to sign pkg: %w", err)
 	}
 

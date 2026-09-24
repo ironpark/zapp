@@ -67,6 +67,7 @@ func signCredentials(c *cli.Command) signing.Credentials {
 	return signing.Credentials{
 		Identity:        c.String("identity"),
 		P12File:         c.String("p12-file"),
+		P12Base64:       c.String("p12-base64"),
 		P12Password:     c.String("p12-password"),
 		P12PasswordFile: c.String("p12-password-file"),
 		PEMFile:         c.String("pem-file"),
@@ -76,7 +77,7 @@ func signCredentials(c *cli.Command) signing.Credentials {
 // runSign signs target through the library, so that the standalone command and
 // a project build reach the signing backends the same way.
 func runSign(ctx context.Context, logger *appLogger, target string, creds signing.Credentials) error {
-	pl, err := (&zapp.Project{Sign: &zapp.SignConfig{Identity: creds.Identity, P12File: creds.P12File, PEMFile: creds.PEMFile, P12Password: creds.P12Password, P12PasswordFile: creds.P12PasswordFile}}).Resolve(zapp.WithLogger(logger))
+	pl, err := (&zapp.Project{Sign: &zapp.SignConfig{Identity: creds.Identity, P12File: creds.P12File, P12Base64: creds.P12Base64, PEMFile: creds.PEMFile, P12Password: creds.P12Password, P12PasswordFile: creds.P12PasswordFile}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err
 	}

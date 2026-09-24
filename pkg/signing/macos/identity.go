@@ -51,8 +51,14 @@ func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
-func listIdentities(ctx context.Context) ([]Identity, error) {
-	output, err := macexec.Run(ctx, "security", "find-identity", "-v")
+// listIdentities lists the valid signing identities in keychain, or in the
+// user's search list when keychain is "".
+func listIdentities(ctx context.Context, keychain string) ([]Identity, error) {
+	args := []string{"find-identity", "-v"}
+	if keychain != "" {
+		args = append(args, keychain)
+	}
+	output, err := macexec.Run(ctx, "security", args...)
 	if err != nil {
 		return nil, err
 	}

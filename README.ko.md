@@ -185,7 +185,7 @@ notarize:
 
 - 특정 실행에서 생략하려면 `--no-sign`, `--no-notarize`를 사용합니다.
 - 기존 `--sign --notarize --profile ... --staple` 플래그도 사용할 수 있습니다.
-- 비밀번호는 `ZAPP_P12_PASSWORD`, `ZAPP_PASSWORD` 환경 변수나 해당 CLI 플래그로 전달합니다. 설정 파일에 `sign.p12Password`, `notarize.password`를 넣을 수 없습니다.
+- 비밀번호와 인증서는 `ZAPP_P12_PASSWORD`, `ZAPP_P12_BASE64`(CI 시크릿 등에서 가져온 base64 PKCS#12 인증서), `ZAPP_PASSWORD` 환경 변수나 해당 CLI 플래그로 전달합니다. 설정 파일에 `sign.p12Password`, `notarize.password`를 넣을 수 없습니다.
 - `zapp config show`는 비밀번호를 출력하지 않습니다.
 
 플랫폼별 인증서와 인증 방법은 [서명·공증 안내](docs/signing.md)를 참고하세요.
@@ -238,6 +238,17 @@ zapp sign --target="path/to/MyApp.app"
 ```
 ```bash
 zapp sign --identity="Developer ID Application" --target="path/to/MyApp.app"
+```
+
+PKCS#12(`.p12`) 인증서는 키체인에 직접 가져올 필요가 없습니다. macOS에서는 실행하는 동안 임시 키체인에 가져와 서명하고 끝나면 삭제합니다. CI에서는 `ZAPP_P12_BASE64`(또는 `--p12-base64`)로 base64 인증서를 전달하세요. GitHub Actions 예시는 [서명·공증 안내](docs/signing.md#pkcs12-certificates-on-macos)를 참고하세요.
+
+```bash
+zapp sign --p12-file="developer-id.p12" --p12-password-file="password.txt" --target="path/to/MyApp.app"
+```
+```bash
+# CI, e.g. GitHub Actions secrets
+ZAPP_P12_BASE64="$CERTIFICATE" ZAPP_P12_PASSWORD="$CERTIFICATE_PASSWORD" \
+  zapp sign --identity="TEAMID1234" --target="path/to/MyApp.app"
 ```
 
 ### 🏷️ 공증 및 스테플링

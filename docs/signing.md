@@ -4,14 +4,15 @@ The operating system chooses the backend at build time.
 
 | Host | Backend | Signing credentials | Notarization credentials |
 | --- | --- | --- | --- |
-| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity | Keychain profile or Apple ID, password, team ID |
+| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity, or PKCS#12 certificate and private key | Keychain profile or Apple ID, password, team ID |
 | Linux arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 | Windows arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 
-macOS always uses `codesign`, `productsign`, `notarytool`, and `stapler`.
-Passing `--p12-file`, `--pem-file`, or `--api-key-file` on macOS returns an
-error explaining which Apple credentials to use. Import signing certificates
-into Keychain first. The macOS binary does not link or import rcodesign.
+macOS always uses `codesign`, `productsign`, `notarytool`, and `stapler`. A
+PKCS#12 certificate (`--p12-file` or `--p12-base64`) is imported into a
+temporary keychain for the run. Passing `--pem-file` or `--api-key-file` on
+macOS returns an error explaining which Apple credentials to use. The macOS
+binary does not link or import rcodesign.
 
 Windows and Linux release builds include the Rust signing implementation in
 the zapp executable. No separate rcodesign executable or Rust installation is
@@ -28,6 +29,63 @@ zapp notarize --target MyApp.dmg --profile my-profile --staple
 
 With no `--identity`, zapp picks the first keychain identity matching
 `Developer ID Application`, or `Developer ID Installer` for a `.pkg`.
+
+### PKCS#12 certificates on macOS
+
+A certificate exported from Keychain Access as a `.p12` can be used without
+importing it by hand, which is what CI needs. Pass it as a file, or as base64
+text, the form CI secrets usually hold (`base64 -i developer-id.p12`):
+
+```sh
+zapp sign --target MyApp.app --p12-file developer-id.p12 --p12-password-file certificate-password.txt
+ZAPP_P12_BASE64="$CERTIFICATE" ZAPP_P12_PASSWORD="$CERTIFICATE_PASSWORD" zapp sign --target MyApp.app
+```
+
+zapp then does what `apple-actions/import-codesign-certs` does, for the
+duration of the signing run only:
+
+1. creates a keychain with a random password in a private temporary directory,
+   sets it not to lock for six hours, and unlocks it;
+2. imports the certificate, letting `codesign`, `productsign` and `security`
+   use the private key without a prompt (`set-key-partition-list`);
+3. adds the keychain to your user search list, so the tools can build the
+   certificate chain from what the bundle carries;
+4. signs with `codesign --keychain` / `productsign --keychain`, choosing the
+   identity from that keychain alone, with `--identity` matched as usual (a team
+   ID such as `ABCDE12345` is enough);
+5. removes the keychain from the search list and deletes it, even when the
+   build fails or is cancelled.
+
+Only the keychain's own entry is removed from the search list, so a change you
+make to the list meanwhile is kept. Error messages name the failing `security`
+step but never its arguments, which carry the passwords.
+
+`security` only offers a valid identity. A Developer ID certificate is valid
+when Apple's Developer ID intermediate certificate is in the bundle or already
+installed on the machine; if none is found, the error says so.
+
+`--p12-base64` and `--p12-password` read `ZAPP_P12_BASE64` and
+`ZAPP_P12_PASSWORD`, so secrets need not appear on the command line. Base64
+wrapped across lines, as `openssl base64` writes it, is accepted. Pass the
+certificate once: `--p12-file` and `--p12-base64` together are an error.
+
+In GitHub Actions this replaces the separate import and `codesign` steps:
+
+```yaml
+- name: Sign and notarize
+  env:
+    ZAPP_P12_BASE64: ${{ secrets.CERTIFICATE }}
+    ZAPP_P12_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+  run: |
+    zapp sign --target "bin/MyApp.app" --identity "ABCDE12345"
+    zapp notarize --target "bin/MyApp.app" --staple \
+      --apple-id "${{ secrets.APP_USERNAME }}" \
+      --password "${{ secrets.APP_PASSWORD }}" \
+      --team-id "ABCDE12345"
+```
+
+`zapp notarize` zips an `.app` itself, submits it with `notarytool`, waits for
+the verdict and fails unless it is `Accepted`.
 
 ## Windows and Linux
 

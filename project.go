@@ -30,8 +30,11 @@ type SignConfig struct {
 	P12File         string `json:"p12File,omitempty"`
 	PEMFile         string `json:"pemFile,omitempty"`
 	P12PasswordFile string `json:"p12PasswordFile,omitempty"`
-	// Passwords are runtime-only. The strict decoder rejects their file keys.
+	// Secrets are runtime-only: the strict decoder rejects their file keys.
+	// P12Base64 is a certificate as CI secrets hold it, an alternative to
+	// P12File.
 	P12Password string `json:"-"`
+	P12Base64   string `json:"-"`
 }
 type NotarizeConfig struct {
 	Profile    string `json:"profile,omitempty"`

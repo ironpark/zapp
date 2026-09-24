@@ -169,7 +169,7 @@ notarize:
 
 - 使用 `--no-sign` 或 `--no-notarize` 可在某次執行中跳過相應步驟。
 - 原有的 `--sign --notarize --profile ... --staple` 參數仍然可用。
-- 密碼透過 `ZAPP_P12_PASSWORD`、`ZAPP_PASSWORD` 環境變數或對應的 CLI 參數傳入。設定檔中不能包含 `sign.p12Password` 或 `notarize.password`。
+- 密碼與憑證透過 `ZAPP_P12_PASSWORD`、`ZAPP_P12_BASE64`（來自 CI 密鑰等的 base64 格式 PKCS#12 憑證）、`ZAPP_PASSWORD` 環境變數或對應的 CLI 參數傳入。設定檔中不能包含 `sign.p12Password` 或 `notarize.password`。
 - `zapp config show` 不會顯示密碼。
 
 各平台的憑證和認證方式請參閱[簽章與公證說明](docs/signing.md)。
@@ -223,6 +223,17 @@ zapp sign --target="path/to/MyApp.app"
 
 ```bash
 zapp sign --identity="Developer ID Application" --target="path/to/MyApp.app"
+```
+
+PKCS#12（`.p12`）憑證無需手動匯入鑰匙圈：在 macOS 上，Zapp 會在執行期間將其匯入暫時鑰匙圈進行簽署，結束後刪除。在 CI 中，可透過 `ZAPP_P12_BASE64`（或 `--p12-base64`）傳入 base64 格式的憑證。GitHub Actions 範例請參閱[簽署與公證](docs/signing.md#pkcs12-certificates-on-macos)。
+
+```bash
+zapp sign --p12-file="developer-id.p12" --p12-password-file="password.txt" --target="path/to/MyApp.app"
+```
+```bash
+# CI, e.g. GitHub Actions secrets
+ZAPP_P12_BASE64="$CERTIFICATE" ZAPP_P12_PASSWORD="$CERTIFICATE_PASSWORD" \
+  zapp sign --identity="TEAMID1234" --target="path/to/MyApp.app"
 ```
 
 ### 🏷️ 公證與附加票據
