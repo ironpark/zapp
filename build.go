@@ -223,6 +223,35 @@ func (p *Plan) Notarize(ctx context.Context, target string) error {
 // before packaging ensures the installed app carries its own signature.
 func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	a := Artifacts{App: p.App}
+	actions, err := p.actions(steps)
+	if err != nil {
+		return a, err
+	}
+	for _, act := range actions {
+		if err := act.run(ctx, &a); err != nil {
+			return a, err
+		}
+	}
+	return a, nil
+}
+
+// Action is one thing a build does: its step and what it does, in words.
+type Action struct {
+	Step Step
+	What string
+	run  func(context.Context, *Artifacts) error
+}
+
+// DryRun lists what Build would do with the same steps, in order, without
+// doing any of it: nothing is built, signed or sent, and no keychain or
+// network is consulted. It fails where Build would fail before starting.
+func (p *Plan) DryRun(steps ...Step) ([]Action, error) {
+	return p.actions(steps)
+}
+
+// actions decides what a build does and in what order, and checks what can
+// be checked before it starts.
+func (p *Plan) actions(steps []Step) ([]Action, error) {
 	selected := map[Step]bool{}
 	if len(steps) == 0 {
 		selected[StepDep] = p.Dep != nil
@@ -238,52 +267,59 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepAppcast, StepUpload:
 				selected[s] = true
 			default:
-				return a, stepError(s, fmt.Errorf("unknown build step %q", s))
+				return nil, stepError(s, fmt.Errorf("unknown build step %q", s))
 			}
 		}
 	}
-	if selected[StepDep] && p.Dep == nil {
-		return a, stepError(StepDep, fmt.Errorf("dep section is not configured"))
+	for _, c := range []struct {
+		step       Step
+		configured bool
+	}{{StepDep, p.Dep != nil}, {StepDMG, p.DMG != nil}, {StepPKG, p.PKG != nil}, {StepZip, p.Zip != nil}, {StepChecksums, p.Checksums != nil}, {StepAppcast, p.Appcast != nil}, {StepUpload, len(p.Uploads) > 0}} {
+		if selected[c.step] && !c.configured {
+			return nil, stepError(c.step, fmt.Errorf("%s section is not configured", c.step))
+		}
 	}
-	if selected[StepDMG] && p.DMG == nil {
-		return a, stepError(StepDMG, fmt.Errorf("dmg section is not configured"))
-	}
-	if selected[StepPKG] && p.PKG == nil {
-		return a, stepError(StepPKG, fmt.Errorf("pkg section is not configured"))
-	}
-	if selected[StepZip] && p.Zip == nil {
-		return a, stepError(StepZip, fmt.Errorf("zip section is not configured"))
-	}
-	if selected[StepChecksums] && p.Checksums == nil {
-		return a, stepError(StepChecksums, fmt.Errorf("checksums section is not configured"))
-	}
+	// A missing or wrong key or token is found before the build, not after.
 	if selected[StepAppcast] {
-		if p.Appcast == nil {
-			return a, stepError(StepAppcast, fmt.Errorf("appcast section is not configured"))
-		}
-		// A missing or wrong key is found before the build, not after it.
 		if _, err := p.sparkleKey(); err != nil {
-			return a, stepError(StepAppcast, err)
+			return nil, stepError(StepAppcast, err)
 		}
 	}
-	if selected[StepUpload] && len(p.Uploads) == 0 {
-		return a, stepError(StepUpload, fmt.Errorf("upload section is not configured"))
-	}
-	// Found missing now rather than once everything is built.
 	if selected[StepUpload] && githubToken() == "" && slices.ContainsFunc(p.Uploads, func(u UploadConfig) bool { return u.GitHub != nil }) {
-		return a, stepError(StepUpload, fmt.Errorf("uploading to a GitHub release needs a token in GITHUB_TOKEN or GH_TOKEN"))
+		return nil, stepError(StepUpload, fmt.Errorf("uploading to a GitHub release needs a token in GITHUB_TOKEN or GH_TOKEN"))
 	}
+
+	var list []Action
+	add := func(step Step, what string, run func(context.Context, *Artifacts) error) {
+		list = append(list, Action{step, what, run})
+	}
+	sign := func(path func(*Artifacts) string, shown string) {
+		if c := p.SignCredentials; c != nil {
+			if shown != p.App {
+				x := *c
+				x.Entitlements = "" // an app's alone
+				c = &x
+			}
+			add(StepSign, fmt.Sprintf("sign %s with %s", shown, c.SigningSummary()), func(ctx context.Context, a *Artifacts) error {
+				return p.Sign(ctx, path(a))
+			})
+		}
+	}
+	notarize := func(path func(*Artifacts) string, shown string) {
+		what := fmt.Sprintf("notarize %s with %s", shown, p.NotarizeCredentials.NotarySummary())
+		if p.Staple {
+			what += ", then staple it"
+		}
+		add(StepNotarize, what, func(ctx context.Context, a *Artifacts) error { return p.Notarize(ctx, path(a)) })
+	}
+	app := func(*Artifacts) string { return p.App }
+
 	if selected[StepDep] {
-		if err := p.BundleDeps(ctx); err != nil {
-			return a, err
-		}
+		add(StepDep, "bundle the libraries "+p.App+" links into it", func(ctx context.Context, _ *Artifacts) error { return p.BundleDeps(ctx) })
 	}
-	if p.SignCredentials != nil && p.App != "" {
-		if err := p.Sign(ctx, p.App); err != nil {
-			return a, err
-		}
+	if p.App != "" {
+		sign(app, p.App)
 	}
-	var err error
 	// The app is notarized itself when it ships bare: in the ZIP, or after
 	// bundling with nothing to package it. Its ZIP is what gets submitted
 	// unless the ticket is to be stapled, which changes the app, so the
@@ -292,75 +328,82 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	bare := selected[StepDep] && !selected[StepDMG] && !selected[StepPKG]
 	notarizeApp := p.NotarizeCredentials != nil && (selected[StepZip] || bare)
 	if notarizeApp && (!selected[StepZip] || p.Staple) {
-		if err = p.Notarize(ctx, p.App); err != nil {
-			return a, err
-		}
+		notarize(app, p.App)
 		notarizeApp = false
 	}
 	if selected[StepZip] {
-		if a.Zip, err = p.BuildZip(ctx); err != nil {
-			return a, err
-		}
+		add(StepZip, fmt.Sprintf("archive %s as %s", p.App, p.Zip.Output), func(ctx context.Context, a *Artifacts) (err error) {
+			a.Zip, err = p.BuildZip(ctx)
+			return err
+		})
 		if notarizeApp {
-			if err = p.Notarize(ctx, a.Zip); err != nil {
-				return a, err
-			}
+			notarize(func(a *Artifacts) string { return a.Zip }, p.Zip.Output)
 		}
 	}
+	type installer struct {
+		path  func(*Artifacts) string
+		shown string
+	}
+	var installers []installer
 	if selected[StepDMG] {
-		a.DMG, err = p.BuildDMG(ctx)
-		if err != nil {
-			return a, err
-		}
+		add(StepDMG, "create "+p.DMG.FileName, func(ctx context.Context, a *Artifacts) (err error) {
+			a.DMG, err = p.BuildDMG(ctx)
+			return err
+		})
+		installers = append(installers, installer{func(a *Artifacts) string { return a.DMG }, p.DMG.FileName})
 	}
 	if selected[StepPKG] {
-		a.PKG, err = p.BuildPKG(ctx)
-		if err != nil {
-			return a, err
-		}
+		add(StepPKG, "create "+p.PKG.Output, func(ctx context.Context, a *Artifacts) (err error) {
+			a.PKG, err = p.BuildPKG(ctx)
+			return err
+		})
+		installers = append(installers, installer{func(a *Artifacts) string { return a.PKG }, p.PKG.Output})
 	}
-	targets := []string{}
-	if a.DMG != "" {
-		targets = append(targets, a.DMG)
+	// Every installer is signed before any is notarized.
+	for _, in := range installers {
+		sign(in.path, in.shown)
 	}
-	if a.PKG != "" {
-		targets = append(targets, a.PKG)
-	}
-	for _, target := range targets {
-		if p.SignCredentials != nil {
-			if err = p.Sign(ctx, target); err != nil {
-				return a, err
-			}
-		}
-	}
-	for _, target := range targets {
-		if p.NotarizeCredentials != nil {
-			if err = p.Notarize(ctx, target); err != nil {
-				return a, err
-			}
+	if p.NotarizeCredentials != nil {
+		for _, in := range installers {
+			notarize(in.path, in.shown)
 		}
 	}
 	// Listed once every artifact is final: signed, notarized and stapled.
 	if selected[StepChecksums] {
-		if a.Checksums, err = p.WriteChecksums(ctx, a); err != nil {
-			return a, err
-		}
+		add(StepChecksums, "write the SHA-256 of the ZIP, DMG and PKG to "+p.Checksums.Output, func(ctx context.Context, a *Artifacts) (err error) {
+			a.Checksums, err = p.WriteChecksums(ctx, *a)
+			return err
+		})
 	}
 	if selected[StepAppcast] {
-		if a.Appcast, err = p.WriteAppcast(ctx, a); err != nil {
-			return a, err
+		what := fmt.Sprintf("add the %s to appcast %s", p.Appcast.Artifact, p.Appcast.Output)
+		if p.Appcast.Feed != "" {
+			what += ", extending " + upload.Redact(p.Appcast.Feed)
 		}
+		add(StepAppcast, what, func(ctx context.Context, a *Artifacts) (err error) {
+			a.Appcast, err = p.WriteAppcast(ctx, *a)
+			return err
+		})
 	}
 	if selected[StepUpload] {
-		if a.Uploads, err = p.Upload(ctx, a); err != nil {
-			return a, err
+		for i, u := range p.Uploads {
+			names := "every artifact built"
+			if len(u.Artifacts) > 0 {
+				names = strings.Join(u.Artifacts, ", ")
+			}
+			where := upload.Redact(u.URL)
+			if u.GitHub != nil {
+				where = u.GitHub.release().Location()
+			}
+			add(StepUpload, fmt.Sprintf("upload %s to %s", names, where), func(ctx context.Context, a *Artifacts) (err error) {
+				a.Uploads, err = p.uploadTo(ctx, i, *a, a.Uploads)
+				return stepError(StepUpload, err)
+			})
 		}
 	}
-	return a, nil
+	return list, nil
 }
 
-// BuildZip archives the app, as it stands, for distribution. Build notarizes
-// and staples the app around it.
 func (p *Plan) BuildZip(ctx context.Context) (out string, err error) {
 	if p.Zip == nil {
 		return "", stepError(StepZip, fmt.Errorf("zip section is not configured"))
@@ -422,28 +465,35 @@ func sha256File(path string) ([]byte, error) {
 // nothing at all is an error.
 func (p *Plan) Upload(ctx context.Context, a Artifacts) (sent []Uploaded, err error) {
 	defer func() { err = stepError(StepUpload, err) }()
-	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums, "appcast": a.Appcast}
-	for i, spec := range p.Uploads {
-		names := spec.Artifacts
-		if len(names) == 0 {
-			names = UploadArtifacts
-		}
-		var files []artifactFile
-		for _, name := range names {
-			if path := built[name]; path != "" {
-				files = append(files, artifactFile{name, path})
-			} else if len(spec.Artifacts) > 0 {
-				p.log("Skipping %s upload: this build made no %s\n", name, name)
-			}
-		}
-		if len(files) == 0 {
-			return sent, fmt.Errorf("upload[%d] has nothing to send; build a %s first", i, strings.Join(names, ", "))
-		}
-		if sent, err = p.send(ctx, spec, files, sent); err != nil {
+	for i := range p.Uploads {
+		if sent, err = p.uploadTo(ctx, i, a, sent); err != nil {
 			return sent, err
 		}
 	}
 	return sent, nil
+}
+
+// uploadTo sends a's artifacts to endpoint i and appends where they went to
+// sent.
+func (p *Plan) uploadTo(ctx context.Context, i int, a Artifacts, sent []Uploaded) ([]Uploaded, error) {
+	spec := p.Uploads[i]
+	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums, "appcast": a.Appcast}
+	names := spec.Artifacts
+	if len(names) == 0 {
+		names = UploadArtifacts
+	}
+	var files []artifactFile
+	for _, name := range names {
+		if path := built[name]; path != "" {
+			files = append(files, artifactFile{name, path})
+		} else if len(spec.Artifacts) > 0 {
+			p.log("Skipping %s upload: this build made no %s\n", name, name)
+		}
+	}
+	if len(files) == 0 {
+		return sent, fmt.Errorf("upload[%d] has nothing to send; build a %s first", i, strings.Join(names, ", "))
+	}
+	return p.send(ctx, spec, files, sent)
 }
 
 // UploadFiles sends files to every configured endpoint. Each is reported by

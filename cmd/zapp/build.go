@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -39,7 +40,7 @@ func buildFlags() []cli.Flag {
 	return out
 }
 func buildCommand() *cli.Command {
-	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg=, pkg=, checksums= and appcast= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
+	flags := append(buildFlags(), &cli.BoolFlag{Name: "dry-run", Usage: "List what the build would do, in order and with which credentials, without doing it"}, &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg=, pkg=, checksums= and appcast= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
 	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|zip|dmg|pkg|checksums|appcast|upload ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
 		p, err := loadProject(c, "build")
 		if err != nil {
@@ -52,6 +53,9 @@ func buildCommand() *cli.Command {
 		if pl.Dep == nil && pl.DMG == nil && pl.PKG == nil && pl.Zip == nil {
 			return fmt.Errorf("build requires a project with dep, zip, dmg, or pkg sections")
 		}
+		if c.Bool("dry-run") {
+			return dryRun(c.Root().Writer, pl, buildSteps(c, p))
+		}
 		artifacts, err := pl.Build(ctx, buildSteps(c, p)...)
 		if err != nil {
 			return err
@@ -61,6 +65,23 @@ func buildCommand() *cli.Command {
 		}
 		return nil
 	}}
+}
+
+// dryRun prints what the build would do, one numbered line per action.
+func dryRun(w io.Writer, pl *zapp.Plan, steps []zapp.Step) error {
+	actions, err := pl.DryRun(steps...)
+	if err != nil {
+		return err
+	}
+	if len(actions) == 0 {
+		_, err = fmt.Fprintln(w, "Nothing to do.")
+		return err
+	}
+	fmt.Fprintln(w, "The build would, in order:")
+	for i, a := range actions {
+		fmt.Fprintf(w, "%3d. %-9s %s\n", i+1, a.Step, a.What)
+	}
+	return nil
 }
 
 // buildSteps are the steps named on the command line. Asking for a ZIP,

@@ -82,6 +82,7 @@ zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # 設定した手順を実行
 zapp build dmg pkg          # dep を省略。設定済みの署名・公証は実行
+zapp build --dry-run        # 実行せずに処理内容だけを表示
 zapp dmg --title "MyApp"     # プロジェクトのタイトルを上書き
 zapp pkg --no-sign --no-notarize
 ```

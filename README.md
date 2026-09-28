@@ -82,6 +82,7 @@ zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # Run configured steps
 zapp build dmg pkg          # Skip dep; configured signing/notarization still run
+zapp build --dry-run        # List what build would do, without doing it
 zapp dmg --title "MyApp"     # overrides project title
 zapp pkg --no-sign --no-notarize
 ```

@@ -82,6 +82,7 @@ zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # 运行已配置的步骤
 zapp build dmg pkg          # 跳过 dep，仍执行已配置的签名和公证
+zapp build --dry-run        # 只列出将执行的操作，不实际执行
 zapp dmg --title "MyApp"     # 覆盖项目标题
 zapp pkg --no-sign --no-notarize
 ```

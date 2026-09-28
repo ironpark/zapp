@@ -165,6 +165,8 @@ zapp "${args[@]}" ${extra[@]+"${extra[@]}"} ${steps[@]+"${steps[@]}"}
 
 # On Windows zapp reports D:\dir\file; the mixed D:/dir/file form works in
 # bash steps as well as PowerShell and the artifact actions.
+# A dry run (args: --dry-run) builds nothing and writes no artifacts.
+[[ -f $private/artifacts ]] || exit 0
 summary=$'### zapp\n\n| Artifact | Location |\n| --- | --- |\n'
 while IFS='=' read -r name value; do
   if [[ -n $value && $name != *-url ]]; then

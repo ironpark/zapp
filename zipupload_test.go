@@ -236,3 +236,50 @@ func TestGitHubUploadValidation(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// A dry run lists what Build does, in Build's order, and does none of it.
+func TestDryRun(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZAPP_TEST_TOKEN", "secret")
+	p := &Project{
+		App: syntheticApp(t, dir), Out: filepath.Join(dir, "out"),
+		Sign: &SignConfig{P12File: "cert.p12", P12Password: "hunter2", Entitlements: "app.entitlements"}, Notarize: &NotarizeConfig{APIKeyFile: "key.json", Staple: true},
+		Zip: &ZipConfig{}, DMG: &DMGConfig{}, Checksums: &ChecksumsConfig{},
+		Upload: []UploadConfig{{URL: "https://user:pw@example.com/${file.name}?sig=hidden", Headers: map[string]string{"Authorization": "Bearer ${env:ZAPP_TEST_TOKEN}"}}},
+	}
+	b := &recordingBackend{}
+	pl, err := p.Resolve(WithSigningBackend(b), WithNotarizationBackend(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions, err := pl.DryRun()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var steps, text []string
+	for _, a := range actions {
+		steps = append(steps, string(a.Step))
+		text = append(text, a.What)
+	}
+	if got := strings.Join(steps, " "); got != "sign notarize zip dmg sign notarize checksums upload" {
+		t.Fatalf("steps = %s", got)
+	}
+	all := strings.Join(text, "\n")
+	for _, secret := range []string{"hunter2", "secret", "hidden", "pw@"} {
+		if strings.Contains(all, secret) {
+			t.Errorf("dry run shows %q:\n%s", secret, all)
+		}
+	}
+	if !strings.Contains(text[0], "app.entitlements") || strings.Contains(text[4], "entitlements") || !strings.Contains(text[1], "then staple") {
+		t.Errorf("descriptions:\n%s", all)
+	}
+	if len(b.events) != 0 {
+		t.Fatalf("dry run signed or notarized: %v", b.events)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "out")); !os.IsNotExist(err) {
+		t.Fatal("dry run built something")
+	}
+	if _, err := pl.DryRun(StepPKG); err == nil {
+		t.Fatal("dry run accepted an unconfigured step")
+	}
+}

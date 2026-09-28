@@ -81,6 +81,7 @@ zapp init --app dist/MyApp.app
 zapp config show
 zapp build                  # 설정된 단계 실행
 zapp build dmg pkg          # dep 생략; 설정된 서명·공증은 실행
+zapp build --dry-run        # 실제로 실행하지 않고 할 일만 나열
 zapp dmg --title "MyApp"    # 프로젝트 제목을 덮어씀
 zapp pkg --no-sign --no-notarize
 ```

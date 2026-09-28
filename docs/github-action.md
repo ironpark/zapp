@@ -47,7 +47,7 @@ empty input leaves the project's value alone.
 | `github-release` | Tag of a GitHub release to add the artifacts to, created if missing; `github-token` needs `contents: write` (zapp 1.3.0+) |
 | `upload-artifacts` | Artifacts to send to `upload-url` and `github-release`: `zip`, `dmg`, `pkg`, `checksums`, `appcast`, separated by spaces |
 | `upload` | `false` skips every upload |
-| `args` | Further `zapp build` options, one per line, such as `--title=My App` |
+| `args` | Further `zapp build` options, one per line, such as `--title=My App`; `--dry-run` lists what the build would do and sets no outputs |
 | `version` | zapp release to use, such as `1.2.0` or `latest`; `local` uses a `zapp` already on `PATH` |
 
 ## Credentials

@@ -192,3 +192,56 @@ func Notarize(ctx context.Context, b Backend, path string, staple bool) error {
 	}
 	return b.Staple(ctx, path)
 }
+
+// SigningSummary says which signing credentials c names, safe to print:
+// names and paths, never passwords or key material.
+func (c Credentials) SigningSummary() string {
+	var s string
+	switch {
+	case c.P12File != "":
+		s = "the PKCS#12 certificate " + c.P12File
+	case c.P12Base64 != "":
+		s = "the PKCS#12 certificate given as base64"
+	case c.PEMFile != "":
+		s = "the PEM certificate " + c.PEMFile
+	case c.Identity != "":
+		s = fmt.Sprintf("the keychain identity %q", c.Identity)
+	default:
+		s = "the keychain's Developer ID identity"
+	}
+	if c.Entitlements != "" {
+		s += ", entitlements " + c.Entitlements
+	}
+	return s
+}
+
+// NotarySummary says which notarization credentials c names, safe to print.
+func (c Credentials) NotarySummary() string {
+	var s string
+	switch {
+	case c.Profile != "":
+		s = fmt.Sprintf("the keychain profile %q", c.Profile)
+	case c.APIKeyFile != "":
+		s = "the App Store Connect API key " + c.APIKeyFile
+	case c.AppleID != "":
+		s = fmt.Sprintf("the Apple ID %s of team %s", c.AppleID, c.TeamID)
+	default:
+		s = "no credentials"
+	}
+	if c.NotarizeTimeout > 0 {
+		s += ", waiting up to " + shortDuration(c.NotarizeTimeout)
+	}
+	return s
+}
+
+// shortDuration writes 1h rather than 1h0m0s.
+func shortDuration(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = strings.TrimSuffix(s, "0s")
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = strings.TrimSuffix(s, "0m")
+	}
+	return s
+}
