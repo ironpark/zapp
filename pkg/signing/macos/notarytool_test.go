@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The API key is read in the JSON rcodesign writes, and a file missing a part
@@ -30,5 +31,13 @@ func TestReadAPIKey(t *testing.T) {
 	}
 	if _, err := readAPIKey(write("bad.json", `AuthKey`)); err == nil {
 		t.Fatal("accepted a non-JSON key")
+	}
+}
+
+func TestTimeoutArgs(t *testing.T) {
+	for timeout, want := range map[time.Duration]string{0: "", time.Hour: "--timeout 3600s", 1500 * time.Millisecond: "--timeout 2s"} {
+		if got := strings.Join(timeoutArgs(timeout), " "); got != want {
+			t.Errorf("timeoutArgs(%s) = %q, want %q", timeout, got, want)
+		}
 	}
 }

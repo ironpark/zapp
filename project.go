@@ -53,7 +53,10 @@ type NotarizeConfig struct {
 	TeamID     string `json:"teamId,omitempty"`
 	APIKeyFile string `json:"apiKeyFile,omitempty"`
 	Staple     bool   `json:"staple,omitempty"`
-	Password   string `json:"-"`
+	// Timeout bounds the wait for Apple's verdict, as a duration such as
+	// 30m or 2h. Empty means DefaultNotarizeTimeout.
+	Timeout  string `json:"timeout,omitempty"`
+	Password string `json:"-"`
 }
 
 // ZipConfig archives the app once it is signed, notarized and stapled, for

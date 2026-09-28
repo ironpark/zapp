@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ironpark/zapp/internal/macexec"
 )
@@ -114,13 +116,14 @@ func notaryStoreAPIKey(ctx context.Context, path, profileName string) error {
 }
 
 // notarySubmit submits a file for notarization.
-func notarySubmit(ctx context.Context, filePath, keychainProfile string) (*submissionResult, error) {
+// A positive timeout bounds the wait.
+func notarySubmit(ctx context.Context, filePath, keychainProfile string, timeout time.Duration) (*submissionResult, error) {
 	var result submissionResult
-	err := xcrunJSON(ctx, &result,
+	err := xcrunJSON(ctx, &result, append([]string{
 		"notarytool", "submit", filePath,
 		"--keychain-profile", keychainProfile,
 		"--wait",
-	)
+	}, timeoutArgs(timeout)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("notarization submission failed: %w", err)
 	}
@@ -128,16 +131,27 @@ func notarySubmit(ctx context.Context, filePath, keychainProfile string) (*submi
 }
 
 // notaryWait waits for the notarization process to complete.
-func notaryWait(ctx context.Context, submissionID, keychainProfile string) (*submissionResult, error) {
+// A positive timeout bounds the wait.
+func notaryWait(ctx context.Context, submissionID, keychainProfile string, timeout time.Duration) (*submissionResult, error) {
 	var result submissionResult
-	err := xcrunJSON(ctx, &result,
+	err := xcrunJSON(ctx, &result, append([]string{
 		"notarytool", "wait", submissionID,
 		"--keychain-profile", keychainProfile,
-	)
+	}, timeoutArgs(timeout)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("wait for notarization failed: %w", err)
 	}
 	return &result, nil
+}
+
+// timeoutArgs renders notarytool's --timeout, in whole seconds, rounded up
+// so a short timeout does not become none.
+func timeoutArgs(timeout time.Duration) []string {
+	if timeout <= 0 {
+		return nil
+	}
+	secs := (timeout + time.Second - 1) / time.Second
+	return []string{"--timeout", strconv.FormatInt(int64(secs), 10) + "s"}
 }
 
 // notaryStaple staples the notarization ticket to the file.

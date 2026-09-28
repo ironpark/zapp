@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ironpark/zapp"
 	"github.com/urfave/cli/v3"
 )
 
@@ -48,7 +49,7 @@ func subTaskFlags() []cli.Flag {
 			Name:     "identity",
 			Usage:    "Identity to use for signing",
 		},
-	}, append(certificateFlags(), notaryKeyFlag())...)
+	}, append(certificateFlags(), notaryKeyFlag(), notarizeTimeoutFlag())...)
 }
 
 // certificateFlags supply a signing certificate. A PKCS#12 bundle works on every
@@ -83,6 +84,14 @@ func certificateFlags() []cli.Flag {
 			Name:  "entitlements",
 			Usage: "Entitlements plist to sign the app with (default: keep the app's own)",
 		},
+	}
+}
+
+// notarizeTimeoutFlag bounds the wait for Apple's verdict.
+func notarizeTimeoutFlag() cli.Flag {
+	return &cli.StringFlag{
+		Name:  "notarize-timeout",
+		Usage: "How long to wait for Apple's notarization verdict, such as 30m or 2h (default: " + zapp.DefaultNotarizeTimeout + ")",
 	}
 }
 

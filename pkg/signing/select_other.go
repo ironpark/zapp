@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ironpark/zapp/pkg/signing/rcodesign"
 )
@@ -21,7 +22,7 @@ func Select(c Credentials) (Backend, error) {
 	if err := rcodesign.Available(); err != nil {
 		return nil, err
 	}
-	opts := rcodesign.Options{APIKeyFile: c.APIKeyFile, EntitlementsFile: c.Entitlements}
+	opts := rcodesign.Options{APIKeyFile: c.APIKeyFile, EntitlementsFile: c.Entitlements, NotarizeTimeoutSecs: uint64(c.NotarizeTimeout.Round(time.Second) / time.Second)}
 	if !c.namesCertificate() {
 		return rcodesign.New(opts), nil
 	}

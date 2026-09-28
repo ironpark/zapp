@@ -37,6 +37,7 @@ empty input leaves the project's value alone.
 | `app` | App bundle, overriding the project's `app` |
 | `sign` / `notarize` | `false` skips the step; `true` runs it even if the project does not enable it |
 | `staple` | `true` or `false`, overriding the project |
+| `notarize-timeout` | How long to wait for Apple's verdict, such as `30m` or `2h`; default `1h` (zapp 1.4.0+) |
 | `zip` | `true` archives the notarized, stapled app as a ZIP; `false` skips the project's `zip` |
 | `appcast` | `false` skips the project's Sparkle `appcast`; `true` runs it with named `steps` (zapp 1.3.0+) |
 | `checksums` | `true` writes `SHA256SUMS` for the ZIP, DMG and PKG; `false` skips the project's `checksums` (zapp 1.3.0+) |

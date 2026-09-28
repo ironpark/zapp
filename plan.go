@@ -33,6 +33,11 @@ type AppcastSpec struct {
 	Published                                              time.Time
 }
 
+// DefaultNotarizeTimeout is how long notarization waits for Apple's verdict
+// unless the project says otherwise. Most submissions take minutes; a busy
+// notary service can take much longer.
+const DefaultNotarizeTimeout = "1h"
+
 // ChecksumsSpec is where the checksum list is written.
 type ChecksumsSpec struct {
 	Output string

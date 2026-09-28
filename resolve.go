@@ -237,7 +237,12 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	}
 	if n := q.Notarize; n != nil {
 		n.APIKeyFile = path(n.APIKeyFile)
-		pl.NotarizeCredentials = &signing.Credentials{Profile: n.Profile, AppleID: n.AppleID, TeamID: n.TeamID, Password: n.Password, APIKeyFile: n.APIKeyFile}
+		n.Timeout = cmp.Or(n.Timeout, DefaultNotarizeTimeout)
+		timeout, err := time.ParseDuration(n.Timeout)
+		if err != nil || timeout <= 0 {
+			return nil, fmt.Errorf("notarize timeout must be a positive duration such as 30m or 2h, not %q", n.Timeout)
+		}
+		pl.NotarizeCredentials = &signing.Credentials{Profile: n.Profile, AppleID: n.AppleID, TeamID: n.TeamID, Password: n.Password, APIKeyFile: n.APIKeyFile, NotarizeTimeout: timeout}
 		pl.Staple = n.Staple
 	}
 	if c := q.DMG; c != nil {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Options are the credentials Apple's tools take. The certificate comes from
@@ -37,6 +38,10 @@ type Options struct {
 	AppleID  string
 	Password string
 	TeamID   string
+
+	// NotarizeTimeout bounds the wait for the notary's verdict. Zero waits
+	// as long as notarytool does, which is without limit.
+	NotarizeTimeout time.Duration
 
 	// APIKeyFile is an App Store Connect API key in the JSON rcodesign's
 	// encode-app-store-connect-api-key writes, so one key file notarizes on
@@ -205,19 +210,37 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 		}
 	}
 
-	result, err := notarySubmit(ctx, path, profile)
+	start := time.Now()
+	result, err := notarySubmit(ctx, path, profile, b.opts.NotarizeTimeout)
 	if err != nil {
 		return err
 	}
 	if result.Status == "In Progress" {
-		if result, err = notaryWait(ctx, result.ID, profile); err != nil {
+		// submit --wait can return before the verdict; wait out the rest.
+		left := time.Duration(0)
+		if b.opts.NotarizeTimeout > 0 {
+			if left = b.opts.NotarizeTimeout - time.Since(start); left < time.Second {
+				return timedOut(result.ID, b.opts.NotarizeTimeout)
+			}
+		}
+		if result, err = notaryWait(ctx, result.ID, profile, left); err != nil {
 			return err
+		}
+		if result.Status == "In Progress" {
+			return timedOut(result.ID, b.opts.NotarizeTimeout)
 		}
 	}
 	if result.Status != "Accepted" {
 		return fmt.Errorf("notarization failed: %s", result.Message)
 	}
 	return nil
+}
+
+// timedOut reports a submission still in progress when zapp stopped waiting.
+// Apple keeps processing it, so its ID is what finds the verdict later.
+func timedOut(id string, after time.Duration) error {
+	return fmt.Errorf("notarization had no verdict after %s; submission %s is still being processed; "+
+		"check it with `xcrun notarytool info %s`, or raise notarize.timeout", after, id, id)
 }
 
 func (b *Backend) Staple(ctx context.Context, path string) error {

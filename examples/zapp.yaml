@@ -22,6 +22,7 @@ dep:
 #   # Alternatively: appleId + teamId and runtime ZAPP_PASSWORD,
 #   # or apiKeyFile: ${env:ASC_API_KEY}
 #   staple: true
+#   timeout: 2h                     # wait for Apple's verdict; default 1h
 
 dmg:
   title: ${app.name}

@@ -106,6 +106,22 @@ In GitHub Actions this replaces the separate import and `codesign` steps:
 `zapp notarize` zips an `.app` itself, submits it with `notarytool`, waits for
 the verdict and fails unless it is `Accepted`.
 
+## Notarization timeout
+
+Most submissions are accepted in minutes, but a busy notary service can take
+much longer. zapp waits for the verdict for an hour by default, on every
+platform; set another limit in the project, or with `--notarize-timeout`
+(`ZAPP_NOTARIZE_TIMEOUT`):
+
+```yaml
+notarize:
+  apiKeyFile: ${env:ASC_API_KEY_FILE}
+  timeout: 2h
+```
+
+Apple keeps processing a submission after zapp stops waiting. On macOS the
+error names its submission ID, which `xcrun notarytool info` reports on later.
+
 ## Entitlements and nested code
 
 Signing an app replaces its signature, and codesign drops the entitlements of
@@ -163,8 +179,8 @@ inputs are rejected instead of producing ad-hoc signatures.
 `key.json` uses the upstream apple-codesign/App Store Connect unified API key
 format. Existing key files created with `rcodesign encode-app-store-connect-api-key`
 remain usable, on macOS as well. Signing uses the hardened runtime flag and Apple's timestamp
-service. Notarization waits for acceptance for up to 600 seconds before returning
-an error. Stapling an existing ticket does not require a signing certificate.
+service. Notarization waits for Apple's verdict for up to `notarize.timeout`,
+an hour by default, before returning an error. Stapling an existing ticket does not require a signing certificate.
 
 An `.app` bundle is zipped before submission; its ticket is stapled to the
 original bundle. Calls into Rust are synchronous. Cancellation is checked before

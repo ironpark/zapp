@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Credentials carry everything either toolchain might need. A caller fills in
@@ -60,6 +61,10 @@ type Credentials struct {
 	// APIKeyFile is an App Store Connect API key as rcodesign's
 	// encode-app-store-connect-api-key writes it. Every platform reads it.
 	APIKeyFile string
+
+	// NotarizeTimeout bounds the wait for the notary's verdict. Zero leaves
+	// it to the toolchain.
+	NotarizeTimeout time.Duration
 }
 
 // namesP12 reports whether c supplies a PKCS#12 certificate, in either form.

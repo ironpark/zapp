@@ -14,6 +14,7 @@ set -euo pipefail
 : "${IN_SIGN:=}"
 : "${IN_NOTARIZE:=}"
 : "${IN_STAPLE:=}"
+: "${IN_NOTARIZE_TIMEOUT:=}"
 : "${IN_IDENTITY:=}"
 : "${IN_ENTITLEMENTS:=}"
 : "${IN_CERTIFICATE:=}"
@@ -88,6 +89,7 @@ setting() {
 setting STAPLE "$IN_STAPLE" staple
 
 set_env ZAPP_IDENTITY "$IN_IDENTITY"
+set_env ZAPP_NOTARIZE_TIMEOUT "$IN_NOTARIZE_TIMEOUT"
 set_env ZAPP_ENTITLEMENTS "$IN_ENTITLEMENTS"
 set_env ZAPP_P12_BASE64 "$(printf '%s' "$IN_CERTIFICATE" | tr -d '[:space:]')"
 set_env ZAPP_P12_PASSWORD "$IN_CERTIFICATE_PASSWORD"
@@ -143,6 +145,10 @@ if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $help != *--upload-url* ]]; then
 fi
 if [[ -n $IN_ENTITLEMENTS$IN_CHECKSUMS$IN_GITHUB_RELEASE$IN_APPCAST$IN_SPARKLE_KEY && $help != *--appcast* ]]; then
   echo "::error::entitlements, checksums, github-release and appcast need zapp 1.3.0 or later" >&2
+  exit 1
+fi
+if [[ -n $IN_NOTARIZE_TIMEOUT && $help != *--notarize-timeout* ]]; then
+  echo "::error::notarize-timeout needs zapp 1.4.0 or later" >&2
   exit 1
 fi
 

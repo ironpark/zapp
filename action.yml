@@ -41,6 +41,9 @@ inputs:
   staple:
     description: '"true" staples the notarization ticket; by default the project decides.'
     required: false
+  notarize-timeout:
+    description: How long to wait for Apple's notarization verdict, such as 30m or 2h. Default 1h.
+    required: false
   identity:
     description: Keychain signing identity (macOS runners only).
     required: false
@@ -195,6 +198,7 @@ runs:
         IN_SIGN: ${{ inputs.sign }}
         IN_NOTARIZE: ${{ inputs.notarize }}
         IN_STAPLE: ${{ inputs.staple }}
+        IN_NOTARIZE_TIMEOUT: ${{ inputs.notarize-timeout }}
         IN_IDENTITY: ${{ inputs.identity }}
         IN_ENTITLEMENTS: ${{ inputs.entitlements }}
         IN_CERTIFICATE: ${{ inputs.certificate }}

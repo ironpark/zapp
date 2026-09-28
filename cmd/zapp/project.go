@@ -338,7 +338,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 		}
 	}
 	if n := p.Notarize; n != nil {
-		for _, t := range []target{{"profile", &n.Profile}, {"apple-id", &n.AppleID}, {"team-id", &n.TeamID}, {"password", &n.Password}} {
+		for _, t := range []target{{"profile", &n.Profile}, {"apple-id", &n.AppleID}, {"team-id", &n.TeamID}, {"password", &n.Password}, {"notarize-timeout", &n.Timeout}} {
 			if err := assign(t.flag, t.dst, false); err != nil {
 				return err
 			}

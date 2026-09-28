@@ -33,6 +33,10 @@ type Options struct {
 	// keeps the ones it has. Left out of the request when empty, so a library
 	// that predates it still takes every other request.
 	EntitlementsFile string `json:"entitlements_file,omitempty"`
+
+	// NotarizeTimeoutSecs bounds the wait for the notary's verdict; zero is
+	// the library's ten minutes. Left out when zero, like EntitlementsFile.
+	NotarizeTimeoutSecs uint64 `json:"notarize_timeout_secs,omitempty"`
 }
 
 // Configured reports whether a certificate was named at all. Without one

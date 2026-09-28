@@ -67,12 +67,13 @@ var notarizeCommand = &cli.Command{
 			Usage: "Perform stapling after notarization",
 		},
 		notaryKeyFlag(),
+		notarizeTimeoutFlag(),
 	},
 	Action: notarizeAction,
 }
 
 func notarizeAction(ctx context.Context, c *cli.Command) error {
-	return runNotarize(ctx, newAppLogger(c.Root()), c.String("target"), notarizeCredentials(c), c.Bool("staple"))
+	return runNotarize(ctx, newAppLogger(c.Root()), c.String("target"), notarizeCredentials(c), c.Bool("staple"), c.String("notarize-timeout"))
 }
 
 // notarizeCredentials returns the notarization credentials a command's flags describe.
@@ -89,8 +90,8 @@ func notarizeCredentials(c *cli.Command) signing.Credentials {
 // runNotarize notarizes target through the library, optionally stapling the
 // ticket afterwards, so that the standalone command and a project build reach
 // the notary backends the same way.
-func runNotarize(ctx context.Context, logger *appLogger, target string, creds signing.Credentials, staple bool) error {
-	pl, err := (&zapp.Project{Notarize: &zapp.NotarizeConfig{Profile: creds.Profile, AppleID: creds.AppleID, TeamID: creds.TeamID, Password: creds.Password, APIKeyFile: creds.APIKeyFile, Staple: staple}}).Resolve(zapp.WithLogger(logger))
+func runNotarize(ctx context.Context, logger *appLogger, target string, creds signing.Credentials, staple bool, timeout string) error {
+	pl, err := (&zapp.Project{Notarize: &zapp.NotarizeConfig{Profile: creds.Profile, AppleID: creds.AppleID, TeamID: creds.TeamID, Password: creds.Password, APIKeyFile: creds.APIKeyFile, Staple: staple, Timeout: timeout}}).Resolve(zapp.WithLogger(logger))
 	if err != nil {
 		return err
 	}

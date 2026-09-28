@@ -408,3 +408,24 @@ func TestContentIconPathResolution(t *testing.T) {
 		t.Fatal("icon path lost during serialization")
 	}
 }
+
+func TestNotarizeTimeout(t *testing.T) {
+	p := &Project{Notarize: &NotarizeConfig{Profile: "p"}}
+	pl, err := p.Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.NotarizeCredentials.NotarizeTimeout != time.Hour || pl.project.Notarize.Timeout != DefaultNotarizeTimeout {
+		t.Fatalf("default = %s", pl.NotarizeCredentials.NotarizeTimeout)
+	}
+	p.Notarize.Timeout = "90m"
+	if pl, err = p.Resolve(); err != nil || pl.NotarizeCredentials.NotarizeTimeout != 90*time.Minute {
+		t.Fatalf("90m = %v, %v", pl, err)
+	}
+	for _, bad := range []string{"10", "-5m", "soon"} {
+		p.Notarize.Timeout = bad
+		if _, err := p.Resolve(); err == nil {
+			t.Errorf("accepted timeout %q", bad)
+		}
+	}
+}
