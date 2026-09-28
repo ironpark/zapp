@@ -402,7 +402,7 @@ func (g *editor) signAllFields() []field {
 	return []field{
 		stringField("Signing identity", &c.Identity, "macOS Keychain certificate name or ${env:ZAPP_IDENTITY}"),
 		pathField("PKCS#12 certificate", &c.P12File, ".p12 certificate and key; macOS imports it into a temporary keychain", pickFile),
-		pathField("PEM certificate", &c.PEMFile, "Windows / Linux: PEM certificate for rcodesign", pickFile),
+		pathField("PEM certificate", &c.PEMFile, "PEM certificate and key; macOS imports it into a temporary keychain", pickFile),
 		pathField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
 	}
 }

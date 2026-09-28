@@ -102,7 +102,7 @@ func (b *Backend) identity(ctx context.Context, ext string) (Identity, error) {
 	}
 	if len(identities) == 0 {
 		if keychain != "" {
-			return Identity{}, fmt.Errorf("the PKCS#12 certificate holds no valid signing identity; " +
+			return Identity{}, fmt.Errorf("the supplied certificate holds no valid signing identity; " +
 				"a Developer ID certificate also needs Apple's Developer ID intermediate certificate installed")
 		}
 		return Identity{}, fmt.Errorf("the keychain holds no signing identities")

@@ -4,14 +4,15 @@ The operating system chooses the backend at build time.
 
 | Host | Backend | Signing credentials | Notarization credentials |
 | --- | --- | --- | --- |
-| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity, or PKCS#12 certificate and private key | Keychain profile or Apple ID, password, team ID |
+| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity, or PKCS#12 or PEM certificate and private key | Keychain profile or Apple ID, password, team ID |
 | Linux arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 | Windows arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 
 macOS always uses `codesign`, `productsign`, `notarytool`, and `stapler`. A
-PKCS#12 certificate (`--p12-file` or `--p12-base64`) is imported into a
-temporary keychain for the run. Passing `--pem-file` or `--api-key-file` on
-macOS returns an error explaining which Apple credentials to use. The macOS
+PKCS#12 certificate (`--p12-file` or `--p12-base64`) or PEM certificate
+(`--pem-file`) is imported into a temporary keychain for the run. Passing
+`--api-key-file` on macOS returns an error explaining which Apple credentials
+to use. The macOS
 binary does not link or import rcodesign.
 
 Windows and Linux release builds include the Rust signing implementation in
@@ -63,6 +64,23 @@ step but never its arguments, which carry the passwords.
 `security` only offers a valid identity. A Developer ID certificate is valid
 when Apple's Developer ID intermediate certificate is in the bundle or already
 installed on the machine; if none is found, the error says so.
+
+### PEM certificates on macOS
+
+`--pem-file` takes the same PEM bundle as on Windows and Linux: the private key
+and its certificate, plus any intermediate certificates, in one file. zapp
+repackages it in memory as PKCS#12 under a random password and imports it
+exactly as above, so no `--p12-password` is involved:
+
+```sh
+zapp sign --target MyApp.app --pem-file developer-id.pem
+```
+
+The certificate matching the key is the one signed with, wherever it sits in
+the file. Unencrypted `PRIVATE KEY` (PKCS#8), `RSA PRIVATE KEY` and
+`EC PRIVATE KEY` blocks are read; an encrypted key is rejected, so decrypt it
+first or use a PKCS#12 certificate. Pass either a PEM or a PKCS#12
+certificate, not both.
 
 `--p12-base64` and `--p12-password` read `ZAPP_P12_BASE64` and
 `ZAPP_P12_PASSWORD`, so secrets need not appear on the command line. Base64

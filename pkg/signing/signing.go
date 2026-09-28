@@ -2,9 +2,9 @@
 // artifacts, over two toolchains that agree on almost nothing else.
 //
 // On macOS the work is done by Apple's own tools, which take a signing identity
-// from the keychain and notarize through notarytool. A PKCS#12 certificate is
-// imported into a temporary keychain for the run, the way CI imports a
-// certificate secret. Everywhere else it is done by rcodesign, which has no
+// from the keychain and notarize through notarytool. A PKCS#12 or PEM
+// certificate is imported into a temporary keychain for the run, the way CI
+// imports a certificate secret. Everywhere else it is done by rcodesign, which has no
 // keychain to consult and so takes a certificate file, and which talks to the
 // App Store Connect API directly and so takes an API key rather than an Apple
 // ID.
@@ -41,7 +41,8 @@ type Credentials struct {
 	P12Password     string
 	P12PasswordFile string
 
-	// PEMFile names a PEM certificate and private key, for rcodesign.
+	// PEMFile names a PEM certificate and private key. rcodesign reads it
+	// directly; macOS repackages it as PKCS#12 for a temporary keychain.
 	PEMFile string
 
 	// Profile, or the Apple ID trio, authenticate notarytool.

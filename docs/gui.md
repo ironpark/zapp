@@ -56,9 +56,9 @@ values; build-time `ZAPP_*` option overrides are not copied into the project.
 **Signing** selects Keychain, PKCS#12 or PEM credentials. **Notarization** selects
 Profile, Apple ID or API key credentials. Only the selected method contributes
 credentials to the project; switching methods retains previous input within the
-current session. Keychain/Profile/Apple ID use macOS tools; a PKCS#12 certificate
-works on every host (macOS imports it into a temporary keychain), while PEM
-files and API key JSON use rcodesign on Windows/Linux.
+current session. Keychain/Profile/Apple ID use macOS tools; PKCS#12 and PEM
+certificates work on every host (macOS imports them into a temporary keychain),
+while API key JSON uses rcodesign on Windows/Linux.
 
 Apple ID authentication includes a masked app-specific password input. Its value
 is session-only and never serialized into the project; reopening requires entering

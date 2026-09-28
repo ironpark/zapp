@@ -1,6 +1,9 @@
 package signing
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -19,10 +22,8 @@ func TestSelectMacOS(t *testing.T) {
 	if b.Name() != "Apple codesign" {
 		t.Fatalf("unexpected backend %s", b.Name())
 	}
-	for _, creds := range []Credentials{{PEMFile: "cert.pem"}, {APIKeyFile: "key.json"}} {
-		if _, err := Select(creds); err == nil {
-			t.Fatal("macOS accepted rcodesign-only credentials")
-		}
+	if _, err := Select(Credentials{APIKeyFile: "key.json"}); err == nil {
+		t.Fatal("macOS accepted an rcodesign API key")
 	}
 }
 
@@ -44,6 +45,36 @@ func TestSelectMacOSAcceptsP12(t *testing.T) {
 		}
 		if err := Close(b); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+// A PEM bundle is repackaged as PKCS#12 when selected, so a bad one fails
+// here rather than at the keychain import, and it cannot be combined with a
+// PKCS#12 certificate.
+func TestSelectMacOSAcceptsPEM(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS selection")
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := writePEM(t, pkcs8PEM(t, key), certPEM(testCert(t, "Zapp Test Signing", key, nil, nil)))
+	b, err := Select(Credentials{PEMFile: file})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Close(b); err != nil {
+		t.Fatal(err)
+	}
+	for name, creds := range map[string]Credentials{
+		"with a PKCS#12":   {PEMFile: file, P12Base64: "cDEy"},
+		"certificate only": {PEMFile: writePEM(t, certPEM(testCert(t, "Zapp Test Signing", key, nil, nil)))},
+		"with a password":  {PEMFile: file, P12Password: "x"},
+	} {
+		if _, err := Select(creds); err == nil {
+			t.Errorf("%s: accepted", name)
 		}
 	}
 }

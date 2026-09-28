@@ -77,7 +77,7 @@ func certificateFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "pem-file",
-			Usage: "Path to a PEM certificate bundle to sign with",
+			Usage: "Path to a PEM bundle with the certificate and private key to sign with",
 		},
 	}
 }

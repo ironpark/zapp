@@ -72,7 +72,7 @@ func (k *tempKeychain) populate(ctx context.Context, p12 []byte, password string
 	for _, args := range steps {
 		if _, err := security(ctx, args...); err != nil {
 			if args[0] == "import" {
-				return fmt.Errorf("could not import the PKCS#12 certificate (check its password): %w", err)
+				return fmt.Errorf("could not import the certificate (check the PKCS#12 password): %w", err)
 			}
 			return err
 		}
