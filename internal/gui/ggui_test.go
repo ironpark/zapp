@@ -224,6 +224,8 @@ func TestDesktopCanvasDropDragAndUndo(t *testing.T) {
 }
 func TestDesktopSourceScrollAndInvalidTab(t *testing.T) {
 	g := testEditor(t)
+	// Short enough that the form overflows even with compact fallback fonts.
+	g.h = 700
 	g.tab = tabPKG
 	g.s.Project.PKG.Components = []zapp.Component{{ID: "app"}}
 	g.rebuild()
