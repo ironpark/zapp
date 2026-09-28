@@ -112,13 +112,14 @@ read -r -a steps <<<"$IN_STEPS"
 # Bash 3.2 treats an empty array as unset under set -u.
 zapp "${args[@]}" ${extra[@]+"${extra[@]}"} ${steps[@]+"${steps[@]}"}
 
-cat "$private/artifacts" >>"$GITHUB_OUTPUT"
-{
-  echo '### zapp'
-  echo
-  echo '| Artifact | Path |'
-  echo '| --- | --- |'
-  while IFS='=' read -r name path; do
-    if [[ -n $path ]]; then echo "| $name | \`$path\` |"; fi
-  done <"$private/artifacts"
-} >>"$GITHUB_STEP_SUMMARY"
+# On Windows zapp reports D:\dir\file; the mixed D:/dir/file form works in
+# bash steps as well as PowerShell and the artifact actions.
+summary=$'### zapp\n\n| Artifact | Path |\n| --- | --- |\n'
+while IFS='=' read -r name path; do
+  if [[ -n $path ]]; then
+    path=$(native "$path")
+    summary+="| $name | \`$path\` |"$'\n'
+  fi
+  echo "$name=$path" >>"$GITHUB_OUTPUT"
+done <"$private/artifacts"
+printf '%s' "$summary" >>"$GITHUB_STEP_SUMMARY"

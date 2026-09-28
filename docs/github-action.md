@@ -71,7 +71,8 @@ Integrations → App Store Connect API**, and keep its issuer ID, key ID and
 | `pkg` | Absolute path of the PKG, empty if none was built |
 | `version` | The zapp version used |
 
-The same paths are listed in the job summary.
+On Windows the paths use forward slashes (`D:/a/project/MyApp.dmg`), which bash
+and PowerShell steps both accept. The same paths are listed in the job summary.
 
 ## Examples
 

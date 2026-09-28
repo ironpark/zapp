@@ -29,7 +29,9 @@ jobs:
         run: |
           test "${{ steps.zapp.outputs.version }}" = 1.0.0
           # 1.0.0's Linux and Windows builds report their tag, with a v.
-          zapp info | grep -Eq 'Version *: *v?1\.0\.0'
+          # grep -q stops reading early, which pipefail reports as a failure.
+          info=$(zapp info)
+          grep -Eq 'Version *: *v?1\.0\.0' <<<"$info"
           test -x "${{ steps.zapp.outputs.path }}"
 
   # Builds a DMG and a PKG through the action with zapp from this checkout.
