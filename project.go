@@ -121,9 +121,17 @@ func githubToken() string { return cmp.Or(os.Getenv("GITHUB_TOKEN"), os.Getenv("
 // destination describes where u sends a file called name, for the log.
 func (u UploadConfig) destination(name string) string {
 	if u.GitHub != nil {
-		return u.GitHub.release().Location()
+		return u.endpoint()
 	}
 	return u.Target().Location(name)
+}
+
+// endpoint describes where u sends files, before any file is named.
+func (u UploadConfig) endpoint() string {
+	if u.GitHub != nil {
+		return u.GitHub.release().Location()
+	}
+	return upload.Redact(u.URL)
 }
 
 // UploadArtifacts are the artifacts an upload may name.
@@ -431,6 +439,10 @@ func (p *Project) validate() error {
 	return nil
 }
 func (p *Project) Legacy() bool { return p.legacy }
+
+// Builds reports whether p makes anything: bundled libraries, a ZIP, a DMG
+// or a PKG.
+func (p *Project) Builds() bool { return p.Dep != nil || p.DMG != nil || p.PKG != nil || p.Zip != nil }
 
 var ErrNotFound = errors.New(".zapp.yaml not found")
 

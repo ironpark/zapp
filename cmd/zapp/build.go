@@ -50,7 +50,7 @@ func buildCommand() *cli.Command {
 		if err != nil {
 			return err
 		}
-		if pl.Dep == nil && pl.DMG == nil && pl.PKG == nil && pl.Zip == nil {
+		if !p.Builds() {
 			return fmt.Errorf("build requires a project with dep, zip, dmg, or pkg sections")
 		}
 		if c.Bool("dry-run") {

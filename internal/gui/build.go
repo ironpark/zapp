@@ -65,7 +65,7 @@ func runProjectBuild(ctx context.Context, project *zapp.Project, logger zapp.Log
 	if err := ctx.Err(); err != nil {
 		return zapp.Artifacts{}, err
 	}
-	if project.Dep == nil && project.DMG == nil && project.PKG == nil && project.Zip == nil {
+	if !project.Builds() {
 		return zapp.Artifacts{}, fmt.Errorf("enable DMG, PKG, ZIP or Dependencies before building")
 	}
 	plan, err := project.Resolve(zapp.WithLogger(logger))

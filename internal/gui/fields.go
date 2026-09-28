@@ -380,11 +380,11 @@ func (g *editor) notarizeFields() []field {
 	case 1:
 		password := stringField("App-specific password", &g.s.Project.Notarize.Password, "Session only · never saved to the project")
 		password.Secret = true
-		return []field{fields[1], fields[2], password, fields[4], fields[5]}
+		return append([]field{fields[1], fields[2], password}, fields[4:]...)
 	case 2:
-		return []field{fields[3], fields[4], fields[5]}
+		return append([]field{fields[3]}, fields[4:]...)
 	default:
-		return []field{fields[0], fields[4], fields[5]}
+		return append([]field{fields[0]}, fields[4:]...)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"testing"
 
 	"github.com/ironpark/zapp"
@@ -36,7 +35,7 @@ func TestStapleToggleAndUndo(t *testing.T) {
 	g.s.Project.Notarize = &zapp.NotarizeConfig{}
 	g.tab = tabNotarize
 	g.rebuild()
-	g.focus(slices.IndexFunc(g.fields, func(f field) bool { return f.Label == "Staple" }))
+	g.focusLabel(t, "Staple")
 	g.input.SetText("true")
 	if !g.commit() || !g.s.Project.Notarize.Staple {
 		t.Fatal("toggle did not apply")

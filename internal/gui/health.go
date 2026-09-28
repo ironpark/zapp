@@ -68,7 +68,7 @@ func (g *editor) checkHealth() projectHealth {
 		h.Count++
 	}
 	p := g.s.Project
-	if p.Dep == nil && p.DMG == nil && p.PKG == nil && p.Zip == nil {
+	if !p.Builds() {
 		add(tabProject, "Enable DMG, PKG, ZIP or Dependencies to build")
 	}
 	problems := g.pathProblems(false)
@@ -91,9 +91,6 @@ func (g *editor) checkHealth() projectHealth {
 		}
 		if plan.PKG != nil {
 			h.Outputs[tabPKG] = plan.PKG.Output
-		}
-		if plan.Zip != nil {
-			h.Outputs[tabDistribution] = plan.Zip.Output
 		}
 	}
 	h.App = g.summarizeApp(plan)

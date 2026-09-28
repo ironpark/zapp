@@ -252,7 +252,7 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	switch {
 	case v.Tab == tabProject:
 		content = ggui.Column(appCard(m), content, buildSteps(m)).Gap(28).Align(ggui.AlignStretch)
-	case v.Tab == tabSign && v.SignMethod == 0 && (v.IdentitiesListed || v.Identities != ""):
+	case v.Tab == tabSign && v.SignMethod == 0 && v.IdentitiesListed:
 		content = ggui.Column(content, identitySuggestions(m, v)).Gap(20).Align(ggui.AlignStretch)
 	}
 	if v.Tab != tabDMG && !v.Raw {

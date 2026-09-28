@@ -115,6 +115,8 @@ func (g *editor) pathFields(tab int, section section) []field {
 		return g.notaryAllFields()
 	case tabDep:
 		return g.withFormView(g.depFields)
+	case tabDistribution:
+		return g.archiveFields()
 	case tabPKG:
 		c := g.s.Project.PKG
 		if !c.HasFullForm() {

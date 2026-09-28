@@ -293,32 +293,26 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 	add := func(step Step, what string, run func(context.Context, *Artifacts) error) {
 		list = append(list, Action{step, what, run})
 	}
-	sign := func(path func(*Artifacts) string, shown string) {
-		if c := p.SignCredentials; c != nil {
-			if shown != p.App {
-				x := *c
-				x.Entitlements = "" // an app's alone
-				c = &x
-			}
-			add(StepSign, fmt.Sprintf("sign %s with %s", shown, c.SigningSummary()), func(ctx context.Context, a *Artifacts) error {
-				return p.Sign(ctx, path(a))
+	sign := func(path string, c *signing.Credentials) {
+		if c != nil {
+			add(StepSign, fmt.Sprintf("sign %s with %s", path, c.SigningSummary()), func(ctx context.Context, _ *Artifacts) error {
+				return p.Sign(ctx, path)
 			})
 		}
 	}
-	notarize := func(path func(*Artifacts) string, shown string) {
-		what := fmt.Sprintf("notarize %s with %s", shown, p.NotarizeCredentials.NotarySummary())
+	notarize := func(path string) {
+		what := fmt.Sprintf("notarize %s with %s", path, p.NotarizeCredentials.NotarySummary())
 		if p.Staple {
 			what += ", then staple it"
 		}
-		add(StepNotarize, what, func(ctx context.Context, a *Artifacts) error { return p.Notarize(ctx, path(a)) })
+		add(StepNotarize, what, func(ctx context.Context, _ *Artifacts) error { return p.Notarize(ctx, path) })
 	}
-	app := func(*Artifacts) string { return p.App }
 
 	if selected[StepDep] {
 		add(StepDep, "bundle the libraries "+p.App+" links into it", func(ctx context.Context, _ *Artifacts) error { return p.BundleDeps(ctx) })
 	}
 	if p.App != "" {
-		sign(app, p.App)
+		sign(p.App, p.SignCredentials)
 	}
 	// The app is notarized itself when it ships bare: in the ZIP, or after
 	// bundling with nothing to package it. Its ZIP is what gets submitted
@@ -328,7 +322,7 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 	bare := selected[StepDep] && !selected[StepDMG] && !selected[StepPKG]
 	notarizeApp := p.NotarizeCredentials != nil && (selected[StepZip] || bare)
 	if notarizeApp && (!selected[StepZip] || p.Staple) {
-		notarize(app, p.App)
+		notarize(p.App)
 		notarizeApp = false
 	}
 	if selected[StepZip] {
@@ -337,35 +331,35 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 			return err
 		})
 		if notarizeApp {
-			notarize(func(a *Artifacts) string { return a.Zip }, p.Zip.Output)
+			notarize(p.Zip.Output)
 		}
 	}
-	type installer struct {
-		path  func(*Artifacts) string
-		shown string
-	}
-	var installers []installer
+	var installers []string
 	if selected[StepDMG] {
 		add(StepDMG, "create "+p.DMG.FileName, func(ctx context.Context, a *Artifacts) (err error) {
 			a.DMG, err = p.BuildDMG(ctx)
 			return err
 		})
-		installers = append(installers, installer{func(a *Artifacts) string { return a.DMG }, p.DMG.FileName})
+		installers = append(installers, p.DMG.FileName)
 	}
 	if selected[StepPKG] {
 		add(StepPKG, "create "+p.PKG.Output, func(ctx context.Context, a *Artifacts) (err error) {
 			a.PKG, err = p.BuildPKG(ctx)
 			return err
 		})
-		installers = append(installers, installer{func(a *Artifacts) string { return a.PKG }, p.PKG.Output})
+		installers = append(installers, p.PKG.Output)
 	}
 	// Every installer is signed before any is notarized.
-	for _, in := range installers {
-		sign(in.path, in.shown)
+	if c := p.SignCredentials; c != nil && len(installers) > 0 {
+		x := *c
+		x.Entitlements = "" // an app's alone
+		for _, path := range installers {
+			sign(path, &x)
+		}
 	}
 	if p.NotarizeCredentials != nil {
-		for _, in := range installers {
-			notarize(in.path, in.shown)
+		for _, path := range installers {
+			notarize(path)
 		}
 	}
 	// Listed once every artifact is final: signed, notarized and stapled.
@@ -391,11 +385,7 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 			if len(u.Artifacts) > 0 {
 				names = strings.Join(u.Artifacts, ", ")
 			}
-			where := upload.Redact(u.URL)
-			if u.GitHub != nil {
-				where = u.GitHub.release().Location()
-			}
-			add(StepUpload, fmt.Sprintf("upload %s to %s", names, where), func(ctx context.Context, a *Artifacts) (err error) {
+			add(StepUpload, fmt.Sprintf("upload %s to %s", names, u.endpoint()), func(ctx context.Context, a *Artifacts) (err error) {
 				a.Uploads, err = p.uploadTo(ctx, i, *a, a.Uploads)
 				return stepError(StepUpload, err)
 			})

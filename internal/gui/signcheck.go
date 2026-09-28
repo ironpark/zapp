@@ -39,11 +39,19 @@ func (g *editor) signCheckInputs() signCheckInputs {
 }
 
 // listIdentities looks up the keychain's signing identities the first time
-// the Keychain method is shown, and again when asked to refresh. Only macOS
-// has a keychain.
+// the Keychain method is shown. Only macOS has a keychain.
 func (g *editor) listIdentities() {
+	if !g.signing.listed {
+		g.lookupIdentities()
+	}
+}
+
+// lookupIdentities lists the keychain's identities unless a lookup is
+// already running. The identities listed so far stay until the new list
+// arrives.
+func (g *editor) lookupIdentities() {
 	a := &g.signing
-	if runtime.GOOS != "darwin" || a.listed || a.listing || g.ctx == nil ||
+	if runtime.GOOS != "darwin" || a.listing || g.ctx == nil ||
 		g.tab != tabSign || !g.enabled() || g.signMethod() != 0 {
 		return
 	}
@@ -62,14 +70,9 @@ func (g *editor) listIdentities() {
 }
 
 // refreshIdentities looks the keychain up again, as after importing a
-// certificate into it. The identities listed so far stay until the new list
-// arrives.
+// certificate into it.
 func (g *editor) refreshIdentities() {
-	if g.signing.listing {
-		return
-	}
-	g.signing.listed = false
-	g.listIdentities()
+	g.lookupIdentities()
 	g.invalidate()
 }
 

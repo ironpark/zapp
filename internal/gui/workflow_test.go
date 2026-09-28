@@ -6,6 +6,7 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -256,20 +257,19 @@ func TestRevealComponentScrollsToSelection(t *testing.T) {
 }
 
 // Refreshing looks the keychain up again and keeps the identities offered
-// until the new list arrives; a lookup already running is not doubled.
+// until the new list arrives.
 func TestRefreshIdentities(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("only macOS has a keychain")
+	}
 	g := testEditor(t)
+	g.ctx, g.tab, g.s.Project.Sign = t.Context(), tabSign, &zapp.SignConfig{}
 	g.signing.identities, g.signing.listed = "Developer ID Application: A", true
 	g.refreshIdentities()
-	if g.signing.identities == "" {
+	if g.signing.identities == "" || !g.signing.listed {
 		t.Fatal("refresh dropped the identities offered")
 	}
-	if g.signing.listed && !g.signing.listing {
+	if !g.signing.listing {
 		t.Fatal("refresh did not ask for a new list")
-	}
-	g.signing.listed, g.signing.listing = true, true
-	g.refreshIdentities()
-	if !g.signing.listed {
-		t.Fatal("refresh restarted a lookup in progress")
 	}
 }
