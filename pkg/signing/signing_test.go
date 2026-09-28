@@ -1,9 +1,6 @@
 package signing
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -27,18 +24,19 @@ func TestSelectMacOS(t *testing.T) {
 	}
 }
 
-// macOS takes a PKCS#12 certificate from a file or base64, imported into a
-// temporary keychain when it is first used; selecting does not touch the
-// keychain.
+// macOS takes a PKCS#12 certificate from a file or base64, in any encryption,
+// imported into a temporary keychain when it is first used; selecting does not
+// touch the keychain.
 func TestSelectMacOSAcceptsP12(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("macOS selection")
 	}
+	p12 := testP12(t, "secret")
 	file := filepath.Join(t.TempDir(), "cert.p12")
-	if err := os.WriteFile(file, []byte("p12"), 0o600); err != nil {
+	if err := os.WriteFile(file, p12, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, creds := range []Credentials{{P12File: file}, {P12Base64: base64.StdEncoding.EncodeToString([]byte("p12"))}} {
+	for _, creds := range []Credentials{{P12File: file, P12Password: "secret"}, {P12Base64: base64.StdEncoding.EncodeToString(p12), P12Password: "secret"}} {
 		b, err := Select(creds)
 		if err != nil {
 			t.Fatalf("%+v: %v", creds, err)
@@ -49,17 +47,13 @@ func TestSelectMacOSAcceptsP12(t *testing.T) {
 	}
 }
 
-// A PEM bundle is repackaged as PKCS#12 when selected, so a bad one fails
-// here rather than at the keychain import, and it cannot be combined with a
-// PKCS#12 certificate.
+// A PEM bundle is read when selected, so a bad one fails here rather than at
+// the keychain import, and it cannot be combined with a PKCS#12 certificate.
 func TestSelectMacOSAcceptsPEM(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("macOS selection")
 	}
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	key := ecKey(t)
 	file := writePEM(t, pkcs8PEM(t, key), certPEM(testCert(t, "Zapp Test Signing", key, nil, nil)))
 	b, err := Select(Credentials{PEMFile: file})
 	if err != nil {

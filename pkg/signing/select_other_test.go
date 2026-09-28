@@ -3,9 +3,6 @@
 package signing
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"os"
@@ -15,11 +12,12 @@ import (
 	"testing"
 
 	"github.com/ironpark/zapp/pkg/signing/rcodesign"
-	"software.sslmate.com/src/go-pkcs12"
 )
 
 func TestSelectStaticBackend(t *testing.T) {
-	b, err := Select(Credentials{PEMFile: "cert.pem"})
+	key := ecKey(t)
+	file := writePEM(t, pkcs8PEM(t, key), certPEM(testCert(t, "Zapp Test Signing", key, nil, nil)))
+	b, err := Select(Credentials{PEMFile: file})
 	if rcodesign.Available() != nil {
 		if !errors.Is(err, rcodesign.ErrUnavailable) {
 			t.Fatalf("got %v", err)
@@ -29,31 +27,18 @@ func TestSelectStaticBackend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := b.(*rcodesign.Backend); !ok {
-		t.Fatalf("unexpected backend %T", b)
-	}
-	if got, err := b.Describe(t.Context(), "Demo.app"); err != nil || got != "cert.pem" {
+	defer func() { _ = Close(b) }()
+	if got, err := b.Describe(t.Context(), "Demo.app"); err != nil || got != file {
 		t.Fatalf("credential lost: %q, %v", got, err)
 	}
 	// Stapling does not require a private key, so selection must permit it.
-	if _, err := Select(Credentials{}); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// testP12 is a self-signed certificate and key as PKCS#12 in the modern
-// encryption rcodesign cannot read itself.
-func testP12(t *testing.T, password string) []byte {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	b, err = Select(Credentials{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	p12, err := pkcs12.Modern2023.Encode(key, testCert(t, "Zapp Test Signing", key, nil, nil), nil, password)
-	if err != nil {
-		t.Fatal(err)
+	if _, ok := b.(*rcodesign.Backend); !ok {
+		t.Fatalf("unexpected backend %T", b)
 	}
-	return p12
 }
 
 // A PKCS#12 certificate, from a file or base64, reaches rcodesign unpacked as

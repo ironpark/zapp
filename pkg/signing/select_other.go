@@ -3,6 +3,7 @@
 package signing
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -20,22 +21,17 @@ func Select(c Credentials) (Backend, error) {
 	if err := rcodesign.Available(); err != nil {
 		return nil, err
 	}
-	opts := rcodesign.Options{PEMFile: c.PEMFile, APIKeyFile: c.APIKeyFile}
-	if !c.namesP12() {
+	opts := rcodesign.Options{APIKeyFile: c.APIKeyFile}
+	if !c.namesCertificate() {
 		return rcodesign.New(opts), nil
 	}
-	// rcodesign cannot read PKCS#12 in the encryption most tools now write, so
-	// the certificate is unpacked to a private PEM file for the run and removed
-	// by Close.
-	p12, err := c.p12()
+	// rcodesign reads the certificate as PEM from a path, so it is written to
+	// a private file for the run and removed by Close.
+	key, cert, chain, err := c.certificate()
 	if err != nil {
 		return nil, err
 	}
-	password, err := c.p12Password()
-	if err != nil {
-		return nil, err
-	}
-	bundle, err := p12ToPEM(p12, password)
+	bundle, err := pemBundle(key, cert, chain)
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +40,7 @@ func Select(c Credentials) (Backend, error) {
 		return nil, err
 	}
 	opts.PEMFile = path
-	source := c.P12File
-	if source == "" {
-		source = "PKCS#12 certificate from base64"
-	}
+	source := cmp.Or(c.PEMFile, c.P12File, "PKCS#12 certificate from base64")
 	return &decodedCertificate{Backend: rcodesign.New(opts), source: source, remove: remove}, nil
 }
 
@@ -59,8 +52,8 @@ type decodedCertificate struct {
 	remove func() error
 }
 
-// Describe names the certificate the user supplied rather than the unpacked
-// copy rcodesign reads.
+// Describe names the certificate the user supplied rather than the copy
+// rcodesign reads.
 func (d *decodedCertificate) Describe(context.Context, string) (string, error) {
 	return d.source, nil
 }

@@ -9,11 +9,8 @@ func TestCredentialsConfigured(t *testing.T) {
 		creds Options
 		want  bool
 	}{
-		"empty":              {Options{}, false},
-		"p12":                {Options{P12File: "/c.p12"}, true},
-		"pem":                {Options{PEMFile: "/c.pem"}, true},
-		"password only":      {Options{P12Password: "pw"}, false},
-		"password file only": {Options{P12PasswordFile: "/pw"}, false},
+		"empty": {Options{}, false},
+		"pem":   {Options{PEMFile: "/c.pem"}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := tc.creds.Configured(); got != tc.want {

@@ -15,7 +15,7 @@ func TestStaticBindingWithoutExecutable(t *testing.T) {
 	if err := Available(); err != nil {
 		t.Fatal(err)
 	}
-	b := New(Options{P12File: filepath.Join(t.TempDir(), "missing.p12")})
+	b := New(Options{PEMFile: filepath.Join(t.TempDir(), "missing.pem")})
 	err := b.Sign(t.Context(), filepath.Join(t.TempDir(), "Demo.app"))
 	if err == nil || errors.Is(err, ErrUnavailable) {
 		t.Fatalf("expected Rust credential error, got %v", err)

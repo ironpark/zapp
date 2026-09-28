@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -45,11 +44,7 @@ func importP12(ctx context.Context, p12 []byte, password string) (*tempKeychain,
 // populate creates, unlocks and fills the keychain, then lists it.
 func (k *tempKeychain) populate(ctx context.Context, p12 []byte, password string) error {
 	// The keychain's own password only ever unlocks this throwaway keychain.
-	secret := make([]byte, 24)
-	if _, err := rand.Read(secret); err != nil {
-		return err
-	}
-	keychainPassword := hex.EncodeToString(secret)
+	keychainPassword := rand.Text()
 
 	// security imports from a path. The file sits in the private temp
 	// directory and goes as soon as the import is done.

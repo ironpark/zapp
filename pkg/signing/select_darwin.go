@@ -18,23 +18,14 @@ func Select(c Credentials) (Backend, error) {
 		return nil, err
 	}
 	opts := macos.Options{Identity: c.Identity, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID}
-	switch {
-	case c.PEMFile != "":
-		p12, password, err := pemToP12(c.PEMFile)
+	if c.namesCertificate() {
+		key, cert, chain, err := c.certificate()
 		if err != nil {
 			return nil, err
 		}
-		opts.P12, opts.P12Password = p12, password
-	case c.namesP12():
-		p12, err := c.p12()
-		if err != nil {
+		if opts.P12, opts.P12Password, err = p12Bundle(key, cert, chain); err != nil {
 			return nil, err
 		}
-		password, err := c.p12Password()
-		if err != nil {
-			return nil, err
-		}
-		opts.P12, opts.P12Password = p12, password
 	}
 	return macos.New(opts), nil
 }

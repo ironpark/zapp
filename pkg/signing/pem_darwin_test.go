@@ -3,8 +3,6 @@
 package signing
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,18 +10,15 @@ import (
 	"testing"
 )
 
-// The repackaged bundle is one `security import` accepts, and the imported key
+// The PKCS#12 made for Apple's tools is one `security import` accepts, and the imported key
 // pairs with its certificate as a code signing identity. The keychain is
 // created and deleted here without touching the user's search list.
 func TestPEMImportsIntoKeychain(t *testing.T) {
 	if os.Getenv("ZAPP_KEYCHAIN_TEST") == "" {
 		t.Skip("creates a keychain; set ZAPP_KEYCHAIN_TEST=1 to run")
 	}
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p12, password, err := pemToP12(writePEM(t, certPEM(testCert(t, "Zapp PEM Signing", key, nil, nil)), pkcs8PEM(t, key)))
+	key := ecKey(t)
+	p12, password, err := p12Bundle(key, testCert(t, "Zapp PEM Signing", key, nil, nil), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -13,37 +12,77 @@ import (
 	"software.sslmate.com/src/go-pkcs12"
 )
 
-// pemToP12 reads a PEM bundle holding a private key and its certificate, plus
-// any intermediate certificates, and repackages it as PKCS#12 under a random
-// password, so Apple's tools can import it the way they import a supplied
-// PKCS#12. The certificate is the one matching the key, wherever it sits in
-// the file; the others travel along as its chain.
-func pemToP12(path string) (p12 []byte, password string, err error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, "", err
+// namesCertificate reports whether c supplies a signing certificate in any
+// form.
+func (c Credentials) namesCertificate() bool { return c.PEMFile != "" || c.namesP12() }
+
+// certificate loads the signing certificate c names, from a PEM bundle or a
+// PKCS#12 bundle in any encryption, as its private key, the certificate for
+// that key, and the rest of the chain. Each backend then repackages it in the
+// one form its tools read reliably, so every host reports a bad certificate,
+// key or password the same way before any tool runs.
+func (c Credentials) certificate() (crypto.PrivateKey, *x509.Certificate, []*x509.Certificate, error) {
+	if c.PEMFile != "" {
+		data, err := os.ReadFile(c.PEMFile)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		key, cert, chain, err := parsePEMBundle(data)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("%s: %w", c.PEMFile, err)
+		}
+		return key, cert, chain, nil
 	}
-	key, cert, chain, err := parsePEMBundle(data)
+	p12, err := c.p12()
 	if err != nil {
-		return nil, "", fmt.Errorf("%s: %w", path, err)
+		return nil, nil, nil, err
 	}
-	secret := make([]byte, 24)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, "", err
-	}
-	password = hex.EncodeToString(secret)
-	// Legacy encryption is what every macOS release's `security import` reads.
-	// The bundle only ever exists in memory and in the private temp directory
-	// the import uses, under a password that is thrown away with it.
-	p12, err = pkcs12.LegacyDES.Encode(key, cert, chain, password)
+	password, err := c.p12Password()
 	if err != nil {
-		return nil, "", fmt.Errorf("could not package %s as PKCS#12: %w", path, err)
+		return nil, nil, nil, err
+	}
+	key, cert, chain, err := pkcs12.DecodeChain(p12, password)
+	if errors.Is(err, pkcs12.ErrIncorrectPassword) {
+		return nil, nil, nil, errors.New("incorrect PKCS#12 password")
+	}
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("could not read the PKCS#12 certificate: %w", err)
+	}
+	return key, cert, chain, nil
+}
+
+// p12Bundle packages a certificate as PKCS#12 under a random password, for
+// Apple's tools. Legacy encryption is what every macOS release's
+// `security import` reads; the bundle only ever exists in memory and in the
+// private temp directory the import uses, under a password thrown away with it.
+func p12Bundle(key crypto.PrivateKey, cert *x509.Certificate, chain []*x509.Certificate) ([]byte, string, error) {
+	password := rand.Text()
+	p12, err := pkcs12.LegacyDES.Encode(key, cert, chain, password)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not package the certificate as PKCS#12: %w", err)
 	}
 	return p12, password, nil
 }
 
+// pemBundle writes a certificate as a PEM bundle of its private key,
+// certificate and chain, for rcodesign. Its own PKCS#12 reader only
+// understands the legacy 3DES/RC2 encryption and misreports anything newer,
+// such as OpenSSL 3's default AES export, as a wrong password; it reads PEM in
+// any case.
+func pemBundle(key crypto.PrivateKey, cert *x509.Certificate, chain []*x509.Certificate) ([]byte, error) {
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported private key: %w", err)
+	}
+	out := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+	for _, c := range append([]*x509.Certificate{cert}, chain...) {
+		out = append(out, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})...)
+	}
+	return out, nil
+}
+
 // parsePEMBundle splits a PEM bundle into its private key, the certificate
-// for that key, and the remaining certificates.
+// for that key, wherever it sits in the file, and the remaining certificates.
 func parsePEMBundle(data []byte) (crypto.PrivateKey, *x509.Certificate, []*x509.Certificate, error) {
 	var key crypto.Signer
 	var certs []*x509.Certificate
@@ -111,27 +150,4 @@ func parsePrivateKey(block *pem.Block) (crypto.Signer, error) {
 		return nil, errors.New("unsupported private key type")
 	}
 	return signer, nil
-}
-
-// p12ToPEM unpacks a PKCS#12 bundle into a PEM bundle of its private key,
-// certificate and chain. rcodesign's PKCS#12 reader only understands the
-// legacy 3DES/RC2 encryption and misreports anything newer, such as OpenSSL
-// 3's default AES export, as a wrong password; it reads PEM in any case.
-func p12ToPEM(p12 []byte, password string) ([]byte, error) {
-	key, cert, chain, err := pkcs12.DecodeChain(p12, password)
-	if errors.Is(err, pkcs12.ErrIncorrectPassword) {
-		return nil, errors.New("incorrect PKCS#12 password")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("could not read the PKCS#12 certificate: %w", err)
-	}
-	der, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("unsupported private key in the PKCS#12 certificate: %w", err)
-	}
-	out := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
-	for _, c := range append([]*x509.Certificate{cert}, chain...) {
-		out = append(out, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})...)
-	}
-	return out, nil
 }

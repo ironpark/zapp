@@ -14,16 +14,16 @@ var ErrUnavailable = errors.New("rcodesign static binding is unavailable in this
 
 // errNoCertificate is returned when no signing certificate was named. rcodesign
 // would sign ad-hoc instead, which is rarely what a release build wants.
-var errNoCertificate = errors.New("no signing certificate was given; pass --p12-file or --pem-file")
+var errNoCertificate = errors.New("no signing certificate was given; pass --p12-file, --p12-base64 or --pem-file")
 
 // Options are the credentials rcodesign takes. It has no keychain to consult,
 // so the certificate is named by file, and it reaches the notary service
 // directly, so it authenticates with an App Store Connect API key.
+//
+// The certificate is always PEM: the library's PKCS#12 reader only
+// understands legacy encryption, so callers unpack PKCS#12 themselves.
 type Options struct {
-	P12File         string `json:"p12_file"`          // PKCS#12 bundle holding the certificate and key
-	P12Password     string `json:"p12_password"`      // the bundle's password, if any
-	P12PasswordFile string `json:"p12_password_file"` // a file holding that password, preferred over P12Password
-	PEMFile         string `json:"pem_file"`          // a PEM bundle, as an alternative to PKCS#12
+	PEMFile string `json:"pem_file"` // the private key and certificate chain
 
 	APIKeyFile string `json:"api_key_file"` // JSON from rcodesign encode-app-store-connect-api-key
 }
@@ -31,7 +31,7 @@ type Options struct {
 // Configured reports whether a certificate was named at all. Without one
 // rcodesign signs ad-hoc, which is rarely what a release build wants.
 func (c Options) Configured() bool {
-	return c.P12File != "" || c.PEMFile != ""
+	return c.PEMFile != ""
 }
 
 // Backend signs with rcodesign.
@@ -48,9 +48,6 @@ func (b *Backend) Name() string { return Tool }
 func (b *Backend) Describe(context.Context, string) (string, error) {
 	if !b.opts.Configured() {
 		return "", errNoCertificate
-	}
-	if b.opts.P12File != "" {
-		return b.opts.P12File, nil
 	}
 	return b.opts.PEMFile, nil
 }
