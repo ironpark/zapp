@@ -2,6 +2,7 @@ package zapp
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/ironpark/zapp/pkg/upload"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,14 +33,17 @@ const (
 	StepStaple   Step = "staple"
 	StepZip      Step = "zip"
 	StepUpload   Step = "upload"
+	// StepChecksums lists the SHA-256 of the archives and installers built.
+	StepChecksums Step = "checksums"
 )
 
 type Artifacts struct {
-	App     string
-	DMG     string
-	PKG     string
-	Zip     string
-	Uploads []Uploaded
+	App       string
+	DMG       string
+	PKG       string
+	Zip       string
+	Checksums string
+	Uploads   []Uploaded
 }
 
 // Uploaded is one artifact sent to one endpoint. URL leaves out the query
@@ -220,11 +225,12 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 		selected[StepDMG] = p.DMG != nil
 		selected[StepPKG] = p.PKG != nil
 		selected[StepZip] = p.Zip != nil
+		selected[StepChecksums] = p.Checksums != nil
 		selected[StepUpload] = len(p.Uploads) > 0
 	} else {
 		for _, s := range steps {
 			switch s {
-			case StepDep, StepDMG, StepPKG, StepZip, StepUpload:
+			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepUpload:
 				selected[s] = true
 			default:
 				return a, stepError(s, fmt.Errorf("unknown build step %q", s))
@@ -242,6 +248,9 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	}
 	if selected[StepZip] && p.Zip == nil {
 		return a, stepError(StepZip, fmt.Errorf("zip section is not configured"))
+	}
+	if selected[StepChecksums] && p.Checksums == nil {
+		return a, stepError(StepChecksums, fmt.Errorf("checksums section is not configured"))
 	}
 	if selected[StepUpload] && len(p.Uploads) == 0 {
 		return a, stepError(StepUpload, fmt.Errorf("upload section is not configured"))
@@ -313,6 +322,12 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 			}
 		}
 	}
+	// Listed once every artifact is final: signed, notarized and stapled.
+	if selected[StepChecksums] {
+		if a.Checksums, err = p.WriteChecksums(ctx, a); err != nil {
+			return a, err
+		}
+	}
 	if selected[StepUpload] {
 		if a.Uploads, err = p.Upload(ctx, a); err != nil {
 			return a, err
@@ -334,12 +349,57 @@ func (p *Plan) BuildZip(ctx context.Context) (out string, err error) {
 	return p.Zip.Output, nil
 }
 
+// WriteChecksums lists the SHA-256 of the ZIP, DMG and PKG in a, by file
+// name, as `shasum -a 256` prints them.
+func (p *Plan) WriteChecksums(ctx context.Context, a Artifacts) (out string, err error) {
+	defer func() { err = stepError(StepChecksums, err) }()
+	if p.Checksums == nil {
+		return "", fmt.Errorf("checksums section is not configured")
+	}
+	var list strings.Builder
+	for _, path := range []string{a.Zip, a.DMG, a.PKG} {
+		if path == "" {
+			continue
+		}
+		if err = ctx.Err(); err != nil {
+			return "", err
+		}
+		sum, err := sha256File(path)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&list, "%x  %s\n", sum, filepath.Base(path))
+	}
+	if list.Len() == 0 {
+		return "", fmt.Errorf("nothing to list; build a zip, dmg or pkg")
+	}
+	out = p.Checksums.Output
+	if err = os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return "", err
+	}
+	p.log("Writing checksums to %s\n", out)
+	return out, fsutil.WriteFileAtomic(out, []byte(list.String()), 0o644)
+}
+
+func sha256File(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
+}
+
 // Upload sends a build's artifacts to every configured endpoint. An endpoint
 // that names an artifact this build did not make skips it; one that receives
 // nothing at all is an error.
 func (p *Plan) Upload(ctx context.Context, a Artifacts) (sent []Uploaded, err error) {
 	defer func() { err = stepError(StepUpload, err) }()
-	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG}
+	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums}
 	for i, spec := range p.Uploads {
 		target := spec.Target()
 		names := spec.Artifacts

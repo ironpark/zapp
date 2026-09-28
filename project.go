@@ -17,18 +17,19 @@ import (
 )
 
 type Project struct {
-	Version  int             `json:"version"`
-	App      string          `json:"app,omitempty"`
-	Out      string          `json:"out,omitempty"`
-	Sign     *SignConfig     `json:"sign,omitempty"`
-	Notarize *NotarizeConfig `json:"notarize,omitempty"`
-	Dep      *DepConfig      `json:"dep,omitempty"`
-	DMG      *DMGConfig      `json:"dmg,omitempty"`
-	PKG      *PKGConfig      `json:"pkg,omitempty"`
-	Zip      *ZipConfig      `json:"zip,omitempty"`
-	Upload   []UploadConfig  `json:"upload,omitempty"`
-	dir      string
-	legacy   bool
+	Version   int              `json:"version"`
+	App       string           `json:"app,omitempty"`
+	Out       string           `json:"out,omitempty"`
+	Sign      *SignConfig      `json:"sign,omitempty"`
+	Notarize  *NotarizeConfig  `json:"notarize,omitempty"`
+	Dep       *DepConfig       `json:"dep,omitempty"`
+	DMG       *DMGConfig       `json:"dmg,omitempty"`
+	PKG       *PKGConfig       `json:"pkg,omitempty"`
+	Zip       *ZipConfig       `json:"zip,omitempty"`
+	Checksums *ChecksumsConfig `json:"checksums,omitempty"`
+	Upload    []UploadConfig   `json:"upload,omitempty"`
+	dir       string
+	legacy    bool
 }
 type SignConfig struct {
 	Identity        string `json:"identity,omitempty"`
@@ -59,6 +60,12 @@ type ZipConfig struct {
 	Out string `json:"out,omitempty"`
 }
 
+// ChecksumsConfig lists the SHA-256 of every archive, DMG and PKG the build
+// made, in the form `shasum -a 256 -c` and `sha256sum -c` check.
+type ChecksumsConfig struct {
+	Out string `json:"out,omitempty"`
+}
+
 // UploadConfig sends built artifacts to an HTTP endpoint. URL may name the
 // file with ${file.name}. Headers that carry a credential must come from the
 // environment, as ${env:NAME}, never the file itself.
@@ -71,7 +78,7 @@ type UploadConfig struct {
 }
 
 // UploadArtifacts are the artifacts an upload may name.
-var UploadArtifacts = []string{"zip", "dmg", "pkg"}
+var UploadArtifacts = []string{"zip", "dmg", "pkg", "checksums"}
 
 // Target is the endpoint u describes.
 func (u UploadConfig) Target() upload.Target {
@@ -285,7 +292,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	p := new(Project)
 	// Without section keys this is the old flat DMG schema.
 	section := false
-	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "upload"} {
+	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "checksums", "upload"} {
 		if _, ok := keys[k]; ok {
 			section = true
 		}
@@ -309,6 +316,9 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	// A bare `zip:` asks for an archive with every default.
 	if _, ok := keys["zip"]; ok && p.Zip == nil {
 		p.Zip = &ZipConfig{}
+	}
+	if _, ok := keys["checksums"]; ok && p.Checksums == nil {
+		p.Checksums = &ChecksumsConfig{}
 	}
 	for i, u := range p.Upload {
 		for name, value := range u.Headers {
@@ -411,6 +421,10 @@ func (p *Project) Clone() *Project {
 	if p.Zip != nil {
 		x := *p.Zip
 		q.Zip = &x
+	}
+	if p.Checksums != nil {
+		x := *p.Checksums
+		q.Checksums = &x
 	}
 	if p.Upload != nil {
 		q.Upload = slices.Clone(p.Upload)

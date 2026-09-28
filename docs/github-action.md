@@ -38,10 +38,11 @@ empty input leaves the project's value alone.
 | `sign` / `notarize` | `false` skips the step; `true` runs it even if the project does not enable it |
 | `staple` | `true` or `false`, overriding the project |
 | `zip` | `true` archives the notarized, stapled app as a ZIP; `false` skips the project's `zip` |
+| `checksums` | `true` writes `SHA256SUMS` for the ZIP, DMG and PKG; `false` skips the project's `checksums` (zapp 1.3.0+) |
 | `upload-url` | Endpoint to send artifacts to, added to the project's `upload`; `${file.name}` is each file's name |
 | `upload-method`, `upload-field` | `PUT` (default) or `POST`, and the form field of a POST |
 | `upload-headers` | Headers sent with each upload, one `Name: value` per line |
-| `upload-artifacts` | Artifacts to send to `upload-url`: `zip`, `dmg`, `pkg`, separated by spaces |
+| `upload-artifacts` | Artifacts to send to `upload-url`: `zip`, `dmg`, `pkg`, `checksums`, separated by spaces |
 | `upload` | `false` skips every upload |
 | `args` | Further `zapp build` options, one per line, such as `--title=My App` |
 | `version` | zapp release to use, such as `1.2.0` or `latest`; `local` uses a `zapp` already on `PATH` |
@@ -77,7 +78,8 @@ Integrations → App Store Connect API**, and keep its issuer ID, key ID and
 | `dmg` | Absolute path of the DMG, empty if none was built |
 | `pkg` | Absolute path of the PKG, empty if none was built |
 | `zip` | Absolute path of the app ZIP, empty if none was built |
-| `zip-url`, `dmg-url`, `pkg-url` | Where each artifact was uploaded, without the query string |
+| `checksums` | Absolute path of `SHA256SUMS`, empty if none was written |
+| `zip-url`, `dmg-url`, `pkg-url`, `checksums-url` | Where each artifact was uploaded, without the query string |
 | `version` | The zapp version used |
 
 On Windows the paths use forward slashes (`D:/a/project/MyApp.dmg`), which bash

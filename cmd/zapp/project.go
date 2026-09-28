@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -112,11 +113,15 @@ func loadProject(c *cli.Command, kind string) (*zapp.Project, error) {
 			if p.Zip == nil {
 				p.Zip = &zapp.ZipConfig{}
 			}
+		case "checksums":
+			if p.Checksums == nil {
+				p.Checksums = &zapp.ChecksumsConfig{}
+			}
 		}
 	}
 	if kind == "build" {
 		for _, step := range c.Args().Slice() {
-			if step != "dmg" && step != "pkg" && step != "dep" && step != "zip" && step != "upload" {
+			if !slices.Contains([]string{"dep", "zip", "dmg", "pkg", "checksums", "upload"}, step) {
 				return nil, fmt.Errorf("unknown build step %q", step)
 			}
 			ensure(step)

@@ -37,6 +37,7 @@ func TestWriteArtifacts(t *testing.T) {
 		"zip=\n" +
 		"dmg=" + filepath.Join(cwd, "dist", "MyApp.dmg") + "\n" +
 		"pkg=\n" +
+		"checksums=\n" +
 		"dmg-url=https://example.com/MyApp.dmg\n"
 	if string(data) != want {
 		t.Fatalf("output =\n%s\nwant\n%s", data, want)
@@ -72,6 +73,9 @@ func TestUploadOverlay(t *testing.T) {
 	if u.URL != "https://example.com/${file.name}" || u.Headers["Authorization"] != "Bearer literal-token" || u.Headers["X-Channel"] != "beta" || strings.Join(u.Artifacts, ",") != "zip,dmg" {
 		t.Fatalf("upload = %+v", u)
 	}
+	if p := run("--checksums"); p.Checksums == nil {
+		t.Fatal("--checksums did not turn checksums on")
+	}
 	if p := run("--no-upload"); p.Upload != nil {
 		t.Fatal("--no-upload kept an endpoint")
 	}
@@ -106,6 +110,9 @@ func TestBuildStepsFollowFlags(t *testing.T) {
 	}
 	if got := steps("--zip", "--upload-url", "https://example.com/${file.name}", "dmg"); got != "dmg zip upload" {
 		t.Fatalf("flags = %q", got)
+	}
+	if got := steps("--checksums", "dmg"); got != "dmg checksums" {
+		t.Fatalf("--checksums = %q", got)
 	}
 	if got := steps("--upload-url", "https://example.com/", "--no-upload", "pkg"); got != "pkg" {
 		t.Fatalf("--no-upload = %q", got)

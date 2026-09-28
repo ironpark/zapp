@@ -92,10 +92,11 @@ jobs:
           sign: false
           notarize: false
           zip: true
+          checksums: true
           upload-url: http://127.0.0.1:8765/releases/${file.name}?sig=hidden
           upload-headers: |
             Authorization: Bearer test-token
-          upload-artifacts: zip dmg
+          upload-artifacts: zip dmg checksums
           args: |
             --title=Demo App
       - name: Check the outputs
@@ -111,4 +112,13 @@ jobs:
           test -z "${{ steps.zapp.outputs.pkg-url }}"
           cmp "${{ steps.zapp.outputs.zip }}" "$RUNNER_TEMP/received/Demo.zip"
           cmp "${{ steps.zapp.outputs.dmg }}" "$RUNNER_TEMP/received/Demo App.dmg"
+          test "${{ steps.zapp.outputs.checksums-url }}" = http://127.0.0.1:8765/releases/SHA256SUMS
+          cmp "${{ steps.zapp.outputs.checksums }}" "$RUNNER_TEMP/received/SHA256SUMS"
+          # Every artifact built is listed, beside it, by its digest.
+          (cd "$(dirname "${{ steps.zapp.outputs.checksums }}")" && "$PY" -c 'import hashlib
+          lines = open("SHA256SUMS").read().splitlines()
+          assert len(lines) == 3, lines
+          for line in lines:
+              digest, name = line.split("  ", 1)
+              assert hashlib.sha256(open(name, "rb").read()).hexdigest() == digest, name')
           "$PY" -c 'import sys, zipfile; assert "Demo.app/Contents/Info.plist" in zipfile.ZipFile(sys.argv[1]).namelist()' "${{ steps.zapp.outputs.zip }}"

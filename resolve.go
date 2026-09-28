@@ -174,6 +174,10 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		}
 		pl.Zip = &ZipSpec{Output: c.Out}
 	}
+	if c := q.Checksums; c != nil {
+		c.Out = output(c.Out, "SHA256SUMS", "")
+		pl.Checksums = &ChecksumsSpec{Output: c.Out}
+	}
 	for i := range q.Upload {
 		u := &q.Upload[i]
 		// Normalized so `config show` states what will be sent.

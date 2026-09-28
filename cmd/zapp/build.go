@@ -39,8 +39,8 @@ func buildFlags() []cli.Flag {
 	return out
 }
 func buildCommand() *cli.Command {
-	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg= and pkg= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
-	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|zip|dmg|pkg|upload ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
+	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg=, pkg= and checksums= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
+	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|zip|dmg|pkg|checksums|upload ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
 		p, err := loadProject(c, "build")
 		if err != nil {
 			return err
@@ -63,8 +63,8 @@ func buildCommand() *cli.Command {
 	}}
 }
 
-// buildSteps are the steps named on the command line. Asking for a ZIP or an
-// upload endpoint alongside them runs those steps too, as the project's own
+// buildSteps are the steps named on the command line. Asking for a ZIP,
+// checksums or an upload endpoint alongside them runs those steps too, as the project's own
 // sections would with no steps named. p is the project with the command line
 // applied, so --zip=false and --no-upload have already had their say.
 func buildSteps(c *cli.Command, p *zapp.Project) []zapp.Step {
@@ -75,8 +75,10 @@ func buildSteps(c *cli.Command, p *zapp.Project) []zapp.Step {
 	if len(steps) == 0 {
 		return nil
 	}
-	if zip, _, _ := flagBool(c, "zip"); zip && !slices.Contains(steps, zapp.StepZip) {
-		steps = append(steps, zapp.StepZip)
+	for _, step := range []zapp.Step{zapp.StepZip, zapp.StepChecksums} {
+		if on, _, _ := flagBool(c, string(step)); on && !slices.Contains(steps, step) {
+			steps = append(steps, step)
+		}
 	}
 	if url, _ := flagValue(c, "upload-url"); url != "" && len(p.Upload) > 0 && !slices.Contains(steps, zapp.StepUpload) {
 		steps = append(steps, zapp.StepUpload)
@@ -98,7 +100,7 @@ func writeArtifacts(file string, a zapp.Artifacts) error {
 			urls += u.Artifact + "-url=" + u.URL + "\n"
 		}
 	}
-	for _, artifact := range [][2]string{{"app", a.App}, {"zip", a.Zip}, {"dmg", a.DMG}, {"pkg", a.PKG}} {
+	for _, artifact := range [][2]string{{"app", a.App}, {"zip", a.Zip}, {"dmg", a.DMG}, {"pkg", a.PKG}, {"checksums", a.Checksums}} {
 		path := artifact[1]
 		if path != "" {
 			abs, err := filepath.Abs(path)

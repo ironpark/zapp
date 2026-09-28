@@ -1,12 +1,15 @@
 # Distributing and uploading
 
-A project can finish a build by archiving the notarized app as a ZIP and
-sending the artifacts to an HTTP endpoint: your own server, a presigned S3 or
+A project can finish a build by archiving the notarized app as a ZIP, listing
+the checksums of what it built, and sending the artifacts to an HTTP endpoint: your own server, a presigned S3 or
 R2 URL, or any service that accepts a PUT or a multipart POST.
 
 ```yaml
 zip:
   out: dist/${app.name}-${app.version}.zip   # default: <out>/<app name>.zip
+
+checksums:
+  out: dist/SHA256SUMS            # default: <out>/SHA256SUMS
 
 upload:
   - url: https://releases.example.com/${app.name}/${app.version}/${file.name}
@@ -21,7 +24,7 @@ upload:
 
 ```
 dep → sign app → [zip: notarize app → staple → archive] → DMG → PKG
-    → sign installers → notarize installers → [upload]
+    → sign installers → notarize installers → [checksums] → [upload]
 ```
 
 With a `zip` section and `staple: true`, the app is notarized and stapled
@@ -34,6 +37,18 @@ The archive keeps Unix permissions and stores symbolic links as links, as
 not break the app's code signature. Build the ZIP on macOS or Linux when the
 app came from a macOS build: Windows file systems do not keep the executable
 bit.
+
+## Checksums
+
+`checksums` writes the SHA-256 of the ZIP, DMG and PKG the build made, one
+line per file by name, as `shasum -a 256` prints them. They are taken last,
+from the stapled artifacts people download. Check a download with:
+
+```sh
+shasum -a 256 -c SHA256SUMS --ignore-missing
+```
+
+Uploads send the list with the artifacts, as `checksums`.
 
 ## Uploads
 
@@ -61,7 +76,7 @@ keep their signatures. Logs and outputs leave them out as well.
 
 ```sh
 zapp build                    # runs zip and upload when the project has them
-zapp build dmg zip upload     # choose the steps
+zapp build dmg zip checksums upload   # choose the steps
 zapp build --no-upload        # everything but the upload
 zapp build --zip --upload-url 'https://example.com/${file.name}' \
   --upload-header "Authorization: Bearer $TOKEN" dmg
@@ -70,19 +85,21 @@ zapp build --zip --upload-url 'https://example.com/${file.name}' \
 | Flag | Environment | Meaning |
 | --- | --- | --- |
 | `--zip` | `ZAPP_ZIP` | Archive the app (`--zip=false` skips the project's `zip`) |
+| `--checksums` | `ZAPP_CHECKSUMS` | List the artifacts' SHA-256 (`--checksums=false` skips the project's `checksums`) |
 | `--upload-url` | `ZAPP_UPLOAD_URL` | Adds an endpoint to the project's |
 | `--upload-method` | `ZAPP_UPLOAD_METHOD` | `PUT` or `POST` |
 | `--upload-field` | `ZAPP_UPLOAD_FIELD` | Form field of a POST |
 | `--upload-header` | `ZAPP_UPLOAD_HEADER` | `"Name: value"`, repeatable; the variable holds one per line |
-| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg` |
+| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg`, `checksums` |
 | `--no-upload` | `ZAPP_NO_UPLOAD` | Skip every upload |
 
 Headers given on the command line or in the environment are runtime values,
-so they may be literal. When steps are named, `--zip` and `--upload-url` add
-their steps to them.
+so they may be literal. When steps are named, `--zip`, `--checksums` and
+`--upload-url` add their steps to them.
 
-`--artifacts FILE` writes `zip=` next to the other paths, and the URL each
-artifact was uploaded to as `zip-url=`, `dmg-url=` and `pkg-url=`.
+`--artifacts FILE` writes `zip=` and `checksums=` next to the other paths, and
+the URL each artifact was uploaded to as `zip-url=`, `dmg-url=`, `pkg-url=` and
+`checksums-url=`.
 
 `zapp upload` sends existing files with the same flags:
 

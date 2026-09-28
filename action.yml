@@ -86,6 +86,11 @@ inputs:
       "true" archives the app as a ZIP once it is signed, notarized and
       stapled; "false" skips the project's zip section.
     required: false
+  checksums:
+    description: >-
+      "true" writes a SHA256SUMS file for the ZIP, DMG and PKG built;
+      "false" skips the project's checksums section.
+    required: false
   upload-url:
     description: >-
       Endpoint to send the artifacts to, in addition to the project's upload
@@ -101,7 +106,7 @@ inputs:
     description: 'Headers sent with each upload, one "Name: value" per line, such as "Authorization: Bearer" and a token from a secret.'
     required: false
   upload-artifacts:
-    description: Artifacts to send to upload-url, from zip, dmg and pkg, separated by spaces. Default every artifact built.
+    description: Artifacts to send to upload-url, from zip, dmg, pkg and checksums, separated by spaces. Default every artifact built.
     required: false
   upload:
     description: '"false" skips every upload, the project''s included.'
@@ -129,6 +134,9 @@ outputs:
   zip:
     description: Absolute path of the app ZIP, if one was built.
     value: ${{ steps.build.outputs.zip }}
+  checksums:
+    description: Absolute path of the checksum list, if one was written.
+    value: ${{ steps.build.outputs.checksums }}
   zip-url:
     description: Where the ZIP was uploaded, without the query string.
     value: ${{ steps.build.outputs.zip-url }}
@@ -138,6 +146,9 @@ outputs:
   pkg-url:
     description: Where the PKG was uploaded, without the query string.
     value: ${{ steps.build.outputs.pkg-url }}
+  checksums-url:
+    description: Where the checksum list was uploaded, without the query string.
+    value: ${{ steps.build.outputs.checksums-url }}
   version:
     description: The zapp version used.
     value: ${{ steps.setup.outputs.version }}
@@ -175,6 +186,7 @@ runs:
         IN_APP_PASSWORD: ${{ inputs.app-password }}
         IN_TEAM_ID: ${{ inputs.team-id }}
         IN_ZIP: ${{ inputs.zip }}
+        IN_CHECKSUMS: ${{ inputs.checksums }}
         IN_UPLOAD: ${{ inputs.upload }}
         IN_UPLOAD_URL: ${{ inputs.upload-url }}
         IN_UPLOAD_METHOD: ${{ inputs.upload-method }}

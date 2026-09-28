@@ -205,15 +205,16 @@ notarize:
 
 ### ZIP 배포와 업로드
 
-`zip:`은 서명·공증·staple을 마친 앱을 DMG·PKG보다 먼저 압축하므로, DMG·PKG 안의 앱도 staple된 상태가 됩니다. `upload:`는 빌드가 끝나면 결과물을 HTTP 엔드포인트로 보냅니다.
+`zip:`은 서명·공증·staple을 마친 앱을 DMG·PKG보다 먼저 압축하므로, DMG·PKG 안의 앱도 staple된 상태가 됩니다. `checksums:`는 ZIP·DMG·PKG의 `SHA256SUMS` 파일을 만듭니다. `upload:`는 빌드가 끝나면 결과물을 HTTP 엔드포인트로 보냅니다.
 
 ```yaml
 zip:
+checksums:
 upload:
   - url: https://releases.example.com/${app.version}/${file.name}
     headers:
       Authorization: Bearer ${env:RELEASE_TOKEN}
-    artifacts: [zip, dmg]
+    artifacts: [zip, dmg, checksums]
 ```
 
 인증 헤더는 `${env:…}`로만 지정할 수 있습니다. 한 번만 업로드를 건너뛰려면 `--no-upload`를 쓰세요. 자세한 내용은 [배포와 업로드](docs/distribution.md)(영문)를 참고하세요.

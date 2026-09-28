@@ -204,15 +204,16 @@ See [signing and notarization](docs/signing.md) for platform-specific certificat
 
 ### Distribute a ZIP and upload
 
-`zip:` archives the app once it is signed, notarized and stapled, before the DMG and PKG are built, so they carry the stapled app too. `upload:` sends the artifacts to HTTP endpoints when the build ends.
+`zip:` archives the app once it is signed, notarized and stapled, before the DMG and PKG are built, so they carry the stapled app too. `checksums:` writes a `SHA256SUMS` file for the ZIP, DMG and PKG. `upload:` sends the artifacts to HTTP endpoints when the build ends.
 
 ```yaml
 zip:
+checksums:
 upload:
   - url: https://releases.example.com/${app.version}/${file.name}
     headers:
       Authorization: Bearer ${env:RELEASE_TOKEN}
-    artifacts: [zip, dmg]
+    artifacts: [zip, dmg, checksums]
 ```
 
 Credential headers must come from `${env:…}`. Skip uploading for one run with `--no-upload`. See [distributing and uploading](docs/distribution.md).

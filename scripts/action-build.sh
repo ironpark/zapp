@@ -28,6 +28,7 @@ set -euo pipefail
 : "${IN_TEAM_ID:=}"
 : "${IN_ARGS:=}"
 : "${IN_ZIP:=}"
+: "${IN_CHECKSUMS:=}"
 : "${IN_UPLOAD:=}"
 : "${IN_UPLOAD_URL:=}"
 : "${IN_UPLOAD_METHOD:=}"
@@ -105,6 +106,7 @@ elif [[ -n $IN_API_KEY_ID || -n $IN_API_ISSUER_ID || -n $IN_API_PRIVATE_KEY ]]; 
     "{\"issuer_id\":\"$IN_API_ISSUER_ID\",\"key_id\":\"$IN_API_KEY_ID\",\"private_key\":\"$key\"}"
 fi
 setting ZIP "$IN_ZIP" zip
+setting CHECKSUMS "$IN_CHECKSUMS" checksums
 bool UPLOAD "$IN_UPLOAD" upload
 set_env ZAPP_UPLOAD_URL "$IN_UPLOAD_URL"
 set_env ZAPP_UPLOAD_METHOD "$IN_UPLOAD_METHOD"
@@ -129,8 +131,8 @@ if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $help != *--upload-url* ]]; then
   echo "::error::zip and upload need zapp 1.2.0 or later" >&2
   exit 1
 fi
-if [[ -n $IN_ENTITLEMENTS && $help != *--entitlements* ]]; then
-  echo "::error::entitlements need zapp 1.3.0 or later" >&2
+if [[ -n $IN_ENTITLEMENTS$IN_CHECKSUMS && $help != *--checksums* ]]; then
+  echo "::error::entitlements and checksums need zapp 1.3.0 or later" >&2
   exit 1
 fi
 

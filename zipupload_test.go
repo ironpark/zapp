@@ -2,6 +2,7 @@ package zapp
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,7 @@ func TestZipAndUploadPipeline(t *testing.T) {
 	dir := t.TempDir()
 	srv, uploaded := uploadServer(t)
 	t.Setenv("ZAPP_TEST_TOKEN", "secret")
-	config := "version: 1\napp: Demo.app\nout: out\nsign: {}\nnotarize:\n  staple: true\ndmg: {}\nzip:\nupload:\n  - url: " + srv.URL + "/${app.version}/${file.name}?sig=hidden\n    headers:\n      Authorization: Bearer ${env:ZAPP_TEST_TOKEN}\n"
+	config := "version: 1\napp: Demo.app\nout: out\nsign: {}\nnotarize:\n  staple: true\ndmg: {}\nzip:\nchecksums:\nupload:\n  - url: " + srv.URL + "/${app.version}/${file.name}?sig=hidden\n    headers:\n      Authorization: Bearer ${env:ZAPP_TEST_TOKEN}\n"
 	syntheticApp(t, dir)
 	file := filepath.Join(dir, ".zapp.yaml")
 	if err := os.WriteFile(file, []byte(config), 0o644); err != nil {
@@ -61,8 +62,7 @@ func TestZipAndUploadPipeline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "sign:.app,submit:.zip,staple:.app,sign:.dmg,submit:.dmg,staple:.dmg"
-	if got := strings.Join(b.events, ","); got != want {
+	if got, want := strings.Join(b.events, ","), "sign:.app,submit:.zip,staple:.app,sign:.dmg,submit:.dmg,staple:.dmg"; got != want {
 		t.Fatalf("pipeline = %s; want %s", got, want)
 	}
 	if a.Zip != filepath.Join(pl.project.Out, "Demo.zip") {
@@ -71,10 +71,26 @@ func TestZipAndUploadPipeline(t *testing.T) {
 	if _, err := os.Stat(a.Zip); err != nil {
 		t.Fatal(err)
 	}
-	if got := uploaded(); !slices.Equal(got, []string{"/2.3/Demo.zip", "/2.3/Demo.dmg"}) {
+	if got := uploaded(); !slices.Equal(got, []string{"/2.3/Demo.zip", "/2.3/Demo.dmg", "/2.3/SHA256SUMS"}) {
 		t.Fatalf("uploaded %v", got)
 	}
-	if len(a.Uploads) != 2 || a.Uploads[0].Artifact != "zip" || a.Uploads[0].URL != srv.URL+"/2.3/Demo.zip" {
+	// The checksums are of the final, stapled artifacts.
+	sums, err := os.ReadFile(a.Checksums)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []string
+	for _, path := range []string{a.Zip, a.DMG} {
+		sum, err := sha256File(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want = append(want, fmt.Sprintf("%x  %s\n", sum, filepath.Base(path)))
+	}
+	if string(sums) != strings.Join(want, "") {
+		t.Fatalf("checksums =\n%s", sums)
+	}
+	if len(a.Uploads) != 3 || a.Uploads[0].Artifact != "zip" || a.Uploads[0].URL != srv.URL+"/2.3/Demo.zip" {
 		t.Fatalf("uploads = %+v", a.Uploads)
 	}
 
@@ -130,6 +146,13 @@ func TestUploadSelection(t *testing.T) {
 	}
 	if _, err := pl.Build(t.Context(), StepUpload); !errors.As(err, &se) || se.Step != StepUpload {
 		t.Fatalf("upload without artifacts: %v", err)
+	}
+	p.Checksums = &ChecksumsConfig{}
+	if pl, err = p.Resolve(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pl.Build(t.Context(), StepChecksums); !errors.As(err, &se) || se.Step != StepChecksums {
+		t.Fatalf("checksums without artifacts: %v", err)
 	}
 }
 

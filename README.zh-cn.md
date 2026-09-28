@@ -189,15 +189,16 @@ notarize:
 
 ### 分发 ZIP 与上传
 
-`zip:` 会在构建 DMG 和 PKG 之前压缩已签名、公证并附加票据的应用，因此 DMG 和 PKG 中的应用同样已附加票据。`upload:` 在构建结束时将产物发送到 HTTP 端点。
+`zip:` 会在构建 DMG 和 PKG 之前压缩已签名、公证并附加票据的应用，因此 DMG 和 PKG 中的应用同样已附加票据。`checksums:` 为 ZIP、DMG 和 PKG 生成 `SHA256SUMS` 文件。`upload:` 在构建结束时将产物发送到 HTTP 端点。
 
 ```yaml
 zip:
+checksums:
 upload:
   - url: https://releases.example.com/${app.version}/${file.name}
     headers:
       Authorization: Bearer ${env:RELEASE_TOKEN}
-    artifacts: [zip, dmg]
+    artifacts: [zip, dmg, checksums]
 ```
 
 凭据类请求头只能通过 `${env:…}` 指定。单次跳过上传可使用 `--no-upload`。详见 [分发与上传](docs/distribution.md)（英文）。

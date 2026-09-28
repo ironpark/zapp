@@ -23,12 +23,13 @@ func endpointFlags() []cli.Flag {
 	}
 }
 
-// distributionFlags choose the build's zip and upload steps.
+// distributionFlags choose the build's zip, checksums and upload steps.
 func distributionFlags() []cli.Flag {
 	return append([]cli.Flag{
 		&cli.BoolFlag{Name: "zip", Usage: "Archive the notarized app as a ZIP (--zip=false skips it)"},
+		&cli.BoolFlag{Name: "checksums", Usage: "List the SHA-256 of the ZIP, DMG and PKG built (--checksums=false skips it)"},
 		&cli.BoolFlag{Name: "no-upload", Usage: "Skip uploading"},
-		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url: zip, dmg, pkg (default: all built)"},
+		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url: zip, dmg, pkg, checksums (default: all built)"},
 	}, endpointFlags()...)
 }
 
@@ -74,16 +75,13 @@ func endpoint(c *cli.Command) (e zapp.UploadConfig, err error) {
 }
 
 // overlayUpload adds the endpoint given on the command line to the project's
-// and applies --zip and --no-upload.
+// and applies --zip, --checksums and --no-upload.
 func overlayUpload(c *cli.Command, p *zapp.Project) error {
-	if b, ok, err := flagBool(c, "zip"); err != nil {
+	if err := toggle(c, "zip", &p.Zip); err != nil {
 		return err
-	} else if ok {
-		if !b {
-			p.Zip = nil
-		} else if p.Zip == nil {
-			p.Zip = &zapp.ZipConfig{}
-		}
+	}
+	if err := toggle(c, "checksums", &p.Checksums); err != nil {
+		return err
 	}
 	e, err := endpoint(c)
 	if err != nil {
@@ -100,6 +98,22 @@ func overlayUpload(c *cli.Command, p *zapp.Project) error {
 		return err
 	} else if b {
 		p.Upload = nil
+	}
+	return nil
+}
+
+// toggle applies a boolean flag that turns a section on, with its defaults,
+// or off.
+func toggle[T any](c *cli.Command, flag string, section **T) error {
+	b, ok, err := flagBool(c, flag)
+	switch {
+	case err != nil:
+		return err
+	case !ok:
+	case !b:
+		*section = nil
+	case *section == nil:
+		*section = new(T)
 	}
 	return nil
 }

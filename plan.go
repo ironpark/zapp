@@ -23,6 +23,11 @@ type ZipSpec struct {
 	Output string
 }
 
+// ChecksumsSpec is where the checksum list is written.
+type ChecksumsSpec struct {
+	Output string
+}
+
 type Plan struct {
 	signBackend, notaryBackend signing.Backend
 	App                        string
@@ -30,6 +35,7 @@ type Plan struct {
 	PKG                        *PKGSpec
 	Dep                        *dep.Config
 	Zip                        *ZipSpec
+	Checksums                  *ChecksumsSpec
 	Uploads                    []UploadConfig
 	// Credential field names differ from method names because Go shares their namespace.
 	SignCredentials     *signing.Credentials
