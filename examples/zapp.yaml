@@ -44,6 +44,9 @@ dmg:
 # zip:
 #   out: ../dist/${app.name}-${app.version}.zip
 # checksums:                      # SHA256SUMS for the ZIP, DMG and PKG
+# appcast:                        # Sparkle feed; key from ZAPP_SPARKLE_KEY
+#   url: https://releases.example.com/${app.version}/${file.name}
+#   feed: https://releases.example.com/appcast.xml
 # upload:
 #   - url: https://releases.example.com/${app.version}/${file.name}
 #     method: PUT                 # or POST, as a multipart form field

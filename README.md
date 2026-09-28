@@ -204,7 +204,7 @@ See [signing and notarization](docs/signing.md) for platform-specific certificat
 
 ### Distribute a ZIP and upload
 
-`zip:` archives the app once it is signed, notarized and stapled, before the DMG and PKG are built, so they carry the stapled app too. `checksums:` writes a `SHA256SUMS` file for the ZIP, DMG and PKG. `upload:` sends the artifacts to HTTP endpoints when the build ends.
+`zip:` archives the app once it is signed, notarized and stapled, before the DMG and PKG are built, so they carry the stapled app too. `checksums:` writes a `SHA256SUMS` file for the ZIP, DMG and PKG, and `appcast:` adds the release to a Sparkle update feed, signed with `ZAPP_SPARKLE_KEY`. `upload:` sends the artifacts to HTTP endpoints when the build ends.
 
 ```yaml
 zip:

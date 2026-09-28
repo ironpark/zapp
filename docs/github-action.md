@@ -38,12 +38,13 @@ empty input leaves the project's value alone.
 | `sign` / `notarize` | `false` skips the step; `true` runs it even if the project does not enable it |
 | `staple` | `true` or `false`, overriding the project |
 | `zip` | `true` archives the notarized, stapled app as a ZIP; `false` skips the project's `zip` |
+| `appcast` | `false` skips the project's Sparkle `appcast`; `true` runs it with named `steps` (zapp 1.3.0+) |
 | `checksums` | `true` writes `SHA256SUMS` for the ZIP, DMG and PKG; `false` skips the project's `checksums` (zapp 1.3.0+) |
 | `upload-url` | Endpoint to send artifacts to, added to the project's `upload`; `${file.name}` is each file's name |
 | `upload-method`, `upload-field` | `PUT` (default) or `POST`, and the form field of a POST |
 | `upload-headers` | Headers sent with each upload, one `Name: value` per line |
 | `github-release` | Tag of a GitHub release to add the artifacts to, created if missing; `github-token` needs `contents: write` (zapp 1.3.0+) |
-| `upload-artifacts` | Artifacts to send to `upload-url` and `github-release`: `zip`, `dmg`, `pkg`, `checksums`, separated by spaces |
+| `upload-artifacts` | Artifacts to send to `upload-url` and `github-release`: `zip`, `dmg`, `pkg`, `checksums`, `appcast`, separated by spaces |
 | `upload` | `false` skips every upload |
 | `args` | Further `zapp build` options, one per line, such as `--title=My App` |
 | `version` | zapp release to use, such as `1.2.0` or `latest`; `local` uses a `zapp` already on `PATH` |
@@ -64,6 +65,7 @@ to a private temporary directory deleted when the step ends.
 | `api-key` | App Store Connect API key JSON from `rcodesign encode-app-store-connect-api-key` | All |
 | `api-key-id`, `api-issuer-id`, `api-private-key` | The same key as its three parts, the last being the `AuthKey_*.p8` contents | All |
 | `apple-id`, `app-password`, `team-id` | Notarize with an Apple ID and app-specific password | macOS |
+| `sparkle-key` | Sparkle's private EdDSA key from `generate_keys -x`, to sign the project's appcast | All |
 
 An App Store Connect API key is the one notarization credential every runner
 accepts. Create a Team Key with the Developer role under **Users and Access →
@@ -80,7 +82,8 @@ Integrations → App Store Connect API**, and keep its issuer ID, key ID and
 | `pkg` | Absolute path of the PKG, empty if none was built |
 | `zip` | Absolute path of the app ZIP, empty if none was built |
 | `checksums` | Absolute path of `SHA256SUMS`, empty if none was written |
-| `zip-url`, `dmg-url`, `pkg-url`, `checksums-url` | Where each artifact was uploaded, without the query string |
+| `appcast` | Absolute path of the Sparkle appcast, empty if none was written |
+| `zip-url`, `dmg-url`, `pkg-url`, `checksums-url`, `appcast-url` | Where each artifact was uploaded, without the query string |
 | `version` | The zapp version used |
 
 On Windows the paths use forward slashes (`D:/a/project/MyApp.dmg`), which bash
@@ -174,7 +177,7 @@ jobs:
 ```
 
 See [distributing and uploading](distribution.md) for the project's `zip`,
-`checksums` and `upload` sections.
+`checksums`, `appcast` and `upload` sections.
 
 Install zapp only, and run its commands directly:
 

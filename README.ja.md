@@ -189,7 +189,7 @@ notarize:
 
 ### ZIP の配布とアップロード
 
-`zip:` は署名・公証・ステープル済みのアプリを DMG・PKG より先に圧縮するため、DMG・PKG 内のアプリもステープル済みになります。`checksums:` は ZIP・DMG・PKG の `SHA256SUMS` ファイルを作成します。`upload:` はビルドの最後に成果物を HTTP エンドポイントへ送信します。
+`zip:` は署名・公証・ステープル済みのアプリを DMG・PKG より先に圧縮するため、DMG・PKG 内のアプリもステープル済みになります。`checksums:` は ZIP・DMG・PKG の `SHA256SUMS` ファイルを作成し、`appcast:` は `ZAPP_SPARKLE_KEY` で署名して Sparkle のアップデートフィードにリリースを追加します。`upload:` はビルドの最後に成果物を HTTP エンドポイントへ送信します。
 
 ```yaml
 zip:

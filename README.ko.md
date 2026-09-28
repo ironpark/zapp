@@ -205,7 +205,7 @@ notarize:
 
 ### ZIP 배포와 업로드
 
-`zip:`은 서명·공증·staple을 마친 앱을 DMG·PKG보다 먼저 압축하므로, DMG·PKG 안의 앱도 staple된 상태가 됩니다. `checksums:`는 ZIP·DMG·PKG의 `SHA256SUMS` 파일을 만듭니다. `upload:`는 빌드가 끝나면 결과물을 HTTP 엔드포인트로 보냅니다.
+`zip:`은 서명·공증·staple을 마친 앱을 DMG·PKG보다 먼저 압축하므로, DMG·PKG 안의 앱도 staple된 상태가 됩니다. `checksums:`는 ZIP·DMG·PKG의 `SHA256SUMS` 파일을 만들고, `appcast:`는 `ZAPP_SPARKLE_KEY`로 서명해 Sparkle 업데이트 피드에 릴리즈를 추가합니다. `upload:`는 빌드가 끝나면 결과물을 HTTP 엔드포인트로 보냅니다.
 
 ```yaml
 zip:

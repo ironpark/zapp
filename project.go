@@ -28,6 +28,7 @@ type Project struct {
 	PKG       *PKGConfig       `json:"pkg,omitempty"`
 	Zip       *ZipConfig       `json:"zip,omitempty"`
 	Checksums *ChecksumsConfig `json:"checksums,omitempty"`
+	Appcast   *AppcastConfig   `json:"appcast,omitempty"`
 	Upload    []UploadConfig   `json:"upload,omitempty"`
 	dir       string
 	legacy    bool
@@ -65,6 +66,23 @@ type ZipConfig struct {
 // made, in the form `shasum -a 256 -c` and `sha256sum -c` check.
 type ChecksumsConfig struct {
 	Out string `json:"out,omitempty"`
+}
+
+// AppcastConfig publishes the build's ZIP or DMG in a Sparkle appcast,
+// signed with the app's EdDSA key. The key is read from ZAPP_SPARKLE_KEY or
+// KeyFile, as Sparkle's generate_keys -x exports it, never from the project.
+type AppcastConfig struct {
+	// URL is where the artifact is downloaded from; ${file.name} is its name.
+	URL string `json:"url"`
+	// Artifact is zip, the default, or dmg.
+	Artifact string `json:"artifact,omitempty"`
+	// Feed is the published appcast, a URL or a path, whose releases the new
+	// one joins. Without it an existing Out is extended.
+	Feed         string `json:"feed,omitempty"`
+	Title        string `json:"title,omitempty"`
+	ReleaseNotes string `json:"releaseNotes,omitempty"`
+	KeyFile      string `json:"keyFile,omitempty"`
+	Out          string `json:"out,omitempty"`
 }
 
 // UploadConfig sends built artifacts to an HTTP endpoint, or to a GitHub
@@ -106,7 +124,7 @@ func (u UploadConfig) destination(name string) string {
 }
 
 // UploadArtifacts are the artifacts an upload may name.
-var UploadArtifacts = []string{"zip", "dmg", "pkg", "checksums"}
+var UploadArtifacts = []string{"zip", "dmg", "pkg", "checksums", "appcast"}
 
 // Target is the endpoint u describes.
 func (u UploadConfig) Target() upload.Target {
@@ -320,7 +338,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	p := new(Project)
 	// Without section keys this is the old flat DMG schema.
 	section := false
-	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "checksums", "upload"} {
+	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "checksums", "appcast", "upload"} {
 		if _, ok := keys[k]; ok {
 			section = true
 		}
@@ -384,6 +402,14 @@ func (p *Project) validate() error {
 		}
 		if c.Type == "component" && c.Distribution != nil {
 			return fmt.Errorf("component package cannot have distribution")
+		}
+	}
+	if c := p.Appcast; c != nil {
+		if c.URL == "" {
+			return fmt.Errorf("appcast requires url, where the artifact is downloaded from")
+		}
+		if c.Artifact != "" && c.Artifact != "zip" && c.Artifact != "dmg" {
+			return fmt.Errorf("appcast artifact must be zip or dmg, not %q", c.Artifact)
 		}
 	}
 	for i, u := range p.Upload {
@@ -456,6 +482,10 @@ func (p *Project) Clone() *Project {
 	if p.Checksums != nil {
 		x := *p.Checksums
 		q.Checksums = &x
+	}
+	if p.Appcast != nil {
+		x := *p.Appcast
+		q.Appcast = &x
 	}
 	if p.Upload != nil {
 		q.Upload = slices.Clone(p.Upload)

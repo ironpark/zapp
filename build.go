@@ -36,6 +36,8 @@ const (
 	StepUpload   Step = "upload"
 	// StepChecksums lists the SHA-256 of the archives and installers built.
 	StepChecksums Step = "checksums"
+	// StepAppcast adds the release to a Sparkle appcast.
+	StepAppcast Step = "appcast"
 )
 
 type Artifacts struct {
@@ -44,6 +46,7 @@ type Artifacts struct {
 	PKG       string
 	Zip       string
 	Checksums string
+	Appcast   string
 	Uploads   []Uploaded
 }
 
@@ -227,11 +230,12 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 		selected[StepPKG] = p.PKG != nil
 		selected[StepZip] = p.Zip != nil
 		selected[StepChecksums] = p.Checksums != nil
+		selected[StepAppcast] = p.Appcast != nil
 		selected[StepUpload] = len(p.Uploads) > 0
 	} else {
 		for _, s := range steps {
 			switch s {
-			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepUpload:
+			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepAppcast, StepUpload:
 				selected[s] = true
 			default:
 				return a, stepError(s, fmt.Errorf("unknown build step %q", s))
@@ -252,6 +256,15 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	}
 	if selected[StepChecksums] && p.Checksums == nil {
 		return a, stepError(StepChecksums, fmt.Errorf("checksums section is not configured"))
+	}
+	if selected[StepAppcast] {
+		if p.Appcast == nil {
+			return a, stepError(StepAppcast, fmt.Errorf("appcast section is not configured"))
+		}
+		// A missing or wrong key is found before the build, not after it.
+		if _, err := p.sparkleKey(); err != nil {
+			return a, stepError(StepAppcast, err)
+		}
 	}
 	if selected[StepUpload] && len(p.Uploads) == 0 {
 		return a, stepError(StepUpload, fmt.Errorf("upload section is not configured"))
@@ -333,6 +346,11 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 			return a, err
 		}
 	}
+	if selected[StepAppcast] {
+		if a.Appcast, err = p.WriteAppcast(ctx, a); err != nil {
+			return a, err
+		}
+	}
 	if selected[StepUpload] {
 		if a.Uploads, err = p.Upload(ctx, a); err != nil {
 			return a, err
@@ -404,7 +422,7 @@ func sha256File(path string) ([]byte, error) {
 // nothing at all is an error.
 func (p *Plan) Upload(ctx context.Context, a Artifacts) (sent []Uploaded, err error) {
 	defer func() { err = stepError(StepUpload, err) }()
-	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums}
+	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums, "appcast": a.Appcast}
 	for i, spec := range p.Uploads {
 		names := spec.Artifacts
 		if len(names) == 0 {

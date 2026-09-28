@@ -38,6 +38,7 @@ func TestWriteArtifacts(t *testing.T) {
 		"dmg=" + filepath.Join(cwd, "dist", "MyApp.dmg") + "\n" +
 		"pkg=\n" +
 		"checksums=\n" +
+		"appcast=\n" +
 		"dmg-url=https://example.com/MyApp.dmg\n"
 	if string(data) != want {
 		t.Fatalf("output =\n%s\nwant\n%s", data, want)

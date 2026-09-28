@@ -1,7 +1,8 @@
 # Distributing and uploading
 
 A project can finish a build by archiving the notarized app as a ZIP, listing
-the checksums of what it built, and sending the artifacts to an HTTP endpoint: your own server, a presigned S3 or
+the checksums of what it built, publishing it in a Sparkle appcast, and sending
+the artifacts to an HTTP endpoint or a GitHub release: your own server, a presigned S3 or
 R2 URL, or any service that accepts a PUT or a multipart POST.
 
 ```yaml
@@ -24,7 +25,7 @@ upload:
 
 ```
 dep → sign app → [zip: notarize app → staple → archive] → DMG → PKG
-    → sign installers → notarize installers → [checksums] → [upload]
+    → sign installers → notarize installers → [checksums] → [appcast] → [upload]
 ```
 
 With a `zip` section and `staple: true`, the app is notarized and stapled
@@ -49,6 +50,45 @@ shasum -a 256 -c SHA256SUMS --ignore-missing
 ```
 
 Uploads send the list with the artifacts, as `checksums`.
+
+## Sparkle appcasts
+
+`appcast` adds the build to the feed a [Sparkle](https://sparkle-project.org)
+app checks for updates, signing the download with the app's EdDSA key:
+
+```yaml
+appcast:
+  url: https://dl.example.com/${app.version}/${file.name}   # where the download will be
+  artifact: zip                   # zip (default) or dmg
+  feed: https://example.com/appcast.xml   # the published feed to extend
+  releaseNotes: https://example.com/notes/${app.version}.html
+  out: dist/appcast.xml           # default: <out>/appcast.xml
+upload:
+  - url: https://dl.example.com/${app.version}/${file.name}
+    artifacts: [zip]
+  - url: https://example.com/${file.name}
+    headers:
+      Authorization: Bearer ${env:RELEASE_TOKEN}
+    artifacts: [appcast]
+```
+
+- The release is read from the app's Info.plist: `CFBundleVersion`, which
+  Sparkle compares, `CFBundleShortVersionString` and `LSMinimumSystemVersion`.
+- The private key comes from `ZAPP_SPARKLE_KEY` or a `keyFile`, in the base64
+  form Sparkle's `generate_keys -x` exports; the project cannot hold it. It is
+  checked against the app's `SUPublicEDKey` before anything is built, since an
+  update signed with another key is one the app refuses. The signature is the
+  one Sparkle's `sign_update` makes.
+- The new release goes first. The rest of the feed, a published `feed` URL or
+  path, or else the `out` written last time, is kept as it was, except a
+  release of the same `CFBundleVersion`, which is replaced. A feed URL that
+  answers 404 starts a new appcast.
+- `url` is written into the feed, not checked: upload the artifact there, as
+  above, or name the GitHub release download URL,
+  `https://github.com/OWNER/REPO/releases/download/TAG/${file.name}`.
+- Uploads send the appcast as the `appcast` artifact. Endpoints, and the
+  artifacts within one, are sent in order, so list the appcast after the
+  download it points to, and a failed download upload never publishes it.
 
 ## Uploads
 
@@ -109,6 +149,8 @@ zapp build --zip --upload-url 'https://example.com/${file.name}' \
 | Flag | Environment | Meaning |
 | --- | --- | --- |
 | `--zip` | `ZAPP_ZIP` | Archive the app (`--zip=false` skips the project's `zip`) |
+| `--appcast` | `ZAPP_APPCAST` | `--appcast=false` skips the project's `appcast`; its settings live in the project |
+| — | `ZAPP_SPARKLE_KEY` | Sparkle's private EdDSA key, base64 |
 | `--checksums` | `ZAPP_CHECKSUMS` | List the artifacts' SHA-256 (`--checksums=false` skips the project's `checksums`) |
 | `--upload-url` | `ZAPP_UPLOAD_URL` | Adds an endpoint to the project's |
 | `--upload-method` | `ZAPP_UPLOAD_METHOD` | `PUT` or `POST` |
@@ -116,16 +158,16 @@ zapp build --zip --upload-url 'https://example.com/${file.name}' \
 | `--upload-header` | `ZAPP_UPLOAD_HEADER` | `"Name: value"`, repeatable; the variable holds one per line |
 | `--github-release` | `ZAPP_GITHUB_RELEASE` | Adds a GitHub release, by tag, to the project's uploads |
 | `--github-repo` | `ZAPP_GITHUB_REPO` | Its `owner/name` (default: `$GITHUB_REPOSITORY`) |
-| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg`, `checksums`, for the endpoints above |
+| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg`, `checksums`, `appcast`, for the endpoints above |
 | `--no-upload` | `ZAPP_NO_UPLOAD` | Skip every upload |
 
 Headers given on the command line or in the environment are runtime values,
 so they may be literal. When steps are named, `--zip`, `--checksums`,
-`--upload-url` and `--github-release` add their steps to them.
+`--appcast`, `--upload-url` and `--github-release` add their steps to them.
 
-`--artifacts FILE` writes `zip=` and `checksums=` next to the other paths, and
-the URL each artifact was uploaded to as `zip-url=`, `dmg-url=`, `pkg-url=` and
-`checksums-url=`.
+`--artifacts FILE` writes `zip=`, `checksums=` and `appcast=` next to the other
+paths, and the URL each artifact was uploaded to as `zip-url=`, `dmg-url=`,
+`pkg-url=`, `checksums-url=` and `appcast-url=`.
 
 `zapp upload` sends existing files with the same flags, to an endpoint or a
 release (`zapp upload --github-release v1.2.0 MyApp.zip`):

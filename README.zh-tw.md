@@ -189,7 +189,7 @@ notarize:
 
 ### 發布 ZIP 與上傳
 
-`zip:` 會在建置 DMG 與 PKG 之前壓縮已簽章、公證並附加票據的應用程式，因此 DMG 與 PKG 中的應用程式同樣已附加票據。`checksums:` 為 ZIP、DMG 與 PKG 產生 `SHA256SUMS` 檔案。`upload:` 在建置結束時將產物傳送到 HTTP 端點。
+`zip:` 會在建置 DMG 與 PKG 之前壓縮已簽章、公證並附加票據的應用程式，因此 DMG 與 PKG 中的應用程式同樣已附加票據。`checksums:` 為 ZIP、DMG 與 PKG 產生 `SHA256SUMS` 檔案，`appcast:` 以 `ZAPP_SPARKLE_KEY` 簽署並將版本加入 Sparkle 更新來源。`upload:` 在建置結束時將產物傳送到 HTTP 端點。
 
 ```yaml
 zip:

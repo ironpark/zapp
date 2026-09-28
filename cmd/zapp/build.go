@@ -39,8 +39,8 @@ func buildFlags() []cli.Flag {
 	return out
 }
 func buildCommand() *cli.Command {
-	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg=, pkg= and checksums= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
-	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|zip|dmg|pkg|checksums|upload ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
+	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the artifact paths to this file as app=, zip=, dmg=, pkg=, checksums= and appcast= lines, and upload URLs as zip-url= and so on, e.g. $GITHUB_OUTPUT"})
+	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|zip|dmg|pkg|checksums|appcast|upload ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
 		p, err := loadProject(c, "build")
 		if err != nil {
 			return err
@@ -64,7 +64,7 @@ func buildCommand() *cli.Command {
 }
 
 // buildSteps are the steps named on the command line. Asking for a ZIP,
-// checksums, an upload endpoint or a GitHub release alongside them runs those
+// checksums, an appcast, an upload endpoint or a GitHub release alongside them runs those
 // steps too, as the project's own
 // sections would with no steps named. p is the project with the command line
 // applied, so --zip=false and --no-upload have already had their say.
@@ -76,7 +76,7 @@ func buildSteps(c *cli.Command, p *zapp.Project) []zapp.Step {
 	if len(steps) == 0 {
 		return nil
 	}
-	for _, step := range []zapp.Step{zapp.StepZip, zapp.StepChecksums} {
+	for _, step := range []zapp.Step{zapp.StepZip, zapp.StepChecksums, zapp.StepAppcast} {
 		if on, _, _ := flagBool(c, string(step)); on && !slices.Contains(steps, step) {
 			steps = append(steps, step)
 		}
@@ -103,7 +103,7 @@ func writeArtifacts(file string, a zapp.Artifacts) error {
 			urls += u.Artifact + "-url=" + u.URL + "\n"
 		}
 	}
-	for _, artifact := range [][2]string{{"app", a.App}, {"zip", a.Zip}, {"dmg", a.DMG}, {"pkg", a.PKG}, {"checksums", a.Checksums}} {
+	for _, artifact := range [][2]string{{"app", a.App}, {"zip", a.Zip}, {"dmg", a.DMG}, {"pkg", a.PKG}, {"checksums", a.Checksums}, {"appcast", a.Appcast}} {
 		path := artifact[1]
 		if path != "" {
 			abs, err := filepath.Abs(path)

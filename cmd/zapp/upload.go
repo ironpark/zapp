@@ -24,13 +24,15 @@ func endpointFlags() []cli.Flag {
 	}
 }
 
-// distributionFlags choose the build's zip, checksums and upload steps.
+// distributionFlags choose the build's zip, checksums, appcast and upload
+// steps.
 func distributionFlags() []cli.Flag {
 	return append([]cli.Flag{
 		&cli.BoolFlag{Name: "zip", Usage: "Archive the notarized app as a ZIP (--zip=false skips it)"},
 		&cli.BoolFlag{Name: "checksums", Usage: "List the SHA-256 of the ZIP, DMG and PKG built (--checksums=false skips it)"},
+		&cli.BoolFlag{Name: "appcast", Usage: "Add the release to the project's Sparkle appcast (--appcast=false skips it)"},
 		&cli.BoolFlag{Name: "no-upload", Usage: "Skip uploading"},
-		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url and --github-release: zip, dmg, pkg, checksums (default: all built)"},
+		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url and --github-release: zip, dmg, pkg, checksums, appcast (default: all built)"},
 	}, endpointFlags()...)
 }
 
@@ -87,12 +89,15 @@ func endpoints(c *cli.Command) ([]zapp.UploadConfig, error) {
 }
 
 // overlayUpload adds the endpoints given on the command line to the
-// project's and applies --zip, --checksums and --no-upload.
+// project's and applies --zip, --checksums, --appcast and --no-upload.
 func overlayUpload(c *cli.Command, p *zapp.Project) error {
 	if err := toggle(c, "zip", &p.Zip); err != nil {
 		return err
 	}
 	if err := toggle(c, "checksums", &p.Checksums); err != nil {
+		return err
+	}
+	if err := toggle(c, "appcast", &p.Appcast); err != nil {
 		return err
 	}
 	list, err := endpoints(c)

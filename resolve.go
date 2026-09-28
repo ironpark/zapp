@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/dep"
@@ -147,11 +148,17 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	for i := range q.Upload {
 		q.Upload[i].URL = strings.ReplaceAll(q.Upload[i].URL, upload.FileName, fileName)
 	}
+	if q.Appcast != nil {
+		q.Appcast.URL = strings.ReplaceAll(q.Appcast.URL, upload.FileName, fileName)
+	}
 	if err := expandValue(reflect.ValueOf(q).Elem(), map[string]string{"app": path(app), "app.name": name, "app.version": version}); err != nil {
 		return nil, err
 	}
 	for i := range q.Upload {
 		q.Upload[i].URL = strings.ReplaceAll(q.Upload[i].URL, fileName, upload.FileName)
+	}
+	if q.Appcast != nil {
+		q.Appcast.URL = strings.ReplaceAll(q.Appcast.URL, fileName, upload.FileName)
 	}
 	q.App = path(app)
 	q.Out = path(q.Out)
@@ -178,6 +185,11 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	if c := q.Checksums; c != nil {
 		c.Out = output(c.Out, "SHA256SUMS", "")
 		pl.Checksums = &ChecksumsSpec{Output: c.Out}
+	}
+	if c := q.Appcast; c != nil {
+		if pl.Appcast, err = resolveAppcast(c, q.App, name, output, path, o.clock); err != nil {
+			return nil, err
+		}
 	}
 	for i := range q.Upload {
 		u := &q.Upload[i]
@@ -420,4 +432,41 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		}
 	}
 	return pl, nil
+}
+
+// resolveAppcast fills in c's defaults and reads the release it describes
+// from the app's Info.plist.
+func resolveAppcast(c *AppcastConfig, app, name string, output func(out, stem, ext string) string, path func(string) string, published time.Time) (*AppcastSpec, error) {
+	if app == "" {
+		return nil, fmt.Errorf("appcast requires app")
+	}
+	if c.URL == "" {
+		return nil, fmt.Errorf("appcast requires url, where the artifact is downloaded from")
+	}
+	if err := (upload.Target{URL: c.URL}).Check(); err != nil {
+		return nil, fmt.Errorf("appcast url must be an http or https URL")
+	}
+	info, err := appbundle.Open(app)
+	if err != nil {
+		return nil, fmt.Errorf("appcast: %w", err)
+	}
+	version, err := info.GetString("CFBundleVersion")
+	if err != nil {
+		return nil, fmt.Errorf("appcast: Sparkle compares CFBundleVersion: %w", err)
+	}
+	short, _ := info.GetString("CFBundleShortVersionString")
+	minOS, _ := info.GetString("LSMinimumSystemVersion")
+	publicKey, _ := info.GetString("SUPublicEDKey")
+	c.Artifact = cmp.Or(c.Artifact, "zip")
+	c.Title = cmp.Or(c.Title, name)
+	c.Out = output(c.Out, "appcast", ".xml")
+	c.KeyFile = path(c.KeyFile)
+	if c.Feed != "" && !strings.HasPrefix(c.Feed, "http://") && !strings.HasPrefix(c.Feed, "https://") {
+		c.Feed = path(c.Feed)
+	}
+	if published.IsZero() {
+		published = time.Now()
+	}
+	return &AppcastSpec{Output: c.Out, URL: c.URL, Artifact: c.Artifact, Feed: c.Feed, Title: c.Title, ReleaseNotes: c.ReleaseNotes, KeyFile: c.KeyFile,
+		Version: version, ShortVersion: short, MinimumSystemVersion: minOS, PublicKey: publicKey, Published: published}, nil
 }

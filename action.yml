@@ -91,6 +91,14 @@ inputs:
       "true" writes a SHA256SUMS file for the ZIP, DMG and PKG built;
       "false" skips the project's checksums section.
     required: false
+  appcast:
+    description: >-
+      "false" skips the project's Sparkle appcast; "true" runs it alongside
+      named steps. The appcast itself is configured in the project.
+    required: false
+  sparkle-key:
+    description: Sparkle's private EdDSA key, as generate_keys -x exports it, to sign the appcast with.
+    required: false
   upload-url:
     description: >-
       Endpoint to send the artifacts to, in addition to the project's upload
@@ -106,7 +114,7 @@ inputs:
     description: 'Headers sent with each upload, one "Name: value" per line, such as "Authorization: Bearer" and a token from a secret.'
     required: false
   upload-artifacts:
-    description: Artifacts to send to upload-url and github-release, from zip, dmg, pkg and checksums, separated by spaces. Default every artifact built.
+    description: Artifacts to send to upload-url and github-release, from zip, dmg, pkg, checksums and appcast, separated by spaces. Default every artifact built.
     required: false
   github-release:
     description: >-
@@ -154,6 +162,12 @@ outputs:
   pkg-url:
     description: Where the PKG was uploaded, without the query string.
     value: ${{ steps.build.outputs.pkg-url }}
+  appcast:
+    description: Absolute path of the Sparkle appcast, if one was written.
+    value: ${{ steps.build.outputs.appcast }}
+  appcast-url:
+    description: Where the appcast was uploaded, without the query string.
+    value: ${{ steps.build.outputs.appcast-url }}
   checksums-url:
     description: Where the checksum list was uploaded, without the query string.
     value: ${{ steps.build.outputs.checksums-url }}
@@ -195,6 +209,8 @@ runs:
         IN_TEAM_ID: ${{ inputs.team-id }}
         IN_ZIP: ${{ inputs.zip }}
         IN_CHECKSUMS: ${{ inputs.checksums }}
+        IN_APPCAST: ${{ inputs.appcast }}
+        IN_SPARKLE_KEY: ${{ inputs.sparkle-key }}
         IN_UPLOAD: ${{ inputs.upload }}
         IN_UPLOAD_URL: ${{ inputs.upload-url }}
         IN_UPLOAD_METHOD: ${{ inputs.upload-method }}

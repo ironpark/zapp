@@ -7,6 +7,7 @@ import (
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/ironpark/zapp/pkg/upload"
 	"net/http"
+	"time"
 )
 
 type PKGSpec struct {
@@ -23,6 +24,15 @@ type ZipSpec struct {
 	Output string
 }
 
+// AppcastSpec is a resolved appcast: where it is written, what it publishes
+// and the app release it describes.
+type AppcastSpec struct {
+	Output, URL, Artifact, Feed, Title, ReleaseNotes, KeyFile string
+	// From the app's Info.plist.
+	Version, ShortVersion, MinimumSystemVersion, PublicKey string
+	Published                                              time.Time
+}
+
 // ChecksumsSpec is where the checksum list is written.
 type ChecksumsSpec struct {
 	Output string
@@ -36,6 +46,7 @@ type Plan struct {
 	Dep                        *dep.Config
 	Zip                        *ZipSpec
 	Checksums                  *ChecksumsSpec
+	Appcast                    *AppcastSpec
 	Uploads                    []UploadConfig
 	// Credential field names differ from method names because Go shares their namespace.
 	SignCredentials     *signing.Credentials
