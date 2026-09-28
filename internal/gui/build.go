@@ -65,8 +65,8 @@ func runProjectBuild(ctx context.Context, project *zapp.Project, logger zapp.Log
 	if err := ctx.Err(); err != nil {
 		return zapp.Artifacts{}, err
 	}
-	if project.Dep == nil && project.DMG == nil && project.PKG == nil {
-		return zapp.Artifacts{}, fmt.Errorf("enable DMG, PKG or Dependencies before building")
+	if project.Dep == nil && project.DMG == nil && project.PKG == nil && project.Zip == nil {
+		return zapp.Artifacts{}, fmt.Errorf("enable DMG, PKG, ZIP or Dependencies before building")
 	}
 	plan, err := project.Resolve(zapp.WithLogger(logger))
 	if err != nil {
@@ -133,16 +133,20 @@ drain:
 		case result.err != nil:
 			j.message = result.err.Error()
 		default:
+			a := result.artifacts
 			paths := []string{}
-			for _, path := range []string{result.artifacts.DMG, result.artifacts.PKG} {
+			for _, path := range []string{a.Zip, a.DMG, a.PKG, a.Checksums, a.Appcast} {
 				if path != "" {
 					paths = append(paths, path)
 				}
 			}
 			if len(paths) == 0 {
-				paths = append(paths, result.artifacts.App)
+				paths = append(paths, a.App)
 			}
 			j.message = "Built " + strings.Join(paths, " · ")
+			if len(a.Uploads) > 0 {
+				j.message += fmt.Sprintf(" · uploaded %d", len(a.Uploads))
+			}
 		}
 		g.report(result.err, j.message)
 		if result.err != nil && !errors.Is(result.err, context.Canceled) {

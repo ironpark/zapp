@@ -21,7 +21,8 @@ migrated to the version 1 project format first.
 | PKG | Product/component type, output, identifier, version, install location, scripts, minimum OS and licenses; full-form components and distribution |
 | Dependencies | Library search paths |
 | Signing | Identity, PKCS#12/PEM certificate and password-file path |
-| Notarization | Keychain profile, Apple ID, team ID, API key file and stapling |
+| Notarization | Keychain profile, Apple ID, team ID, API key file, stapling and timeout |
+| Distribution | ZIP archive and checksums with their outputs; uploads and the Sparkle appcast as YAML |
 
 The header names the app being packaged, read from its Info.plist, with the
 configuration path below it. The project is checked as you edit, without moving
@@ -32,7 +33,7 @@ the first problem.
 
 **Project** shows the app's icon, name, version and bundle identifier, then the
 build steps in the order Build runs them — Dependencies, Signing, DMG, PKG,
-Notarization — each with its state and output path. Click a step to open its tab.
+Notarization, Distribution — each with its state and output path. Click a step to open its tab.
 
 Each step can be enabled or disabled. Disabled sections are omitted from the
 saved project. Their values are retained while toggling within the same editor
@@ -67,7 +68,9 @@ values; build-time `ZAPP_*` option overrides are not copied into the project.
 **Signing** selects Keychain, PKCS#12 or PEM credentials. **Notarization** selects
 Profile, Apple ID or API key credentials. Only the selected method contributes
 credentials to the project; switching methods retains previous input within the
-current session. Keychain/Profile/Apple ID use macOS tools; PKCS#12 and PEM
+current session. The Keychain method lists the keychain's signing identities;
+**Refresh** looks them up again after you import a certificate.
+Keychain/Profile/Apple ID use macOS tools; PKCS#12 and PEM
 certificates and API key JSON work on every host (macOS imports certificates
 into a temporary keychain).
 
@@ -132,7 +135,7 @@ images are limited to 8192 pixels per side and 32 million pixels in total.
 - **Esc** cancels the current field edit.
 - **Ctrl/Cmd+S** saves all tabs together. **Ctrl/Cmd+B** builds and
   **Ctrl/Cmd+Shift+V** validates.
-- **Ctrl/Cmd+1–6** switches tabs. **Tab** moves through tabs, fields and actions. Choice fields open a dropdown with a click, Enter or Space. Click an option or use Up/Down and Enter to select; Esc or an outside
+- **Ctrl/Cmd+1–7** switches tabs. **Tab** moves through tabs, fields and actions. Choice fields open a dropdown with a click, Enter or Space. Click an option or use Up/Down and Enter to select; Esc or an outside
   click dismisses the list without changing the value.
 - With an icon selected and no text field active, **arrow keys** move it one
   pixel; **Shift+arrow** moves it ten pixels.

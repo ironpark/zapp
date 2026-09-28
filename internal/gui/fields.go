@@ -146,7 +146,7 @@ func (g *editor) refreshDerived() {
 
 func (g *editor) projectFields() []field {
 	p := g.s.Project
-	outDir := pathField("Output directory", &p.Out, "Directory used by DMG and PKG", pickFolder)
+	outDir := pathField("Output directory", &p.Out, "Directory used by DMG, PKG, ZIP and checksums", pickFolder)
 	outDir.mayNotExist = true
 	return []field{
 		pathField("App bundle", &p.App, "Path to MyApp.app; relative to the configuration", pickApp),
@@ -380,11 +380,11 @@ func (g *editor) notarizeFields() []field {
 	case 1:
 		password := stringField("App-specific password", &g.s.Project.Notarize.Password, "Session only · never saved to the project")
 		password.Secret = true
-		return []field{fields[1], fields[2], password, fields[4]}
+		return []field{fields[1], fields[2], password, fields[4], fields[5]}
 	case 2:
-		return []field{fields[3], fields[4]}
+		return []field{fields[3], fields[4], fields[5]}
 	default:
-		return []field{fields[0], fields[4]}
+		return []field{fields[0], fields[4], fields[5]}
 	}
 }
 
@@ -423,6 +423,7 @@ func (g *editor) notaryAllFields() []field {
 		stringField("Team ID", &c.TeamID, "Developer team identifier"),
 		pathField("API key file", &c.APIKeyFile, "App Store Connect API key JSON, as rcodesign encode-app-store-connect-api-key writes it", pickFile),
 		boolField("Staple", &c.Staple, "Attach the notarization ticket after approval"),
+		stringField("Timeout", &c.Timeout, "How long to wait for Apple's verdict, such as 30m or 2h; blank waits "+zapp.DefaultNotarizeTimeout),
 	}
 }
 

@@ -80,7 +80,7 @@ func (r *desktopRenderer) render() error {
 		m := newDesktopModel(g)
 		p := ggui.ProbeBuilder(func() ggui.Widget { return ggui.Provide(ggui.ReducedMotionKey, true, desktopView(m)) }, ggui.Sz(width, 760))
 		p.Setup(func() { uitheme.Bind(m.Dark, editorTheme(true), editorTheme(false)) })
-		for _, name := range []string{"project", "dmg", "pkg", "components", "help", "json", "dependencies", "signing", "notarization", "build", "light", "close"} {
+		for _, name := range []string{"project", "dmg", "pkg", "components", "help", "json", "dependencies", "signing", "notarization", "distribution", "build", "light", "close"} {
 			switch name {
 			case "project":
 				g.switchTab(tabProject)
@@ -104,6 +104,10 @@ func (r *desktopRenderer) render() error {
 				g.signing.identities, g.signing.listed = "Developer ID Application: Example (TEAMID1234)", true
 			case "notarization":
 				g.switchTab(tabNotarize)
+			case "distribution":
+				g.s.Project.Zip = &zapp.ZipConfig{}
+				g.s.Project.Upload = []zapp.UploadConfig{{URL: "https://releases.example.com/${app.version}/${file.name}", Headers: map[string]string{"Authorization": "Bearer ${env:RELEASE_TOKEN}"}, Artifacts: []string{"zip", "dmg"}}, {GitHub: &zapp.GitHubRelease{Tag: "v${app.version}"}}}
+				g.switchTab(tabDistribution)
 			case "build":
 				g.build = &buildJob{finished: true, message: "Built dist/Example.dmg", artifacts: zapp.Artifacts{DMG: "dist/Example.dmg"},
 					log: []string{"Bundling libraries for Example.app", "Signing Example.app", "Creating DMG dist/Example.dmg", "Signing dist/Example.dmg", "Submitting dist/Example.dmg for notarization", "Notarization accepted"}}

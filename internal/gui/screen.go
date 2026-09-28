@@ -27,4 +27,9 @@ var stepHelp = map[int][][2]string{
 		{"WINDOWS & LINUX", "Use the rcodesign API key JSON file. Keychain profiles and Apple ID credentials are macOS-only."},
 		{"STAPLING", "Enable Staple to attach the approved notarization ticket for offline verification."},
 	},
+	tabDistribution: {
+		{"ZIP", "Archives the app once it is signed, notarized and stapled, before the DMG and PKG are built."},
+		{"UPLOADS", "A list of endpoints, each a url or a github release. Credential headers must read the environment, as ${env:RELEASE_TOKEN}."},
+		{"APPCAST", "Adds the build to a Sparkle feed. The signing key comes from ZAPP_SPARKLE_KEY, never the project."},
+	},
 }

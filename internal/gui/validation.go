@@ -302,8 +302,18 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 		return loc, true
 	case strings.HasPrefix(message, "sign:") && g.s.Project.Sign != nil:
 		return at(tabSign, "")
+	case strings.HasPrefix(message, "notarize timeout") && g.s.Project.Notarize != nil:
+		return at(tabNotarize, "Timeout")
 	case strings.HasPrefix(message, "notarize:") && g.s.Project.Notarize != nil:
 		return at(tabNotarize, "")
+	case strings.HasPrefix(message, "upload"):
+		return at(tabDistribution, "Uploads")
+	case strings.HasPrefix(message, "appcast"):
+		return at(tabDistribution, "Sparkle appcast")
+	case strings.HasPrefix(message, "zip"):
+		return at(tabDistribution, "ZIP output")
+	case strings.HasPrefix(message, "checksums"):
+		return at(tabDistribution, "Checksums output")
 	case strings.HasPrefix(message, "dmg") && g.s.Project.DMG != nil:
 		return at(tabDMG, "")
 	}

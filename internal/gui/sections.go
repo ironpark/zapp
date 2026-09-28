@@ -10,6 +10,7 @@ const (
 	tabDep
 	tabSign
 	tabNotarize
+	tabDistribution
 	tabCount
 )
 
@@ -77,6 +78,11 @@ var sections = []section{{
 	fields:      (*editor).notarizeFields,
 	present:     func(p *zapp.Project) bool { return p.Notarize != nil },
 	flip:        func(p, s *zapp.Project) { toggleSection(&p.Notarize, &s.Notarize) },
+}, {
+	// Always available: its parts are switched on one by one.
+	Name:        "Distribution",
+	Description: "Archive the finished app, list checksums, publish an appcast and upload the artifacts.",
+	fields:      (*editor).distributionFields,
 }}
 
 // noSections reports whether the project enables no optional step at all.

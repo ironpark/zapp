@@ -46,7 +46,7 @@ type workspaceState struct {
 	// credential check for the current settings.
 	Identities                          string
 	IdentitiesListed, IdentitiesListing bool
-	Check            signCheck
+	Check                               signCheck
 }
 type componentRow struct {
 	Index int

@@ -359,11 +359,11 @@ func buildSteps(m *desktopModel) ggui.Widget {
 		t := uitheme.Use()
 		health, enabled := m.Health.Get(), m.Enabled.Get()
 		rows := []ggui.Widget{ggui.Text("Build steps").Size(12).Color(t.Primary), ui.Divider()}
-		for _, tab := range []int{tabDep, tabSign, tabDMG, tabPKG, tabNotarize} {
+		for _, tab := range []int{tabDep, tabSign, tabDMG, tabPKG, tabNotarize, tabDistribution} {
 			icon, col := statusIcon(t, health.Issues[tab] == "")
 			detail, detailCol := g.stepDetail(tab, health), t.MutedFg
 			switch {
-			case !enabled[tab]:
+			case !enabled[tab] || detail == "":
 				icon, col, detail = "minus", t.MutedFg, "Off"
 			case health.Issues[tab] != "":
 				detail, detailCol = health.Issues[tab], t.Destructive
@@ -390,6 +390,8 @@ func (g *editor) stepDetail(tab int, h projectHealth) string {
 			return "Submit to Apple and staple the ticket"
 		}
 		return "Submit to Apple"
+	case tabDistribution:
+		return distributionSummary(g.s.Project)
 	}
 	if out := h.Outputs[tab]; out != "" {
 		return "Writes " + g.displayPath(out)
