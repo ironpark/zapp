@@ -1,0 +1,135 @@
+name: zapp
+description: Bundle, sign, package as DMG or PKG, and notarize a macOS app, from macOS, Linux or Windows runners
+author: ironpark
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      zapp version to use, such as 1.2.0 or latest. By default the release
+      matching the ref the action is used at: @v1.2.0 uses 1.2.0 and @v1 the
+      newest 1.x. "local" uses a zapp already on PATH.
+    required: false
+    default: ''
+  working-directory:
+    description: Directory to build in; the project file is discovered from here.
+    required: false
+    default: .
+  config:
+    description: Project file. By default .zapp.yaml is discovered from the working directory.
+    required: false
+  steps:
+    description: >-
+      Sections to build, separated by spaces, from dep, dmg and pkg. By default
+      every section the project enables.
+    required: false
+  app:
+    description: App bundle to package, overriding the project's app.
+    required: false
+  sign:
+    description: >-
+      "false" skips signing; "true" signs even when the project does not.
+      By default the project decides.
+    required: false
+  notarize:
+    description: >-
+      "false" skips notarization; "true" notarizes even when the project does
+      not. By default the project decides.
+    required: false
+  staple:
+    description: '"true" staples the notarization ticket; by default the project decides.'
+    required: false
+  identity:
+    description: Keychain signing identity (macOS runners only).
+    required: false
+  certificate:
+    description: Developer ID certificate as base64 PKCS#12, e.g. a secret made with `base64 -i certificate.p12`.
+    required: false
+  certificate-password:
+    description: Password of the PKCS#12 certificate.
+    required: false
+  pem:
+    description: PEM bundle holding the certificate and its private key, instead of a PKCS#12 certificate.
+    required: false
+  api-key:
+    description: >-
+      App Store Connect API key JSON, as `rcodesign
+      encode-app-store-connect-api-key` writes it, to notarize with.
+    required: false
+  api-key-id:
+    description: App Store Connect API key ID, with api-issuer-id and api-private-key instead of api-key.
+    required: false
+  api-issuer-id:
+    description: App Store Connect issuer ID.
+    required: false
+  api-private-key:
+    description: Contents of the App Store Connect AuthKey_*.p8 file.
+    required: false
+  apple-id:
+    description: Apple ID to notarize with (macOS runners only), with app-password and team-id.
+    required: false
+  app-password:
+    description: App-specific password for the Apple ID.
+    required: false
+  team-id:
+    description: Developer Team ID for the Apple ID.
+    required: false
+  args:
+    description: >-
+      Further `zapp build` options, one per line, such as --title=My App or
+      --fs=apfs. Lines are passed as they are, without shell quoting.
+    required: false
+  github-token:
+    description: Token used to find and download the release.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  app:
+    description: Absolute path of the app bundle that was packaged.
+    value: ${{ steps.build.outputs.app }}
+  dmg:
+    description: Absolute path of the DMG, if one was built.
+    value: ${{ steps.build.outputs.dmg }}
+  pkg:
+    description: Absolute path of the PKG, if one was built.
+    value: ${{ steps.build.outputs.pkg }}
+  version:
+    description: The zapp version used.
+    value: ${{ steps.setup.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: setup
+      shell: bash
+      env:
+        ZAPP_SETUP_VERSION: ${{ inputs.version }}
+        ZAPP_SETUP_REF: ${{ github.action_ref }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: bash "$GITHUB_ACTION_PATH/setup/install.sh"
+    - id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IN_CONFIG: ${{ inputs.config }}
+        IN_STEPS: ${{ inputs.steps }}
+        IN_APP: ${{ inputs.app }}
+        IN_SIGN: ${{ inputs.sign }}
+        IN_NOTARIZE: ${{ inputs.notarize }}
+        IN_STAPLE: ${{ inputs.staple }}
+        IN_IDENTITY: ${{ inputs.identity }}
+        IN_CERTIFICATE: ${{ inputs.certificate }}
+        IN_CERTIFICATE_PASSWORD: ${{ inputs.certificate-password }}
+        IN_PEM: ${{ inputs.pem }}
+        IN_API_KEY: ${{ inputs.api-key }}
+        IN_API_KEY_ID: ${{ inputs.api-key-id }}
+        IN_API_ISSUER_ID: ${{ inputs.api-issuer-id }}
+        IN_API_PRIVATE_KEY: ${{ inputs.api-private-key }}
+        IN_APPLE_ID: ${{ inputs.apple-id }}
+        IN_APP_PASSWORD: ${{ inputs.app-password }}
+        IN_TEAM_ID: ${{ inputs.team-id }}
+        IN_ARGS: ${{ inputs.args }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/action-build.sh"

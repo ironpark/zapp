@@ -58,6 +58,18 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 
 소스 빌드에는 Go 1.27.0 이상이 필요합니다. Linux·Windows(amd64/arm64)용 서명 라이브러리를 포함하므로 별도 다운로드나 Rust 빌드 없이 설치할 수 있습니다. cgo를 활성화하고 Linux에서는 GCC, Windows에서는 LLVM MinGW를 준비하세요. 자세한 명령은 [플랫폼별 빌드 안내](docs/signing.md#building)를 참고하세요.
 
+### ⚙️ GitHub Actions
+
+```yaml
+- uses: ironpark/zapp@v1
+  with:
+    certificate: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+    certificate-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+    api-key: ${{ secrets.ASC_API_KEY }}
+```
+
+macOS, Linux, Windows 러너에서 프로젝트의 `.zapp.yaml`을 빌드하고 DMG·PKG 경로를 출력으로 돌려줍니다. zapp 설치만 필요하면 `ironpark/zapp/setup@v1`을 사용하세요. 모든 입력은 [GitHub Action 안내](docs/github-action.md)(영문)를 참고하세요.
+
 ## 빠른 시작
 
 이미 빌드된 `dist/MyApp.app`이 있는 디렉터리에서 시작하세요. Zapp은 앱 소스를 컴파일하지 않습니다. `init`은 DMG와 PKG 설정을 만들고, `build`는 기본적으로 두 파일을 `dist`에 생성합니다.

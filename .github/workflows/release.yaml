@@ -4,9 +4,10 @@ name: goreleaser
 on:
   pull_request:
   push:
-    # run only against tags
+    # Release versions only: the action's moving major tags (v1, v2, …) must
+    # not start a release of their own.
     tags:
-      - "*"
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 permissions:
   contents: write
@@ -45,3 +46,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
           # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+  # `uses: ironpark/zapp@v1` follows the newest 1.x release: move the major
+  # tag once the release it installs exists. Prereleases leave it in place.
+  major-tag:
+    needs: goreleaser
+    if: github.event_name == 'push' && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move the major version tag
+        run: |
+          major="${GITHUB_REF_NAME%%.*}"
+          git tag -f "$major" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$major"

@@ -3,7 +3,10 @@ package macos
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ironpark/zapp/internal/macexec"
@@ -50,6 +53,59 @@ func notaryStoreCredentials(ctx context.Context, appleID, password, teamID, prof
 		"--apple-id", appleID,
 		"--password", password,
 		"--team-id", teamID,
+	)
+	if err != nil {
+		return fmt.Errorf("storing credentials failed: %w", err)
+	}
+	return nil
+}
+
+// apiKey is an App Store Connect API key as rcodesign's
+// encode-app-store-connect-api-key writes it.
+type apiKey struct {
+	IssuerID   string `json:"issuer_id"`
+	KeyID      string `json:"key_id"`
+	PrivateKey string `json:"private_key"`
+}
+
+func readAPIKey(path string) (apiKey, error) {
+	var key apiKey
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return key, err
+	}
+	if err := json.Unmarshal(data, &key); err != nil {
+		return key, fmt.Errorf("%s is not an App Store Connect API key JSON: %w", path, err)
+	}
+	if key.IssuerID == "" || key.KeyID == "" || key.PrivateKey == "" {
+		return key, errors.New(path + " needs issuer_id, key_id and private_key; " +
+			"create it with `rcodesign encode-app-store-connect-api-key`")
+	}
+	return key, nil
+}
+
+// notaryStoreAPIKey stores an App Store Connect API key for notarization.
+// notarytool reads the private key from a .p8 file, which exists only while
+// it copies the key into the keychain profile.
+func notaryStoreAPIKey(ctx context.Context, path, profileName string) error {
+	key, err := readAPIKey(path)
+	if err != nil {
+		return err
+	}
+	dir, err := os.MkdirTemp("", "zapp-notary-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	p8 := filepath.Join(dir, "AuthKey_"+key.KeyID+".p8")
+	if err := os.WriteFile(p8, []byte(key.PrivateKey), 0o600); err != nil {
+		return err
+	}
+	_, err = xcrun(ctx,
+		"notarytool", "store-credentials", profileName,
+		"--key", p8,
+		"--key-id", key.KeyID,
+		"--issuer", key.IssuerID,
 	)
 	if err != nil {
 		return fmt.Errorf("storing credentials failed: %w", err)

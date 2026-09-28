@@ -1,23 +1,16 @@
 package signing
 
-import (
-	"errors"
-
-	"github.com/ironpark/zapp/pkg/signing/macos"
-)
+import "github.com/ironpark/zapp/pkg/signing/macos"
 
 // Select always uses Apple's signing tools on macOS. A PKCS#12 certificate,
 // from a file or base64, or a PEM certificate and key, is imported into a
 // temporary keychain for the run; otherwise the identity comes from the user's
 // keychains.
 func Select(c Credentials) (Backend, error) {
-	if c.APIKeyFile != "" {
-		return nil, errors.New("macOS notarizes with Apple's notarytool: use --profile or --apple-id, --password and --team-id")
-	}
 	if err := c.checkP12(); err != nil {
 		return nil, err
 	}
-	opts := macos.Options{Identity: c.Identity, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID}
+	opts := macos.Options{Identity: c.Identity, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID, APIKeyFile: c.APIKeyFile}
 	if c.namesCertificate() {
 		key, cert, chain, err := c.certificate()
 		if err != nil {

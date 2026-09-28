@@ -26,12 +26,18 @@ type Options struct {
 	P12         []byte
 	P12Password string
 
-	// Profile is a stored notarytool keychain profile. When it is empty the
-	// Apple ID trio below is used to create a temporary one.
+	// Profile is a stored notarytool keychain profile. When it is empty a
+	// temporary one is created from the App Store Connect API key, or else
+	// from the Apple ID trio below.
 	Profile  string
 	AppleID  string
 	Password string
 	TeamID   string
+
+	// APIKeyFile is an App Store Connect API key in the JSON rcodesign's
+	// encode-app-store-connect-api-key writes, so one key file notarizes on
+	// every platform.
+	APIKeyFile string
 }
 
 // Backend signs with Apple's tools.
@@ -177,12 +183,18 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 func (b *Backend) Submit(ctx context.Context, path string) error {
 	profile := b.opts.Profile
 	if profile == "" {
-		if b.opts.AppleID == "" || b.opts.Password == "" || b.opts.TeamID == "" {
-			return fmt.Errorf("notarizing with Apple's tools needs either a keychain profile " +
-				"or all of the Apple ID, password and team ID")
-		}
 		profile = "temp_profile"
-		if err := notaryStoreCredentials(ctx, b.opts.AppleID, b.opts.Password, b.opts.TeamID, profile); err != nil {
+		var err error
+		switch {
+		case b.opts.APIKeyFile != "":
+			err = notaryStoreAPIKey(ctx, b.opts.APIKeyFile, profile)
+		case b.opts.AppleID != "" && b.opts.Password != "" && b.opts.TeamID != "":
+			err = notaryStoreCredentials(ctx, b.opts.AppleID, b.opts.Password, b.opts.TeamID, profile)
+		default:
+			return fmt.Errorf("notarizing with Apple's tools needs a keychain profile, " +
+				"an App Store Connect API key, or all of the Apple ID, password and team ID")
+		}
+		if err != nil {
 			return fmt.Errorf("failed to store credentials: %w", err)
 		}
 	}

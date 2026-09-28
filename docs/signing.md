@@ -4,16 +4,17 @@ The operating system chooses the backend at build time.
 
 | Host | Backend | Signing credentials | Notarization credentials |
 | --- | --- | --- | --- |
-| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity, or PKCS#12 or PEM certificate and private key | Keychain profile or Apple ID, password, team ID |
+| macOS arm64 / amd64 | `pkg/signing/macos`: Apple tools | Keychain identity, or PKCS#12 or PEM certificate and private key | Keychain profile, App Store Connect API key JSON, or Apple ID, password, team ID |
 | Linux arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 | Windows arm64 / amd64 | Statically linked `apple-codesign` Rust library | PKCS#12 or PEM certificate and private key | App Store Connect API key JSON |
 
 macOS always uses `codesign`, `productsign`, `notarytool`, and `stapler`. A
 PKCS#12 certificate (`--p12-file` or `--p12-base64`) or PEM certificate
-(`--pem-file`) is imported into a temporary keychain for the run. Passing
-`--api-key-file` on macOS returns an error explaining which Apple credentials
-to use. The macOS
-binary does not link or import rcodesign.
+(`--pem-file`) is imported into a temporary keychain for the run. An App Store
+Connect API key JSON (`--api-key-file`) is the same file rcodesign reads on
+Linux and Windows; notarytool gets its private key from a temporary `.p8`
+file that exists only while the key is stored for the run. The macOS binary
+does not link or import rcodesign.
 
 Windows and Linux release builds include the Rust signing implementation in
 the zapp executable. No separate rcodesign executable or Rust installation is
@@ -134,7 +135,7 @@ inputs are rejected instead of producing ad-hoc signatures.
 
 `key.json` uses the upstream apple-codesign/App Store Connect unified API key
 format. Existing key files created with `rcodesign encode-app-store-connect-api-key`
-remain usable. Signing uses the hardened runtime flag and Apple's timestamp
+remain usable, on macOS as well. Signing uses the hardened runtime flag and Apple's timestamp
 service. Notarization waits for acceptance for up to 600 seconds before returning
 an error. Stapling an existing ticket does not require a signing certificate.
 

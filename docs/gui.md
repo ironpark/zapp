@@ -68,8 +68,8 @@ values; build-time `ZAPP_*` option overrides are not copied into the project.
 Profile, Apple ID or API key credentials. Only the selected method contributes
 credentials to the project; switching methods retains previous input within the
 current session. Keychain/Profile/Apple ID use macOS tools; PKCS#12 and PEM
-certificates work on every host (macOS imports them into a temporary keychain),
-while API key JSON uses rcodesign on Windows/Linux.
+certificates and API key JSON work on every host (macOS imports certificates
+into a temporary keychain).
 
 On macOS the Keychain method lists the valid signing identities found in your
 keychains; click one to use it, or leave the identity blank to pick the first

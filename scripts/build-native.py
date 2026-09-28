@@ -41,7 +41,8 @@ def main():
     output = ROOT / "dist" / args.target / binary_name(env["GOOS"])
     output.parent.mkdir(parents=True, exist_ok=True)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    version = os.environ.get("ZAPP_VERSION", "dev")
+    # Tags carry a v; GoReleaser's own builds report the version without it.
+    version = os.environ.get("ZAPP_VERSION", "dev").removeprefix("v")
     date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     ldflags = gr.ldflags(version, commit, date)
     subprocess.run(["go", "build", "-trimpath", "-ldflags", ldflags, "-o", str(output), "./cmd/zapp"], env=env, check=True)

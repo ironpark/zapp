@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/ironpark/zapp"
 	"github.com/urfave/cli/v3"
@@ -36,7 +38,8 @@ func buildFlags() []cli.Flag {
 	return out
 }
 func buildCommand() *cli.Command {
-	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|dmg|pkg ...]", Flags: buildFlags(), Action: func(ctx context.Context, c *cli.Command) error {
+	flags := append(buildFlags(), &cli.StringFlag{Name: "artifacts", Usage: "Append the built app, DMG and PKG paths to this file as app=, dmg= and pkg= lines, e.g. $GITHUB_OUTPUT"})
+	return &cli.Command{Name: "build", Usage: "Build project sections in deployment order", ArgsUsage: "[dep|dmg|pkg ...]", Flags: flags, Action: func(ctx context.Context, c *cli.Command) error {
 		p, err := loadProject(c, "build")
 		if err != nil {
 			return err
@@ -52,7 +55,40 @@ func buildCommand() *cli.Command {
 		for _, arg := range c.Args().Slice() {
 			steps = append(steps, zapp.Step(arg))
 		}
-		_, err = pl.Build(ctx, steps...)
-		return err
+		artifacts, err := pl.Build(ctx, steps...)
+		if err != nil {
+			return err
+		}
+		if file := c.String("artifacts"); file != "" {
+			return writeArtifacts(file, artifacts)
+		}
+		return nil
 	}}
+}
+
+// writeArtifacts appends the artifact paths as key=value lines, the form
+// GitHub Actions reads from $GITHUB_OUTPUT. Paths are absolute so a later step
+// in another directory can use them; a step that was not built is empty.
+func writeArtifacts(file string, a zapp.Artifacts) error {
+	var lines string
+	for _, artifact := range [][2]string{{"app", a.App}, {"dmg", a.DMG}, {"pkg", a.PKG}} {
+		path := artifact[1]
+		if path != "" {
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return err
+			}
+			path = abs
+		}
+		lines += artifact[0] + "=" + path + "\n"
+	}
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.WriteString(lines); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

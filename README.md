@@ -59,6 +59,18 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 
 Source builds require Go 1.27.0 or later. Linux and Windows (amd64/arm64) include prebuilt signing libraries, so no separate download or Rust build is needed. Enable cgo and install a C compiler: GCC on Linux, LLVM MinGW on Windows. See the [platform build instructions](docs/signing.md#building).
 
+### ⚙️ GitHub Actions
+
+```yaml
+- uses: ironpark/zapp@v1
+  with:
+    certificate: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+    certificate-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+    api-key: ${{ secrets.ASC_API_KEY }}
+```
+
+Builds the project's `.zapp.yaml` on macOS, Linux or Windows runners and reports the DMG and PKG paths as outputs. `ironpark/zapp/setup@v1` only installs zapp. See the [GitHub Action guide](docs/github-action.md) for every input.
+
 ## Quick start
 
 Start in a directory containing an already-built `dist/MyApp.app`. Zapp does not compile your application. `init` creates DMG and PKG sections; `build` writes both installers to `dist` by default.

@@ -52,7 +52,8 @@ type Credentials struct {
 	Password string
 	TeamID   string
 
-	// APIKeyFile is an App Store Connect API key, for rcodesign.
+	// APIKeyFile is an App Store Connect API key as rcodesign's
+	// encode-app-store-connect-api-key writes it. Every platform reads it.
 	APIKeyFile string
 }
 

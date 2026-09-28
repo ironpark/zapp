@@ -1,0 +1,38 @@
+name: Set up zapp
+description: Install the zapp CLI to package, sign and notarize macOS apps on macOS, Linux or Windows runners
+author: ironpark
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      zapp version to install, such as 1.2.0 or latest. By default the release
+      matching the ref the action is used at: @v1.2.0 installs 1.2.0 and @v1
+      the newest 1.x. "local" uses a zapp already on PATH.
+    required: false
+    default: ''
+  github-token:
+    description: Token used to find and download the release.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: The installed zapp version.
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: Path to the zapp binary.
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        ZAPP_SETUP_VERSION: ${{ inputs.version }}
+        ZAPP_SETUP_REF: ${{ github.action_ref }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"

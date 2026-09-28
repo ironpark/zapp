@@ -11,7 +11,8 @@ import (
 
 func newApp() *cli.Command {
 	app := &cli.Command{
-		Name: "zapp",
+		Name:    "zapp",
+		Version: Version,
 		Commands: []*cli.Command{
 			guiCommand(),
 			infoCommand,

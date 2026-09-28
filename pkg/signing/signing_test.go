@@ -19,8 +19,9 @@ func TestSelectMacOS(t *testing.T) {
 	if b.Name() != "Apple codesign" {
 		t.Fatalf("unexpected backend %s", b.Name())
 	}
-	if _, err := Select(Credentials{APIKeyFile: "key.json"}); err == nil {
-		t.Fatal("macOS accepted an rcodesign API key")
+	// The rcodesign API key JSON notarizes on macOS too, through notarytool.
+	if _, err := Select(Credentials{APIKeyFile: "key.json"}); err != nil {
+		t.Fatal(err)
 	}
 }
 

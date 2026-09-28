@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/csv"
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	"github.com/fatih/color"
@@ -14,7 +15,20 @@ import (
 //go:embed 3rdparty.csv
 var thirdPartyLicensesCsv string
 
-var Version string = "v0.2.4"
+// Version is set by release builds. `go install` builds report their module
+// version instead, and anything else is a development build.
+var Version string
+
+func init() {
+	if Version != "" {
+		return
+	}
+	Version = "dev"
+	if info, ok := debug.ReadBuildInfo(); ok && strings.HasPrefix(info.Main.Version, "v") {
+		Version = strings.TrimPrefix(info.Main.Version, "v")
+	}
+}
+
 var BuildDate string = "2024-10-16"
 var Commit string = "50261600d655ae526b7645d05d2bc573e3a8dee5"
 

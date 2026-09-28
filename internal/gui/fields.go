@@ -419,7 +419,7 @@ func (g *editor) notaryAllFields() []field {
 		stringField("Keychain profile", &c.Profile, "macOS: saved notarytool credentials (recommended)"),
 		stringField("Apple ID", &c.AppleID, "macOS: requires Team ID and a runtime password"),
 		stringField("Team ID", &c.TeamID, "Developer team identifier"),
-		pathField("API key file", &c.APIKeyFile, "Windows / Linux: rcodesign API key JSON", pickFile),
+		pathField("API key file", &c.APIKeyFile, "App Store Connect API key JSON, as rcodesign encode-app-store-connect-api-key writes it", pickFile),
 		boolField("Staple", &c.Staple, "Attach the notarization ticket after approval"),
 	}
 }

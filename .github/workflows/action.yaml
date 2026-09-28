@@ -1,0 +1,87 @@
+name: action
+
+on:
+  pull_request:
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', '.github/workflows/action.yaml']
+  push:
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', '.github/workflows/action.yaml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Installs a published release, as users of ironpark/zapp/setup get it.
+  setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: zapp
+        uses: ./setup
+        with:
+          version: 1.0.0
+      - name: Check the installed binary
+        shell: bash
+        run: |
+          test "${{ steps.zapp.outputs.version }}" = 1.0.0
+          zapp info | grep -q 'Version *: *1.0.0'
+          test -x "${{ steps.zapp.outputs.path }}"
+
+  # Builds a DMG and a PKG through the action with zapp from this checkout.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build zapp
+        shell: bash
+        run: |
+          go build -o "$RUNNER_TEMP/bin/" ./cmd/zapp
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+      - name: Make a test app
+        shell: bash
+        run: |
+          app="$RUNNER_TEMP/project/Demo.app/Contents"
+          mkdir -p "$app/MacOS" "$app/Resources"
+          cp iconfile.icns "$app/Resources/AppIcon.icns"
+          printf '#!/bin/sh\n' >"$app/MacOS/Demo"
+          cat >"$app/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Demo</string>
+            <key>CFBundleExecutable</key><string>Demo</string>
+            <key>CFBundleIdentifier</key><string>com.example.demo</string>
+            <key>CFBundleShortVersionString</key><string>1.2.3</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+          </dict></plist>
+          PLIST
+      - id: zapp
+        uses: ./
+        with:
+          version: local
+          working-directory: ${{ runner.temp }}/project
+          app: Demo.app
+          steps: dmg pkg
+          sign: false
+          notarize: false
+          args: |
+            --title=Demo App
+      - name: Check the outputs
+        shell: bash
+        run: |
+          test -f "${{ steps.zapp.outputs.dmg }}"
+          test -f "${{ steps.zapp.outputs.pkg }}"
+          test -d "${{ steps.zapp.outputs.app }}"
+          case "${{ steps.zapp.outputs.dmg }}" in */Demo\ App.dmg) ;; *) exit 1 ;; esac

@@ -59,6 +59,18 @@ go install github.com/ironpark/zapp/cmd/zapp@latest
 
 源码构建需要 Go 1.27.0 或更高版本。已包含 Linux 和 Windows（amd64/arm64）的预编译签名库，无需单独下载或编译 Rust。请启用 cgo，并准备 C 编译器：Linux 使用 GCC，Windows 使用 LLVM MinGW。详情参阅[各平台构建说明](docs/signing.md#building)。
 
+### ⚙️ GitHub Actions
+
+```yaml
+- uses: ironpark/zapp@v1
+  with:
+    certificate: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+    certificate-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+    api-key: ${{ secrets.ASC_API_KEY }}
+```
+
+在 macOS、Linux 或 Windows 运行器上构建项目的 `.zapp.yaml`，并将 DMG 和 PKG 路径作为输出返回。只需安装 zapp 时使用 `ironpark/zapp/setup@v1`。全部输入参见 [GitHub Action 指南](docs/github-action.md)（英文）。
+
 ## 快速入门
 
 在包含已构建的 `dist/MyApp.app` 的目录中开始。Zapp 不会编译应用源码。`init` 生成 DMG 和 PKG 配置，`build` 默认将两种安装包输出到 `dist`。
