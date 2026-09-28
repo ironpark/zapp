@@ -40,7 +40,7 @@ func TestHealthTracksProjectWithoutNavigating(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
 	g.rebuild()
-	if g.health.ready() || g.health.Issues[tabProject] == "" {
+	if g.health.Count == 0 || g.health.Issues[tabProject] == "" {
 		t.Fatalf("a project without an app looks ready: %+v", g.health.Issues)
 	}
 
@@ -150,14 +150,18 @@ func TestFormsHaveMaximumWidth(t *testing.T) {
 // change, its result is no longer shown.
 func TestSigningCheckGoesStale(t *testing.T) {
 	g := testEditor(t)
-	g.s.Project.Sign = &zapp.SignConfig{Identity: "A"}
-	checked := *g.s.Project.Sign
-	g.signing.checked, g.signing.ok, g.signing.message = &checked, true, "Signs with A"
-	if shown, _, ok, _ := g.signingCheck(); !shown || !ok {
+	g.s.Project.Sign, g.s.Project.PKG = &zapp.SignConfig{Identity: "A"}, nil
+	g.signing.checked, g.signing.result = g.signCheckInputs(), signCheck{Shown: true, OK: true, Message: "Signs with A"}
+	if c := g.signingCheck(); !c.Shown || !c.OK {
 		t.Fatal("current result hidden")
 	}
+	g.s.Project.PKG = &zapp.PKGConfig{}
+	if g.signingCheck().Shown {
+		t.Fatal("result shown after the installer became part of the check")
+	}
+	g.s.Project.PKG = nil
 	g.s.Project.Sign.Identity = "B"
-	if shown, _, _, _ := g.signingCheck(); shown {
+	if g.signingCheck().Shown {
 		t.Fatal("stale result shown")
 	}
 }

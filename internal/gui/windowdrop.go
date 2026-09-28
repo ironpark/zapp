@@ -40,20 +40,14 @@ func (g *editor) dropFiles(paths []string) {
 	g.rebuild()
 }
 
-// useCertificate switches signing to the certificate method mode and lets set
-// fill it in, enabling signing if it was off. The other methods' values are
-// cleared, as choosing a method in the tab would.
-func (g *editor) useCertificate(set func(*zapp.SignConfig), mode int) {
+// useCertificate switches signing to the certificate method, as choosing it
+// in the tab would, and lets set fill it in, enabling signing if it was off.
+func (g *editor) useCertificate(set func(*zapp.SignConfig), method int) {
 	g.s.checkpoint()
 	if g.s.Project.Sign == nil {
 		g.s.Project.Sign = &zapp.SignConfig{}
 	}
-	c := g.s.Project.Sign
-	c.Identity, c.P12File, c.P12Base64, c.PEMFile = "", "", "", ""
-	if mode != 1 {
-		c.P12Password, c.P12PasswordFile = "", ""
-	}
-	set(c)
-	g.signMode, g.signModeSet = mode, true
+	g.setSignMethod(method)
+	set(g.s.Project.Sign)
 	g.tab = tabSign
 }

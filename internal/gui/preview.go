@@ -162,12 +162,10 @@ func (g *editor) refreshPreview() {
 	c := g.s.Project.DMG
 	items := g.s.layout().Items
 	g.previewError = ""
-	g.appIconPaths = make(map[string]string)
-	// Drop the previous logical keys so items removed from the layout stop
-	// pinning their textures; the "file:" entries below survive as the cache.
-	maps.DeleteFunc(g.assets, func(k string, _ *ggfx.Image) bool {
-		return !strings.HasPrefix(k, assetCachePrefix)
-	})
+	// Drop the preview's previous keys so items removed from the layout stop
+	// pinning their textures; the "file:" cache and other views' keys survive.
+	maps.DeleteFunc(g.assets, func(k string, _ *ggfx.Image) bool { return previewAsset(k) })
+	maps.DeleteFunc(g.appIconPaths, func(k, _ string) bool { return previewAsset(k) })
 	bg := g.assetPath(c.Background)
 	paths := make([]string, len(items))
 	icons := make([]string, len(items))
@@ -233,6 +231,11 @@ func (g *editor) refreshPreview() {
 		g.assets["badge:alias"] = g.defaultFileIcon("alias")
 	}
 	g.pruneAssets()
+}
+
+// previewAsset reports whether the DMG preview owns an asset key.
+func previewAsset(key string) bool {
+	return key == "background" || key == "badge:alias" || strings.HasPrefix(key, "item:")
 }
 
 // pruneAssets releases cached textures that no live preview key references.

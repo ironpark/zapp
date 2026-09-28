@@ -44,6 +44,9 @@ func (g *editor) loadAppIcon(key, path string) {
 	if g.assets[key] != nil {
 		return
 	}
+	if g.appIconPaths == nil {
+		g.appIconPaths = map[string]string{}
+	}
 	g.appIconPaths[key] = path
 	cache := nativeAppIconKey(path)
 	if img := g.assets[cache]; img != nil {

@@ -227,9 +227,20 @@ func (g *editor) validatePaths() bool {
 	return false
 }
 
-// issueTab names the tab a Resolve error belongs to, by the same rules
-// locateValidationError uses to move the user there.
-func (g *editor) issueTab(err error) int {
+// issueLocation is where a Resolve error is fixed: a tab, the field on it
+// when known, and the PKG component to open, or -1.
+type issueLocation struct {
+	tab       int
+	label     string
+	component int
+}
+
+// locateIssue finds, without moving the user, where err is fixed. It reports
+// false for an error no tab owns.
+func (g *editor) locateIssue(err error) (issueLocation, bool) {
+	at := func(tab int, label string) (issueLocation, bool) {
+		return issueLocation{tab: tab, label: label, component: -1}, true
+	}
 	var pathError *os.PathError
 	if errors.As(err, &pathError) {
 		for tab, section := range sections {
@@ -238,108 +249,76 @@ func (g *editor) issueTab(err error) int {
 			}
 			for _, f := range g.pathFields(tab, section) {
 				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
-					return tab
+					return at(tab, f.Label)
 				}
 			}
 		}
 		if g.s.Project.DMG != nil {
-			return tabDMG
-		}
-	}
-	message := err.Error()
-	switch {
-	case strings.HasPrefix(message, "app ") || strings.Contains(message, "requires app") || strings.Contains(message, "provide --app"):
-		return tabProject
-	case strings.HasPrefix(message, "dep:") && g.s.Project.Dep != nil:
-		return tabDep
-	case (strings.HasPrefix(message, "pkg") || strings.Contains(message, "component") || strings.HasPrefix(message, "choice ")) && g.s.Project.PKG != nil:
-		if strings.Contains(message, "root must") || strings.Contains(message, "root is") {
-			if !g.s.Project.PKG.HasFullForm() {
-				return tabProject
-			}
-		}
-		return tabPKG
-	case strings.HasPrefix(message, "sign:") && g.s.Project.Sign != nil:
-		return tabSign
-	case strings.HasPrefix(message, "notarize:") && g.s.Project.Notarize != nil:
-		return tabNotarize
-	case strings.HasPrefix(message, "dmg") && g.s.Project.DMG != nil:
-		return tabDMG
-	}
-	return tabProject
-}
-func (g *editor) locateValidationError(err error) {
-	var pathError *os.PathError
-	if errors.As(err, &pathError) {
-		for tab, section := range sections {
-			if !section.Enabled(g.s.Project) {
-				continue
-			}
-			fields := g.pathFields(tab, section)
-			for _, f := range fields {
-				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
-					g.showFieldError(tab, f.Label, err)
-					return
+			for _, item := range g.s.layout().Items {
+				if !item.Link && filepath.Clean(g.assetPath(item.Path)) == filepath.Clean(pathError.Path) {
+					return at(tabDMG, "Contents (JSON)")
 				}
-			}
-		}
-	}
-	if pathError != nil && g.s.Project.DMG != nil {
-		for _, item := range g.s.layout().Items {
-			if !item.Link && filepath.Clean(g.assetPath(item.Path)) == filepath.Clean(pathError.Path) {
-				g.showFieldError(tabDMG, "Contents (JSON)", err)
-				return
 			}
 		}
 	}
 	message := err.Error()
 	if strings.HasPrefix(message, "app ") || strings.Contains(message, "requires app") || strings.Contains(message, "provide --app") {
-		g.showFieldError(tabProject, "App bundle", err)
-		return
+		return at(tabProject, "App bundle")
 	}
 	switch {
 	case strings.HasPrefix(message, "dep:") && g.s.Project.Dep != nil:
-		g.showFieldError(tabDep, "", err)
+		return at(tabDep, "")
 	case (strings.HasPrefix(message, "pkg") || strings.Contains(message, "component") || strings.HasPrefix(message, "choice ")) && g.s.Project.PKG != nil:
-		label := "Package type"
+		loc, _ := at(tabPKG, "Package type")
 		if strings.Contains(message, "component id") {
-			label = "Component ID"
-			g.pkgRaw = false
+			loc.label = "Component ID"
 			seen := map[string]bool{}
 			for i, c := range g.s.Project.PKG.Components {
 				if c.ID == "" || seen[c.ID] {
-					g.componentIndex = i
+					loc.component = i
 					break
 				}
 				seen[c.ID] = true
 			}
 		}
 		if strings.Contains(message, "full form requires components") {
-			label = "Components"
+			loc.label = "Components"
 		}
 		if strings.Contains(message, "root must") || strings.Contains(message, "root is") {
 			if !g.s.Project.PKG.HasFullForm() {
-				g.showFieldError(tabProject, "App bundle", err)
-				return
+				return at(tabProject, "App bundle")
 			}
-			label = "Root directory"
-			g.pkgRaw = false
+			loc.label = "Root directory"
 			for i, c := range g.s.Project.PKG.Components {
 				if c.Root == "" || strings.Contains(message, g.assetPath(c.Root)) {
-					g.componentIndex = i
+					loc.component = i
 					break
 				}
 			}
 		}
 		if strings.Contains(message, "distribution") || strings.HasPrefix(message, "choice ") {
-			label = "Distribution"
+			loc.label = "Distribution"
 		}
-		g.showFieldError(tabPKG, label, err)
+		return loc, true
 	case strings.HasPrefix(message, "sign:") && g.s.Project.Sign != nil:
-		g.showFieldError(tabSign, "", err)
+		return at(tabSign, "")
 	case strings.HasPrefix(message, "notarize:") && g.s.Project.Notarize != nil:
-		g.showFieldError(tabNotarize, "", err)
-	default:
-		g.issue = &validationIssue{tab: g.tab, message: message}
+		return at(tabNotarize, "")
+	case strings.HasPrefix(message, "dmg") && g.s.Project.DMG != nil:
+		return at(tabDMG, "")
 	}
+	return issueLocation{}, false
+}
+
+// locateValidationError moves the user to where err is fixed.
+func (g *editor) locateValidationError(err error) {
+	loc, ok := g.locateIssue(err)
+	if !ok {
+		g.issue = &validationIssue{tab: g.tab, message: err.Error()}
+		return
+	}
+	if loc.component >= 0 {
+		g.componentIndex, g.pkgRaw = loc.component, false
+	}
+	g.showFieldError(loc.tab, loc.label, err)
 }

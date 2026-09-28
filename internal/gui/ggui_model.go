@@ -6,7 +6,6 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"strings"
 
 	"github.com/ironpark/ggui"
 	guiruntime "github.com/ironpark/ggui/runtime"
@@ -45,9 +44,9 @@ type workspaceState struct {
 	IssueTab                                            int
 	// Signing tab: keychain identities offered (newline-separated) and the
 	// credential check for the current settings.
-	Identities                                      string
-	IdentitiesListed, CheckShown, Checking, CheckOK bool
-	CheckMessage                                    string
+	Identities       string
+	IdentitiesListed bool
+	Check            signCheck
 }
 type componentRow struct {
 	Index int
@@ -167,11 +166,8 @@ func (m *desktopModel) sync() {
 		v.Raw = g.depRaw
 	case tabSign:
 		v.SignMethod = g.signMethod()
-		if v.SignMethod == 0 && v.Enabled {
-			g.listIdentities()
-		}
-		v.Identities, v.IdentitiesListed = strings.Join(g.signing.identities, "\n"), g.signing.listed
-		v.CheckShown, v.Checking, v.CheckOK, v.CheckMessage = g.signingCheck()
+		v.Identities, v.IdentitiesListed = g.signing.identities, g.signing.listed
+		v.Check = g.signingCheck()
 	case tabNotarize:
 		v.NotaryMethod = g.notaryMethod()
 	}
@@ -252,7 +248,7 @@ func (m *desktopModel) sync() {
 	} else if g.build != nil {
 		d := g.buildDialog()
 		j := g.build
-		modal = modalState{Title: d.Title, Message: d.Message, Log: strings.Join(j.log, "\n"), Build: true, Finished: j.finished, Cancelling: j.cancelling, Issue: g.issue != nil}
+		modal = modalState{Title: d.Title, Message: d.Message, Log: j.text(), Build: true, Finished: j.finished, Cancelling: j.cancelling, Issue: g.issue != nil}
 		if j.finished && j.err == nil {
 			modal.Reveal = cmp.Or(j.artifacts.DMG, j.artifacts.PKG, j.artifacts.App)
 		}

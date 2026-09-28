@@ -20,6 +20,8 @@ type buildJob struct {
 	done                                 chan buildResult
 	message                              string
 	log                                  []string // every line reported, oldest first
+	logText                              string   // log joined, as of the last text call
+	logDirty                             bool
 	artifacts                            zapp.Artifacts
 	finished, cancelling, closeRequested bool
 	err                                  error
@@ -33,6 +35,15 @@ func (j *buildJob) record(line string) {
 	if len(j.log) > maxBuildLog {
 		j.log = j.log[len(j.log)-maxBuildLog:]
 	}
+	j.logDirty = true
+}
+
+// text is the log as the dialog shows it, joined again only after new lines.
+func (j *buildJob) text() string {
+	if j.logDirty {
+		j.logText, j.logDirty = strings.Join(j.log, "\n"), false
+	}
+	return j.logText
 }
 
 type buildLogger struct {

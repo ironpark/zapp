@@ -86,8 +86,15 @@ func (g *editor) selectSignMethod(index int) {
 	if !g.commit() || index == g.signMethod() {
 		return
 	}
-	c, stash := g.s.Project.Sign, &g.signStash
 	g.s.checkpoint()
+	g.setSignMethod(index)
+	g.rebuild()
+}
+
+// setSignMethod switches the signing credentials to method index, stashing
+// the current method's values so switching back restores them.
+func (g *editor) setSignMethod(index int) {
+	c, stash := g.s.Project.Sign, &g.signStash
 	switchMethod(g.signMethod(), index, [][][2]*string{
 		{{&c.Identity, &stash.Identity}},
 		{{&c.P12File, &stash.P12File}, {&c.P12PasswordFile, &stash.P12PasswordFile}, {&c.P12Password, &stash.P12Password}},
@@ -95,7 +102,6 @@ func (g *editor) selectSignMethod(index int) {
 	})
 	g.issue = nil
 	g.signMode, g.signModeSet = index, true
-	g.rebuild()
 }
 func (g *editor) selectNotaryMethod(index int) {
 	if !g.commit() || index == g.notaryMethod() {

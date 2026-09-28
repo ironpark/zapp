@@ -25,8 +25,8 @@ func desktopView(m *desktopModel) ggui.Widget {
 			ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9),
 			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap()).Gap(3)),
 			ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
-			ui.Tooltip(ui.ButtonOf(icons.New(undoIcon()).Size(16), g.action(g.guard(func() { g.history(false) }))).Name("Undo").Ghost().Pad(7).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo · "+shortcut("Z")),
-			ui.Tooltip(ui.ButtonOf(icons.New(redoIcon()).Size(16), g.action(g.guard(func() { g.history(true) }))).Name("Redo").Ghost().Pad(7).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo · "+shortcut("Shift+Z")),
+			ui.Tooltip(ghostIcon(icons.New(undoIcon()), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo · "+shortcut("Z")),
+			ui.Tooltip(ghostIcon(icons.New(redoIcon()), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo · "+shortcut("Shift+Z")),
 			healthBadge(m),
 			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Outline().BindDisabled(m.Busy), "Save · "+shortcut("S")),
 			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).BindDisabled(m.Busy), "Build · "+shortcut("B")),
@@ -75,13 +75,22 @@ func healthBadge(m *desktopModel) ggui.Widget {
 	g := m.editor
 	return ggui.View(m.Health.Map(func(h projectHealth) int { return h.Count }), func(count int) ggui.Widget {
 		t := uitheme.Use()
-		icon, label, col, tip := "check", "Ready", readyColor(t), "Build inputs look complete · Validate "+shortcut("Shift+V")
+		icon, col := statusIcon(t, count == 0)
+		label, tip := "Ready", "Build inputs look complete · Validate "+shortcut("Shift+V")
 		if count > 0 {
-			icon, label, col, tip = "circle-alert", fmt.Sprintf("%d issue%s", count, plural(count)), t.Destructive, "Show the first issue · "+shortcut("Shift+V")
+			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue · "+shortcut("Shift+V")
 		}
 		content := ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Text(label).Color(col)).Gap(6).Align(ggui.AlignCenter)
 		return ui.Tooltip(ui.ButtonOf(content, g.action(g.validate)).Name("Validate").Ghost().BindDisabled(m.Busy), tip)
 	})
+}
+
+// statusIcon is the icon and color marking a check that passed or failed.
+func statusIcon(t uitheme.Theme, ok bool) (string, color.Color) {
+	if ok {
+		return "check", readyColor(t)
+	}
+	return "circle-alert", t.Destructive
 }
 
 func plural(n int) string {
@@ -231,8 +240,8 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
 	if v.Tab == tabSign {
 		children = append(children, ggui.Row(modeButtons([]string{"Keychain", "PKCS#12", "PEM"}, v.SignMethod, g.actionSelect(g.selectSignMethod)),
-			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().Disabled(v.Checking), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter))
-		if v.CheckShown {
+			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().Disabled(v.Check.Checking), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter))
+		if v.Check.Shown {
 			children = append(children, checkResult(v))
 		}
 	}
@@ -283,14 +292,11 @@ func maxWidth(child ggui.Widget, w float64) ggui.Widget {
 // checkResult shows what the Signing tab's Check found.
 func checkResult(v workspaceState) ggui.Widget {
 	t := uitheme.Use()
-	if v.Checking {
+	if v.Check.Checking {
 		return ui.Caption("Checking the certificate…")
 	}
-	icon, col := "check", readyColor(t)
-	if !v.CheckOK {
-		icon, col = "circle-alert", t.Destructive
-	}
-	return ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Expanded(ggui.Text(v.CheckMessage).Size(12).Color(col))).Gap(6).Align(ggui.AlignStart)
+	icon, col := statusIcon(t, v.Check.OK)
+	return ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Expanded(ggui.Text(v.Check.Message).Size(12).Color(col))).Gap(6).Align(ggui.AlignStart)
 }
 
 // identitySuggestions offers the keychain's signing identities to fill the
@@ -313,27 +319,33 @@ func identitySuggestions(m *desktopModel, v workspaceState) ggui.Widget {
 // Info.plist describes it, so a wrong bundle is obvious at once.
 func appCard(m *desktopModel) ggui.Widget {
 	g := m.editor
-	return ggui.View(ggui.Combine(m.Health, m.Assets, func(h projectHealth, _ int) appSummary { return h.App }), func(app appSummary) ggui.Widget {
+	// Reactive rather than a memo of the summary: the icon can arrive later
+	// for the same app, and only Assets changes then.
+	return ggui.Reactive(func() ggui.Widget {
 		t := uitheme.Use()
+		app := m.Health.Get().App
+		m.Assets.Get()
 		var icon ggui.Widget = ggui.Box().Size(48, 48).Radius(10).Fill(t.Muted)
 		if img := g.assets[projectIconKey]; img != nil {
 			icon = ggui.Image(img).Size(48, 48)
 		}
-		if app.Path == "" {
-			return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text("No app selected").Size(16), ui.Caption("Choose the .app bundle below, or drop it anywhere in this window.")).Gap(4))).Gap(14).Align(ggui.AlignCenter)
-		}
-		details := []string{}
-		if app.Version != "" {
-			details = append(details, "Version "+app.Version)
-		}
-		if app.BundleID != "" {
-			details = append(details, app.BundleID)
-		}
-		caption := ui.Caption(strings.Join(details, " · "))
-		if app.Error != "" {
+		title, caption := app.Name, ggui.Widget(nil)
+		switch {
+		case app.Path == "":
+			title, caption = "No app selected", ui.Caption("Choose the .app bundle below, or drop it anywhere in this window.")
+		case app.Error != "":
 			caption = ggui.Text(app.Error).Size(12).Color(t.Destructive)
+		default:
+			details := []string{}
+			if app.Version != "" {
+				details = append(details, "Version "+app.Version)
+			}
+			if app.BundleID != "" {
+				details = append(details, app.BundleID)
+			}
+			caption = ui.Caption(strings.Join(details, " · "))
 		}
-		return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(app.Name).Size(16).NoWrap(), caption).Gap(4))).Gap(14).Align(ggui.AlignCenter)
+		return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(title).Size(16).NoWrap(), caption).Gap(4))).Gap(14).Align(ggui.AlignCenter)
 	})
 }
 
@@ -341,34 +353,24 @@ func appCard(m *desktopModel) ggui.Widget {
 // step's state and output. A row opens its tab.
 func buildSteps(m *desktopModel) ggui.Widget {
 	g := m.editor
-	return ggui.View(ggui.Combine(m.Health, m.Enabled, func(h projectHealth, e [tabCount]bool) stepsState { return stepsState{h, e} }), func(v stepsState) ggui.Widget {
+	return ggui.Reactive(func() ggui.Widget {
 		t := uitheme.Use()
+		health, enabled := m.Health.Get(), m.Enabled.Get()
 		rows := []ggui.Widget{ggui.Text("Build steps").Size(12).Color(t.Primary), ui.Divider()}
 		for _, tab := range []int{tabDep, tabSign, tabDMG, tabPKG, tabNotarize} {
-			icon, col, detail := "check", readyColor(t), g.stepDetail(tab, v.health)
+			icon, col := statusIcon(t, health.Issues[tab] == "")
+			detail, detailCol := g.stepDetail(tab, health), t.MutedFg
 			switch {
-			case !v.enabled[tab]:
+			case !enabled[tab]:
 				icon, col, detail = "minus", t.MutedFg, "Off"
-			case v.health.Issues[tab] != "":
-				icon, col, detail = "circle-alert", t.Destructive, v.health.Issues[tab]
+			case health.Issues[tab] != "":
+				detail, detailCol = health.Issues[tab], t.Destructive
 			}
-			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(pick(col == t.Destructive, t.Destructive, t.MutedFg)).NoWrap()).Gap(3)), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).Gap(12).Align(ggui.AlignCenter)
+			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap()).Gap(3)), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).Gap(12).Align(ggui.AlignCenter)
 			rows = append(rows, ui.ButtonOf(row, func() { m.selectTab(tab) }).Name("Open "+sections[tab].Name).Ghost().Pad(8, 6))
 		}
 		return ggui.Column(rows...).Gap(4).Align(ggui.AlignStretch)
 	})
-}
-
-type stepsState struct {
-	health  projectHealth
-	enabled [tabCount]bool
-}
-
-func pick[T any](cond bool, a, b T) T {
-	if cond {
-		return a
-	}
-	return b
 }
 
 // stepDetail says what an enabled, healthy step will do.
@@ -500,18 +502,20 @@ var (
 )
 
 func compIcon(name comp.Icon) *icons.SVG {
-	data, err := comp.IconSVG(name)
-	if err == nil {
-		var icon *icons.SVG
-		if icon, err = icons.Parse(data); err == nil {
-			return icon
-		}
+	icon, err := icons.Load(comp.IconFiles(), name.File())
+	if err != nil {
+		panic(err)
 	}
-	panic(err)
+	return icon
 }
 
 // Keep icon creation close to its named control so accessibility has a textual
 // action even when the visual label is only an icon.
 func iconButton(icon, name string, action func()) ggui.Widget {
-	return ui.Tooltip(ui.ButtonOf(lucide.Icon(icon).Size(16), action).Name(name).Ghost().Pad(6), name)
+	return ui.Tooltip(ghostIcon(lucide.Icon(icon), name, action), name)
+}
+
+// ghostIcon is the borderless button behind every icon-only control.
+func ghostIcon(icon *icons.Widget, name string, action func()) *ui.ButtonWidget {
+	return ui.ButtonOf(icon.Size(16), action).Name(name).Ghost().Pad(6)
 }

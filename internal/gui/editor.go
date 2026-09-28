@@ -49,6 +49,7 @@ type editor struct {
 	// wake schedules the UI thread to apply finished background work and act
 	// on quit; nil outside a live window.
 	wake                   func()
+	posted                 chan func()
 	selected               string
 	drag                   string
 	dragX, dragY           float64
@@ -126,6 +127,31 @@ func (g *editor) wakeFunc() func() {
 		return g.wake
 	}
 	return func() {}
+}
+
+// poster returns, on the UI thread, the function a goroutine hands finished
+// work to; the next pump applies it on the UI thread.
+func (g *editor) poster() func(func()) {
+	if g.posted == nil {
+		g.posted = make(chan func(), 8)
+	}
+	posted, wake := g.posted, g.wakeFunc()
+	return func(fn func()) {
+		posted <- fn
+		wake()
+	}
+}
+
+// pollPosted applies work goroutines handed over through poster.
+func (g *editor) pollPosted() {
+	for {
+		select {
+		case fn := <-g.posted:
+			fn()
+		default:
+			return
+		}
+	}
 }
 
 // requestQuit ends the app at the next frame, and makes sure there is one.

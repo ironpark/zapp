@@ -72,7 +72,7 @@ func (g *editor) runWidgets() error {
 		}
 		g.pollAppIcons()
 		g.pollBuild()
-		g.pollSigning()
+		g.pollPosted()
 		if g.picking != nil {
 			g.pollPicker()
 		}

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"context"
-	"reflect"
 	"runtime"
 	"strings"
 
@@ -15,50 +14,40 @@ import (
 // identities offered for the Keychain method, and the result of checking the
 // configured credentials without building.
 type signingAssist struct {
-	identities []string
-	listed     bool // identities were looked up, even if none were found
+	identities string // one per line
+	listed     bool   // identities were looked up, even if none were found
 	listing    bool
-	results    chan func()
 
-	checking bool
-	checked  *zapp.SignConfig // the settings the result describes
-	ok       bool
-	message  string
+	checked signCheckInputs // what the result describes
+	result  signCheck
 }
 
-// post hands work finished in the background to the UI thread.
-func (g *editor) post(fn func()) {
-	if g.signing.results == nil {
-		g.signing.results = make(chan func(), 4)
-	}
-	wake := g.wakeFunc()
-	go func() {
-		g.signing.results <- fn
-		wake()
-	}()
+// signCheckInputs is everything a credential check depends on.
+type signCheckInputs struct {
+	sign      zapp.SignConfig
+	installer bool
 }
 
-// pollSigning applies finished background signing work on the UI thread.
-func (g *editor) pollSigning() {
-	for {
-		select {
-		case fn := <-g.signing.results:
-			fn()
-		default:
-			return
-		}
-	}
+// signCheck is what the Signing tab shows for a credential check.
+type signCheck struct {
+	Shown, Checking, OK bool
+	Message             string
+}
+
+func (g *editor) signCheckInputs() signCheckInputs {
+	return signCheckInputs{*g.s.Project.Sign, g.s.Project.PKG != nil}
 }
 
 // listIdentities looks up the keychain's signing identities once per session,
 // the first time the Keychain method is shown. Only macOS has a keychain.
 func (g *editor) listIdentities() {
 	a := &g.signing
-	if runtime.GOOS != "darwin" || a.listed || a.listing || g.ctx == nil {
+	if runtime.GOOS != "darwin" || a.listed || a.listing || g.ctx == nil ||
+		g.tab != tabSign || !g.enabled() || g.signMethod() != 0 {
 		return
 	}
 	a.listing = true
-	ctx := g.ctx
+	ctx, post := g.ctx, g.poster()
 	go func() {
 		identities, err := macos.ListIdentities(ctx)
 		names := []string{}
@@ -67,7 +56,7 @@ func (g *editor) listIdentities() {
 				names = append(names, identity.String())
 			}
 		}
-		g.post(func() { a.identities, a.listed, a.listing = names, true, false })
+		post(func() { a.identities, a.listed, a.listing = strings.Join(names, "\n"), true, false })
 	}()
 }
 
@@ -87,27 +76,27 @@ func (g *editor) useIdentity(name string) {
 // check and removed again.
 func (g *editor) checkSigning() {
 	a := &g.signing
-	if a.checking || !g.commit() || g.s.Project.Sign == nil {
+	if a.result.Checking || !g.commit() || g.s.Project.Sign == nil {
 		return
 	}
+	inputs := g.signCheckInputs()
 	p := g.s.Project.Clone()
-	settings := *p.Sign
-	installer := p.PKG != nil
 	p.Dep, p.DMG, p.PKG, p.Notarize = nil, nil, nil, nil
 	plan, err := p.Resolve()
+	a.checked = inputs
 	if err != nil {
-		a.checked, a.ok, a.message = &settings, false, err.Error()
+		a.result = signCheck{Shown: true, Message: err.Error()}
 		return
 	}
-	a.checking, a.checked = true, &settings
-	ctx := g.ctx
+	a.result = signCheck{Shown: true, Checking: true}
+	ctx, post := g.ctx, g.poster()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	creds := *plan.SignCredentials
 	go func() {
-		ok, message := describeSigning(ctx, creds, installer)
-		g.post(func() { a.checking, a.ok, a.message = false, ok, message })
+		ok, message := describeSigning(ctx, creds, inputs.installer)
+		post(func() { a.result = signCheck{Shown: true, OK: ok, Message: message} })
 	}()
 }
 
@@ -137,10 +126,9 @@ func describeSigning(ctx context.Context, creds signing.Credentials, installer b
 
 // signingCheck is the result to show for the current settings, if any: a
 // result for settings that have since changed is stale and hidden.
-func (g *editor) signingCheck() (shown, checking, ok bool, message string) {
-	a := g.signing
-	if g.s.Project.Sign == nil || a.checked == nil || !reflect.DeepEqual(*a.checked, *g.s.Project.Sign) {
-		return false, false, false, ""
+func (g *editor) signingCheck() signCheck {
+	if g.s.Project.Sign == nil || g.signing.checked != g.signCheckInputs() {
+		return signCheck{}
 	}
-	return true, a.checking, a.ok, a.message
+	return g.signing.result
 }

@@ -108,6 +108,7 @@ func (g *editor) rebuild() {
 	g.refreshDerived()
 	g.refreshHealth()
 	g.refreshProjectIcon()
+	g.listIdentities()
 }
 
 func (g *editor) rebuildFields() {

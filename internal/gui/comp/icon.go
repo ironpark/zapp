@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io/fs"
 
 	"github.com/ironpark/ggfx"
 	"github.com/srwiley/oksvg"
@@ -29,8 +30,11 @@ const (
 //go:embed icons/*.svg
 var iconFiles embed.FS
 
-// IconSVG returns an icon's SVG source, for renderers other than the painter.
-func IconSVG(name Icon) ([]byte, error) { return iconFiles.ReadFile("icons/" + string(name) + ".svg") }
+// IconFiles holds the icons' SVG sources, for renderers other than the
+// painter; File names an icon's source within it.
+func IconFiles() fs.FS { return iconFiles }
+
+func (i Icon) File() string { return "icons/" + string(i) + ".svg" }
 
 // Rasterize once at 4x the button size; the painter owns the resulting textures.
 // White SVG strokes form a mask tinted with the button's current text color.
