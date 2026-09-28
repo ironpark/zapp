@@ -76,6 +76,31 @@ inputs:
   team-id:
     description: Developer Team ID for the Apple ID.
     required: false
+  zip:
+    description: >-
+      "true" archives the app as a ZIP once it is signed, notarized and
+      stapled; "false" skips the project's zip section.
+    required: false
+  upload-url:
+    description: >-
+      Endpoint to send the artifacts to, in addition to the project's upload
+      section. ${file.name} is replaced by each file's name.
+    required: false
+  upload-method:
+    description: PUT sends each file as the request body, POST as a multipart form field. Default PUT.
+    required: false
+  upload-field:
+    description: Form field of a POST upload. Default file.
+    required: false
+  upload-headers:
+    description: 'Headers sent with each upload, one "Name: value" per line, such as "Authorization: Bearer" and a token from a secret.'
+    required: false
+  upload-artifacts:
+    description: Artifacts to send to upload-url, from zip, dmg and pkg, separated by spaces. Default every artifact built.
+    required: false
+  upload:
+    description: '"false" skips every upload, the project''s included.'
+    required: false
   args:
     description: >-
       Further `zapp build` options, one per line, such as --title=My App or
@@ -96,6 +121,18 @@ outputs:
   pkg:
     description: Absolute path of the PKG, if one was built.
     value: ${{ steps.build.outputs.pkg }}
+  zip:
+    description: Absolute path of the app ZIP, if one was built.
+    value: ${{ steps.build.outputs.zip }}
+  zip-url:
+    description: Where the ZIP was uploaded, without the query string.
+    value: ${{ steps.build.outputs.zip-url }}
+  dmg-url:
+    description: Where the DMG was uploaded, without the query string.
+    value: ${{ steps.build.outputs.dmg-url }}
+  pkg-url:
+    description: Where the PKG was uploaded, without the query string.
+    value: ${{ steps.build.outputs.pkg-url }}
   version:
     description: The zapp version used.
     value: ${{ steps.setup.outputs.version }}
@@ -131,5 +168,12 @@ runs:
         IN_APPLE_ID: ${{ inputs.apple-id }}
         IN_APP_PASSWORD: ${{ inputs.app-password }}
         IN_TEAM_ID: ${{ inputs.team-id }}
+        IN_ZIP: ${{ inputs.zip }}
+        IN_UPLOAD: ${{ inputs.upload }}
+        IN_UPLOAD_URL: ${{ inputs.upload-url }}
+        IN_UPLOAD_METHOD: ${{ inputs.upload-method }}
+        IN_UPLOAD_FIELD: ${{ inputs.upload-field }}
+        IN_UPLOAD_HEADERS: ${{ inputs.upload-headers }}
+        IN_UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
         IN_ARGS: ${{ inputs.args }}
       run: bash "$GITHUB_ACTION_PATH/scripts/action-build.sh"

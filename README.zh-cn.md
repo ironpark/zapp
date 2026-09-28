@@ -186,6 +186,21 @@ notarize:
 
 各平台的证书和认证方式请参阅[签名与公证说明](docs/signing.md)。
 
+### 分发 ZIP 与上传
+
+`zip:` 会在构建 DMG 和 PKG 之前压缩已签名、公证并附加票据的应用，因此 DMG 和 PKG 中的应用同样已附加票据。`upload:` 在构建结束时将产物发送到 HTTP 端点。
+
+```yaml
+zip:
+upload:
+  - url: https://releases.example.com/${app.version}/${file.name}
+    headers:
+      Authorization: Bearer ${env:RELEASE_TOKEN}
+    artifacts: [zip, dmg]
+```
+
+凭据类请求头只能通过 `${env:…}` 指定。单次跳过上传可使用 `--no-upload`。详见 [分发与上传](docs/distribution.md)（英文）。
+
 ### 高级配置
 
 <details>

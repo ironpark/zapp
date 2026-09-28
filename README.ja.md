@@ -186,6 +186,21 @@ notarize:
 
 プラットフォームごとの証明書と認証方法は[署名・公証の説明](docs/signing.md)を参照してください。
 
+### ZIP の配布とアップロード
+
+`zip:` は署名・公証・ステープル済みのアプリを DMG・PKG より先に圧縮するため、DMG・PKG 内のアプリもステープル済みになります。`upload:` はビルドの最後に成果物を HTTP エンドポイントへ送信します。
+
+```yaml
+zip:
+upload:
+  - url: https://releases.example.com/${app.version}/${file.name}
+    headers:
+      Authorization: Bearer ${env:RELEASE_TOKEN}
+    artifacts: [zip, dmg]
+```
+
+認証ヘッダーは `${env:…}` でのみ指定できます。一度だけアップロードを省くには `--no-upload` を使います。詳しくは [配布とアップロード](docs/distribution.md)（英語）を参照してください。
+
 ### 詳細設定
 
 <details>

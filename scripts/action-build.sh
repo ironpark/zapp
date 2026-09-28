@@ -26,6 +26,13 @@ set -euo pipefail
 : "${IN_APP_PASSWORD:=}"
 : "${IN_TEAM_ID:=}"
 : "${IN_ARGS:=}"
+: "${IN_ZIP:=}"
+: "${IN_UPLOAD:=}"
+: "${IN_UPLOAD_URL:=}"
+: "${IN_UPLOAD_METHOD:=}"
+: "${IN_UPLOAD_FIELD:=}"
+: "${IN_UPLOAD_HEADERS:=}"
+: "${IN_UPLOAD_ARTIFACTS:=}"
 
 native() {
   if command -v cygpath >/dev/null; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
@@ -64,11 +71,15 @@ set_env ZAPP_CONFIG "$IN_CONFIG"
 set_env ZAPP_APP "$IN_APP"
 bool SIGN "$IN_SIGN" sign
 bool NOTARIZE "$IN_NOTARIZE" notarize
-case $(lower "$IN_STAPLE") in
-  '') ;;
-  true | false) ZAPP_STAPLE=$(lower "$IN_STAPLE") && export ZAPP_STAPLE ;;
-  *) echo "::error::staple must be true or false, not $IN_STAPLE" >&2; exit 1 ;;
-esac
+# setting passes true or false through as ZAPP_<name>, overriding the project.
+setting() {
+  case $(lower "$2") in
+    '') ;;
+    true | false) export "ZAPP_$1=$(lower "$2")" ;;
+    *) echo "::error::$3 must be true or false, not $2" >&2; exit 1 ;;
+  esac
+}
+setting STAPLE "$IN_STAPLE" staple
 
 set_env ZAPP_IDENTITY "$IN_IDENTITY"
 set_env ZAPP_P12_BASE64 "$(printf '%s' "$IN_CERTIFICATE" | tr -d '[:space:]')"
@@ -91,6 +102,14 @@ elif [[ -n $IN_API_KEY_ID || -n $IN_API_ISSUER_ID || -n $IN_API_PRIVATE_KEY ]]; 
   secret_file ZAPP_API_KEY_FILE api-key.json \
     "{\"issuer_id\":\"$IN_API_ISSUER_ID\",\"key_id\":\"$IN_API_KEY_ID\",\"private_key\":\"$key\"}"
 fi
+setting ZIP "$IN_ZIP" zip
+bool UPLOAD "$IN_UPLOAD" upload
+set_env ZAPP_UPLOAD_URL "$IN_UPLOAD_URL"
+set_env ZAPP_UPLOAD_METHOD "$IN_UPLOAD_METHOD"
+set_env ZAPP_UPLOAD_FIELD "$IN_UPLOAD_FIELD"
+set_env ZAPP_UPLOAD_HEADER "${IN_UPLOAD_HEADERS//$'\r'/}"
+set_env ZAPP_UPLOAD_ARTIFACTS "$IN_UPLOAD_ARTIFACTS"
+
 set_env ZAPP_APPLE_ID "$IN_APPLE_ID"
 set_env ZAPP_PASSWORD "$IN_APP_PASSWORD"
 set_env ZAPP_TEAM_ID "$IN_TEAM_ID"
@@ -98,6 +117,13 @@ set_env ZAPP_TEAM_ID "$IN_TEAM_ID"
 # --artifacts arrived with --version, in 1.1.0.
 if ! zapp --version >/dev/null 2>&1; then
   echo "::error::the zapp action needs zapp 1.1.0 or later; use ironpark/zapp/setup for older releases" >&2
+  exit 1
+fi
+
+# zip and upload arrived in 1.2.0; an older zapp would ignore their
+# variables and quietly skip them.
+if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $(zapp build --help 2>/dev/null) != *--upload-url* ]]; then
+  echo "::error::zip and upload need zapp 1.2.0 or later" >&2
   exit 1
 fi
 
@@ -114,12 +140,14 @@ zapp "${args[@]}" ${extra[@]+"${extra[@]}"} ${steps[@]+"${steps[@]}"}
 
 # On Windows zapp reports D:\dir\file; the mixed D:/dir/file form works in
 # bash steps as well as PowerShell and the artifact actions.
-summary=$'### zapp\n\n| Artifact | Path |\n| --- | --- |\n'
-while IFS='=' read -r name path; do
-  if [[ -n $path ]]; then
-    path=$(native "$path")
-    summary+="| $name | \`$path\` |"$'\n'
+summary=$'### zapp\n\n| Artifact | Location |\n| --- | --- |\n'
+while IFS='=' read -r name value; do
+  if [[ -n $value && $name != *-url ]]; then
+    value=$(native "$value")
   fi
-  echo "$name=$path" >>"$GITHUB_OUTPUT"
+  if [[ -n $value ]]; then
+    summary+="| $name | \`$value\` |"$'\n'
+  fi
+  echo "$name=$value" >>"$GITHUB_OUTPUT"
 done <"$private/artifacts"
 printf '%s' "$summary" >>"$GITHUB_STEP_SUMMARY"

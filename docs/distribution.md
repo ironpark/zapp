@@ -1,0 +1,92 @@
+# Distributing and uploading
+
+A project can finish a build by archiving the notarized app as a ZIP and
+sending the artifacts to an HTTP endpoint: your own server, a presigned S3 or
+R2 URL, or any service that accepts a PUT or a multipart POST.
+
+```yaml
+zip:
+  out: dist/${app.name}-${app.version}.zip   # default: <out>/<app name>.zip
+
+upload:
+  - url: https://releases.example.com/${app.name}/${app.version}/${file.name}
+    method: PUT                   # PUT (file as the body) or POST (multipart)
+    field: file                   # form field of a POST
+    headers:
+      Authorization: Bearer ${env:RELEASE_TOKEN}
+    artifacts: [zip, dmg]         # default: every artifact the build made
+```
+
+## Order
+
+```
+dep → sign app → [zip: notarize app → staple → archive] → DMG → PKG
+    → sign installers → notarize installers → [upload]
+```
+
+With a `zip` section and `staple: true`, the app is notarized and stapled
+before it is archived and packaged, so the app inside the ZIP, DMG and PKG is
+stapled and Gatekeeper accepts it offline. Without stapling, the ZIP itself
+is submitted for notarization, so the app is archived only once.
+
+The archive keeps Unix permissions and stores symbolic links as links, as
+`ditto -c -k --keepParent` does, so a framework's `Versions/Current` link does
+not break the app's code signature. Build the ZIP on macOS or Linux when the
+app came from a macOS build: Windows file systems do not keep the executable
+bit.
+
+## Uploads
+
+- `upload` is a list; each endpoint receives the artifacts it names.
+- `${file.name}` is each file's name, URL-encoded. The other project
+  variables, such as `${app.version}`, work as anywhere else.
+- A PUT sends the file as the body with a matching `Content-Type`; a POST
+  sends it as one multipart field. Both send a `Content-Length`.
+- Network errors and 408, 429 and 5xx responses are retried twice, after 2 and
+  4 seconds. Any other response outside 2xx fails the build and quotes the
+  start of the server's answer.
+- An endpoint that names an artifact the build did not make skips it; an
+  endpoint that receives nothing fails.
+
+### Credentials
+
+A header whose name suggests a credential (containing `auth`, `cookie`,
+`token`, `secret`, `key`, `password` or `signature`) must be read from the
+environment with `${env:NAME}`; a literal value is rejected when the project
+is loaded. `zapp config show` prints such headers as `<redacted>` and drops
+the user information and query string of upload URLs, where presigned URLs
+keep their signatures. Logs and outputs leave them out as well.
+
+## Command line
+
+```sh
+zapp build                    # runs zip and upload when the project has them
+zapp build dmg zip upload     # choose the steps
+zapp build --no-upload        # everything but the upload
+zapp build --zip --upload-url 'https://example.com/${file.name}' \
+  --upload-header "Authorization: Bearer $TOKEN" dmg
+```
+
+| Flag | Environment | Meaning |
+| --- | --- | --- |
+| `--zip` | `ZAPP_ZIP` | Archive the app (`--zip=false` skips the project's `zip`) |
+| `--upload-url` | `ZAPP_UPLOAD_URL` | Adds an endpoint to the project's |
+| `--upload-method` | `ZAPP_UPLOAD_METHOD` | `PUT` or `POST` |
+| `--upload-field` | `ZAPP_UPLOAD_FIELD` | Form field of a POST |
+| `--upload-header` | `ZAPP_UPLOAD_HEADER` | `"Name: value"`, repeatable; the variable holds one per line |
+| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg` |
+| `--no-upload` | `ZAPP_NO_UPLOAD` | Skip every upload |
+
+Headers given on the command line or in the environment are runtime values,
+so they may be literal. When steps are named, `--zip` and `--upload-url` add
+their steps to them.
+
+`--artifacts FILE` writes `zip=` next to the other paths, and the URL each
+artifact was uploaded to as `zip-url=`, `dmg-url=` and `pkg-url=`.
+
+`zapp upload` sends existing files with the same flags:
+
+```sh
+zapp upload --upload-url 'https://example.com/${file.name}' \
+  --upload-header "Authorization: Bearer $TOKEN" MyApp.zip MyApp.dmg
+```

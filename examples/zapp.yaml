@@ -38,6 +38,16 @@ dmg:
     ../README.md: {name: Read Me.md, pos: [360, 350]}
     # Add icon: ./icons/readme.png to a copied item to override its Finder icon.
 
+# Uncomment to archive the notarized, stapled app, and to upload artifacts.
+# zip:
+#   out: ../dist/${app.name}-${app.version}.zip
+# upload:
+#   - url: https://releases.example.com/${app.version}/${file.name}
+#     method: PUT                 # or POST, as a multipart form field
+#     headers:
+#       Authorization: Bearer ${env:RELEASE_TOKEN}   # never a literal token
+#     artifacts: [zip, dmg]
+
 # Short form: identifier and version default from the app's Info.plist.
 pkg:
   type: product

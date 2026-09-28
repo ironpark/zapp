@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/ironpark/zapp/pkg/archive"
 	"io"
 	"os"
 	"path/filepath"
@@ -169,7 +170,7 @@ func Notarize(ctx context.Context, b Backend, path string, staple bool) error {
 		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		submitPath = filepath.Join(tempDir, filepath.Base(path)+".zip")
-		if err := createZip(path, submitPath); err != nil {
+		if err := archive.Zip(ctx, path, submitPath); err != nil {
 			return fmt.Errorf("failed to archive %s: %w", path, err)
 		}
 	}

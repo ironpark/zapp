@@ -23,6 +23,7 @@ func newApp() *cli.Command {
 			plistCommand,
 			notarizeCommand,
 			depCommand,
+			uploadCommand(),
 		},
 		Usage: "Simplify your macOS App deployment",
 		Action: func(ctx context.Context, c *cli.Command) error {

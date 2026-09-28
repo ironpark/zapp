@@ -15,6 +15,7 @@ import (
 	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/ironpark/zapp/pkg/udif"
+	"github.com/ironpark/zapp/pkg/upload"
 )
 
 var variable = regexp.MustCompile(`\$\{([^}]+)\}`)
@@ -139,8 +140,17 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		}
 	}
 	q.App = ""
+	// ${file.name} in an upload URL names each file as it is sent, so it is
+	// hidden from expansion there and nowhere else.
+	const fileName = "\x00file.name\x00"
+	for i := range q.Upload {
+		q.Upload[i].URL = strings.ReplaceAll(q.Upload[i].URL, upload.FileName, fileName)
+	}
 	if err := expandValue(reflect.ValueOf(q).Elem(), map[string]string{"app": path(app), "app.name": name, "app.version": version}); err != nil {
 		return nil, err
+	}
+	for i := range q.Upload {
+		q.Upload[i].URL = strings.ReplaceAll(q.Upload[i].URL, fileName, upload.FileName)
 	}
 	q.App = path(app)
 	q.Out = path(q.Out)
@@ -153,7 +163,29 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		}
 		return path(out)
 	}
-	pl := &Plan{App: q.App, logger: o.logger, project: q, signBackend: o.signBackend, notaryBackend: o.notaryBackend}
+	pl := &Plan{App: q.App, logger: o.logger, httpClient: o.httpClient, project: q, signBackend: o.signBackend, notaryBackend: o.notaryBackend}
+	if c := q.Zip; c != nil {
+		if q.App == "" {
+			return nil, fmt.Errorf("zip requires app")
+		}
+		c.Out = output(c.Out, name, ".zip")
+		if !strings.HasSuffix(c.Out, ".zip") {
+			c.Out += ".zip"
+		}
+		pl.Zip = &ZipSpec{Output: c.Out}
+	}
+	for i := range q.Upload {
+		u := &q.Upload[i]
+		// Normalized so `config show` states what will be sent.
+		u.Method = strings.ToUpper(u.Method)
+		if u.Method == "" {
+			u.Method = "PUT"
+		}
+		if err := u.Target().Check(); err != nil {
+			return nil, fmt.Errorf("upload[%d]: %w", i, err)
+		}
+	}
+	pl.Uploads = q.Upload
 	if q.Dep != nil {
 		for i := range q.Dep.Libs {
 			q.Dep.Libs[i] = path(q.Dep.Libs[i])

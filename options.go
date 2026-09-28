@@ -2,6 +2,7 @@ package zapp
 
 import (
 	"github.com/ironpark/zapp/pkg/signing"
+	"net/http"
 	"time"
 )
 
@@ -13,7 +14,11 @@ type options struct {
 	signBackend, notaryBackend signing.Backend
 	logger                     Logger
 	clock                      time.Time
+	httpClient                 *http.Client
 }
+
+// WithHTTPClient sends uploads through c instead of http.DefaultClient.
+func WithHTTPClient(c *http.Client) Option { return func(o *options) { o.httpClient = c } }
 
 func WithLogger(l Logger) Option   { return func(o *options) { o.logger = l } }
 func WithClock(t time.Time) Option { return func(o *options) { o.clock = t } }

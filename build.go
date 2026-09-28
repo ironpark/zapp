@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ironpark/zapp/internal/fsutil"
+	"github.com/ironpark/zapp/pkg/archive"
 	"github.com/ironpark/zapp/pkg/dep"
 	"github.com/ironpark/zapp/pkg/dmg"
 	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/ironpark/zapp/pkg/signing"
+	"github.com/ironpark/zapp/pkg/upload"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,12 +29,22 @@ const (
 	StepSign     Step = "sign"
 	StepNotarize Step = "notarize"
 	StepStaple   Step = "staple"
+	StepZip      Step = "zip"
+	StepUpload   Step = "upload"
 )
 
 type Artifacts struct {
-	App string
-	DMG string
-	PKG string
+	App     string
+	DMG     string
+	PKG     string
+	Zip     string
+	Uploads []Uploaded
+}
+
+// Uploaded is one artifact sent to one endpoint. URL leaves out the query
+// string, which may hold a presigned credential.
+type Uploaded struct {
+	Artifact, URL string
 }
 
 func (p *Plan) log(format string, args ...any) {
@@ -207,10 +219,12 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 		selected[StepDep] = p.Dep != nil
 		selected[StepDMG] = p.DMG != nil
 		selected[StepPKG] = p.PKG != nil
+		selected[StepZip] = p.Zip != nil
+		selected[StepUpload] = len(p.Uploads) > 0
 	} else {
 		for _, s := range steps {
 			switch s {
-			case StepDep, StepDMG, StepPKG:
+			case StepDep, StepDMG, StepPKG, StepZip, StepUpload:
 				selected[s] = true
 			default:
 				return a, stepError(s, fmt.Errorf("unknown build step %q", s))
@@ -226,6 +240,12 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	if selected[StepPKG] && p.PKG == nil {
 		return a, stepError(StepPKG, fmt.Errorf("pkg section is not configured"))
 	}
+	if selected[StepZip] && p.Zip == nil {
+		return a, stepError(StepZip, fmt.Errorf("zip section is not configured"))
+	}
+	if selected[StepUpload] && len(p.Uploads) == 0 {
+		return a, stepError(StepUpload, fmt.Errorf("upload section is not configured"))
+	}
 	if selected[StepDep] {
 		if err := p.BundleDeps(ctx); err != nil {
 			return a, err
@@ -237,6 +257,29 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 		}
 	}
 	var err error
+	// The app is notarized itself when it ships bare: in the ZIP, or after
+	// bundling with nothing to package it. Its ZIP is what gets submitted
+	// unless the ticket is to be stapled, which changes the app, so the
+	// archive has to be made afterwards; either way the bundle is archived
+	// once. A stapled app also reaches the DMG and PKG built next.
+	bare := selected[StepDep] && !selected[StepDMG] && !selected[StepPKG]
+	notarizeApp := p.NotarizeCredentials != nil && (selected[StepZip] || bare)
+	if notarizeApp && (!selected[StepZip] || p.Staple) {
+		if err = p.Notarize(ctx, p.App); err != nil {
+			return a, err
+		}
+		notarizeApp = false
+	}
+	if selected[StepZip] {
+		if a.Zip, err = p.BuildZip(ctx); err != nil {
+			return a, err
+		}
+		if notarizeApp {
+			if err = p.Notarize(ctx, a.Zip); err != nil {
+				return a, err
+			}
+		}
+	}
 	if selected[StepDMG] {
 		a.DMG, err = p.BuildDMG(ctx)
 		if err != nil {
@@ -263,9 +306,6 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 			}
 		}
 	}
-	if len(targets) == 0 && selected[StepDep] {
-		targets = append(targets, p.App)
-	}
 	for _, target := range targets {
 		if p.NotarizeCredentials != nil {
 			if err = p.Notarize(ctx, target); err != nil {
@@ -273,5 +313,59 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 			}
 		}
 	}
+	if selected[StepUpload] {
+		if a.Uploads, err = p.Upload(ctx, a); err != nil {
+			return a, err
+		}
+	}
 	return a, nil
+}
+
+// BuildZip archives the app, as it stands, for distribution. Build notarizes
+// and staples the app around it.
+func (p *Plan) BuildZip(ctx context.Context) (out string, err error) {
+	if p.Zip == nil {
+		return "", stepError(StepZip, fmt.Errorf("zip section is not configured"))
+	}
+	p.log("Archiving %s as %s\n", p.App, p.Zip.Output)
+	if err = archive.Zip(ctx, p.App, p.Zip.Output); err != nil {
+		return "", stepError(StepZip, err)
+	}
+	return p.Zip.Output, nil
+}
+
+// Upload sends a build's artifacts to every configured endpoint. An endpoint
+// that names an artifact this build did not make skips it; one that receives
+// nothing at all is an error.
+func (p *Plan) Upload(ctx context.Context, a Artifacts) (sent []Uploaded, err error) {
+	defer func() { err = stepError(StepUpload, err) }()
+	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG}
+	for i, spec := range p.Uploads {
+		target := spec.Target()
+		names := spec.Artifacts
+		if len(names) == 0 {
+			names = UploadArtifacts
+		}
+		count := 0
+		for _, name := range names {
+			path := built[name]
+			if path == "" {
+				if len(spec.Artifacts) > 0 {
+					p.log("Skipping %s upload: this build made no %s\n", name, name)
+				}
+				continue
+			}
+			p.log("Uploading %s to %s\n", path, target.Location(filepath.Base(path)))
+			url, err := upload.File(ctx, p.httpClient, target, path)
+			if err != nil {
+				return sent, err
+			}
+			sent = append(sent, Uploaded{Artifact: name, URL: url})
+			count++
+		}
+		if count == 0 {
+			return sent, fmt.Errorf("upload[%d] has nothing to send; build a %s first", i, strings.Join(names, ", "))
+		}
+	}
+	return sent, nil
 }

@@ -2,9 +2,9 @@ name: action
 
 on:
   pull_request:
-    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', '.github/workflows/action.yaml']
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/archive/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
   push:
-    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', '.github/workflows/action.yaml']
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/archive/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
   workflow_dispatch:
 
 permissions:
@@ -70,6 +70,18 @@ jobs:
             <key>CFBundleIconFile</key><string>AppIcon</string>
           </dict></plist>
           PLIST
+      - name: Start an upload endpoint
+        shell: bash
+        run: |
+          # python3 on Windows runners can be the Microsoft Store stub.
+          if [ "$RUNNER_OS" = Windows ]; then py=python; else py=python3; fi
+          echo "PY=$py" >>"$GITHUB_ENV"
+          "$py" .github/scripts/put-server.py 8765 "$RUNNER_TEMP/received" test-token &
+          for _ in $(seq 20); do
+            if curl -s -o /dev/null http://127.0.0.1:8765/; then exit 0; fi
+            sleep 0.5
+          done
+          exit 1
       - id: zapp
         uses: ./
         with:
@@ -79,6 +91,11 @@ jobs:
           steps: dmg pkg
           sign: false
           notarize: false
+          zip: true
+          upload-url: http://127.0.0.1:8765/releases/${file.name}?sig=hidden
+          upload-headers: |
+            Authorization: Bearer test-token
+          upload-artifacts: zip dmg
           args: |
             --title=Demo App
       - name: Check the outputs
@@ -86,5 +103,12 @@ jobs:
         run: |
           test -f "${{ steps.zapp.outputs.dmg }}"
           test -f "${{ steps.zapp.outputs.pkg }}"
+          test -f "${{ steps.zapp.outputs.zip }}"
           test -d "${{ steps.zapp.outputs.app }}"
           case "${{ steps.zapp.outputs.dmg }}" in */Demo\ App.dmg) ;; *) exit 1 ;; esac
+          test "${{ steps.zapp.outputs.zip-url }}" = http://127.0.0.1:8765/releases/Demo.zip
+          test "${{ steps.zapp.outputs.dmg-url }}" = "http://127.0.0.1:8765/releases/Demo%20App.dmg"
+          test -z "${{ steps.zapp.outputs.pkg-url }}"
+          cmp "${{ steps.zapp.outputs.zip }}" "$RUNNER_TEMP/received/Demo.zip"
+          cmp "${{ steps.zapp.outputs.dmg }}" "$RUNNER_TEMP/received/Demo App.dmg"
+          "$PY" -c 'import sys, zipfile; assert "Demo.app/Contents/Info.plist" in zipfile.ZipFile(sys.argv[1]).namelist()' "${{ steps.zapp.outputs.zip }}"

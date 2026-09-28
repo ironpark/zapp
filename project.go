@@ -11,6 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
+
+	"github.com/ironpark/zapp/pkg/upload"
 )
 
 type Project struct {
@@ -22,6 +25,8 @@ type Project struct {
 	Dep      *DepConfig      `json:"dep,omitempty"`
 	DMG      *DMGConfig      `json:"dmg,omitempty"`
 	PKG      *PKGConfig      `json:"pkg,omitempty"`
+	Zip      *ZipConfig      `json:"zip,omitempty"`
+	Upload   []UploadConfig  `json:"upload,omitempty"`
 	dir      string
 	legacy   bool
 }
@@ -44,6 +49,44 @@ type NotarizeConfig struct {
 	Staple     bool   `json:"staple,omitempty"`
 	Password   string `json:"-"`
 }
+
+// ZipConfig archives the app once it is signed, notarized and stapled, for
+// distribution as it is.
+type ZipConfig struct {
+	Out string `json:"out,omitempty"`
+}
+
+// UploadConfig sends built artifacts to an HTTP endpoint. URL may name the
+// file with ${file.name}. Headers that carry a credential must come from the
+// environment, as ${env:NAME}, never the file itself.
+type UploadConfig struct {
+	URL       string            `json:"url"`
+	Method    string            `json:"method,omitempty"`
+	Field     string            `json:"field,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
+	Artifacts []string          `json:"artifacts,omitempty"`
+}
+
+// UploadArtifacts are the artifacts an upload may name.
+var UploadArtifacts = []string{"zip", "dmg", "pkg"}
+
+// Target is the endpoint u describes.
+func (u UploadConfig) Target() upload.Target {
+	return upload.Target{URL: u.URL, Method: u.Method, Field: u.Field, Headers: u.Headers}
+}
+
+// secretHeader reports whether a header's value is a credential, so that a
+// project file may only read it from the environment and it is never printed.
+func secretHeader(name string) bool {
+	name = strings.ToLower(name)
+	for _, word := range []string{"auth", "cookie", "token", "secret", "key", "password", "signature"} {
+		if strings.Contains(name, word) {
+			return true
+		}
+	}
+	return false
+}
+
 type DepConfig struct {
 	Libs []string `json:"libs,omitempty"`
 }
@@ -239,7 +282,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	p := new(Project)
 	// Without section keys this is the old flat DMG schema.
 	section := false
-	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize"} {
+	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "upload"} {
 		if _, ok := keys[k]; ok {
 			section = true
 		}
@@ -259,6 +302,17 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	}
 	if p.Version != 1 {
 		return nil, fmt.Errorf("config version must be 1")
+	}
+	// A bare `zip:` asks for an archive with every default.
+	if _, ok := keys["zip"]; ok && p.Zip == nil {
+		p.Zip = &ZipConfig{}
+	}
+	for i, u := range p.Upload {
+		for name, value := range u.Headers {
+			if secretHeader(name) && !strings.Contains(value, "${env:") { // headers from flags may be literal
+				return nil, fmt.Errorf("upload[%d].headers.%s holds a credential; read it from the environment, e.g. ${env:UPLOAD_TOKEN}", i, name)
+			}
+		}
 	}
 	p.dir, err = filepath.Abs(baseDir)
 	if err != nil {
@@ -289,6 +343,16 @@ func (p *Project) validate() error {
 		}
 		if c.Type == "component" && c.Distribution != nil {
 			return fmt.Errorf("component package cannot have distribution")
+		}
+	}
+	for i, u := range p.Upload {
+		if u.URL == "" {
+			return fmt.Errorf("upload[%d] requires url", i)
+		}
+		for _, a := range u.Artifacts {
+			if !slices.Contains(UploadArtifacts, a) {
+				return fmt.Errorf("upload[%d] cannot send %q; choose from %s", i, a, strings.Join(UploadArtifacts, ", "))
+			}
 		}
 	}
 	return nil
@@ -340,6 +404,17 @@ func (p *Project) Clone() *Project {
 		x := *p.Dep
 		x.Libs = append([]string(nil), x.Libs...)
 		q.Dep = &x
+	}
+	if p.Zip != nil {
+		x := *p.Zip
+		q.Zip = &x
+	}
+	if p.Upload != nil {
+		q.Upload = slices.Clone(p.Upload)
+		for i, u := range q.Upload {
+			q.Upload[i].Headers = maps.Clone(u.Headers)
+			q.Upload[i].Artifacts = slices.Clone(u.Artifacts)
+		}
 	}
 	if p.DMG != nil {
 		x := *p.DMG

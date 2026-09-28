@@ -186,6 +186,21 @@ notarize:
 
 各平台的憑證和認證方式請參閱[簽章與公證說明](docs/signing.md)。
 
+### 發布 ZIP 與上傳
+
+`zip:` 會在建置 DMG 與 PKG 之前壓縮已簽章、公證並附加票據的應用程式，因此 DMG 與 PKG 中的應用程式同樣已附加票據。`upload:` 在建置結束時將產物傳送到 HTTP 端點。
+
+```yaml
+zip:
+upload:
+  - url: https://releases.example.com/${app.version}/${file.name}
+    headers:
+      Authorization: Bearer ${env:RELEASE_TOKEN}
+    artifacts: [zip, dmg]
+```
+
+憑證類標頭只能透過 `${env:…}` 指定。單次略過上傳可使用 `--no-upload`。詳見 [發布與上傳](docs/distribution.md)（英文）。
+
 ### 高階設定
 
 <details>

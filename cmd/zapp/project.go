@@ -108,11 +108,15 @@ func loadProject(c *cli.Command, kind string) (*zapp.Project, error) {
 			if p.Dep == nil {
 				p.Dep = &zapp.DepConfig{}
 			}
+		case "zip":
+			if p.Zip == nil {
+				p.Zip = &zapp.ZipConfig{}
+			}
 		}
 	}
 	if kind == "build" {
 		for _, step := range c.Args().Slice() {
-			if step != "dmg" && step != "pkg" && step != "dep" {
+			if step != "dmg" && step != "pkg" && step != "dep" && step != "zip" && step != "upload" {
 				return nil, fmt.Errorf("unknown build step %q", step)
 			}
 			ensure(step)
@@ -125,16 +129,49 @@ func loadProject(c *cli.Command, kind string) (*zapp.Project, error) {
 	return p, nil
 }
 
+// flagValue reads a string flag, or else its environment variable; ok
+// reports whether either was set.
+func flagValue(c *cli.Command, flag string) (string, bool) {
+	if c.IsSet(flag) {
+		return c.String(flag), true
+	}
+	return os.LookupEnv(envName(flag))
+}
+
+// flagBool reads a boolean flag, or else its environment variable as
+// strconv.ParseBool reads it.
+func flagBool(c *cli.Command, flag string) (b, set bool, err error) {
+	if c.IsSet(flag) {
+		return c.Bool(flag), true, nil
+	}
+	v, ok := os.LookupEnv(envName(flag))
+	if !ok {
+		return false, false, nil
+	}
+	if b, err = strconv.ParseBool(strings.TrimSpace(v)); err != nil {
+		return false, true, fmt.Errorf("%s: %w", flag, err)
+	}
+	return b, true, nil
+}
+
+// flagList reads a repeatable flag, or else its environment variable split
+// by split.
+func flagList(c *cli.Command, flag string, split func(string) []string) ([]string, bool) {
+	if c.IsSet(flag) {
+		return c.StringSlice(flag), true
+	}
+	if v, ok := os.LookupEnv(envName(flag)); ok {
+		return split(v), true
+	}
+	return nil, false
+}
+
+func splitComma(v string) []string { return strings.Split(v, ",") }
+
 // overlayProject copies explicitly supplied values only. Env is applied first, then
 // command line flags, with both path sources interpreted relative to cwd.
 func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
-	value := func(flag string) (string, bool) {
-		if c.IsSet(flag) {
-			return c.String(flag), true
-		}
-		v, ok := os.LookupEnv(envName(flag))
-		return v, ok
-	}
+	value := func(flag string) (string, bool) { return flagValue(c, flag) }
 	absolute := func(s string) (string, error) {
 		if s == "" || filepath.IsAbs(s) {
 			return s, nil
@@ -156,20 +193,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 		*dst = v
 		return nil
 	}
-	boolean := func(flag string) (bool, bool, error) {
-		if c.IsSet(flag) {
-			return c.Bool(flag), true, nil
-		}
-		v, ok := os.LookupEnv(envName(flag))
-		if !ok {
-			return false, false, nil
-		}
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			return false, true, fmt.Errorf("%s: %w", flag, err)
-		}
-		return b, true, nil
-	}
+	boolean := func(flag string) (bool, bool, error) { return flagBool(c, flag) }
 	if err := assign("app", &p.App, true); err != nil {
 		return err
 	}
@@ -246,14 +270,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 				return err
 			}
 		}
-		var vals []string
-		set := false
-		if c.IsSet("license") {
-			vals, set = c.StringSlice("license"), true
-		} else if v, ok := os.LookupEnv(envName("license")); ok {
-			vals, set = strings.Split(v, ","), true
-		}
-		if set {
+		if vals, set := flagList(c, "license", splitComma); set {
 			k.License = zapp.License{}
 			for _, v := range vals {
 				lang, path, localized := strings.Cut(v, ":")
@@ -272,14 +289,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 		}
 	}
 	if d := p.Dep; d != nil {
-		var libs []string
-		set := false
-		if c.IsSet("libs") {
-			libs, set = c.StringSlice("libs"), true
-		} else if v, ok := os.LookupEnv(envName("libs")); ok {
-			libs, set = strings.Split(v, ","), true
-		}
-		if set {
+		if libs, set := flagList(c, "libs", splitComma); set {
 			d.Libs = nil
 			for _, lib := range libs {
 				v, err := absolute(lib)
@@ -335,6 +345,11 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 			return err
 		} else if ok {
 			n.Staple = b
+		}
+	}
+	if kind == "build" || kind == "show" {
+		if err := overlayUpload(c, p); err != nil {
+			return err
 		}
 	}
 	if b, _, err := boolean("no-sign"); err != nil {
