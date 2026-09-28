@@ -38,8 +38,9 @@ func (g *editor) signCheckInputs() signCheckInputs {
 	return signCheckInputs{*g.s.Project.Sign, g.s.Project.PKG != nil}
 }
 
-// listIdentities looks up the keychain's signing identities once per session,
-// the first time the Keychain method is shown. Only macOS has a keychain.
+// listIdentities looks up the keychain's signing identities the first time
+// the Keychain method is shown, and again when asked to refresh. Only macOS
+// has a keychain.
 func (g *editor) listIdentities() {
 	a := &g.signing
 	if runtime.GOOS != "darwin" || a.listed || a.listing || g.ctx == nil ||
@@ -58,6 +59,18 @@ func (g *editor) listIdentities() {
 		}
 		post(func() { a.identities, a.listed, a.listing = strings.Join(names, "\n"), true, false })
 	}()
+}
+
+// refreshIdentities looks the keychain up again, as after importing a
+// certificate into it. The identities listed so far stay until the new list
+// arrives.
+func (g *editor) refreshIdentities() {
+	if g.signing.listing {
+		return
+	}
+	g.signing.listed = false
+	g.listIdentities()
+	g.invalidate()
 }
 
 // useIdentity fills the Keychain method's identity from a suggestion.

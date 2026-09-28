@@ -44,8 +44,8 @@ type workspaceState struct {
 	IssueTab                                            int
 	// Signing tab: keychain identities offered (newline-separated) and the
 	// credential check for the current settings.
-	Identities       string
-	IdentitiesListed bool
+	Identities                          string
+	IdentitiesListed, IdentitiesListing bool
 	Check            signCheck
 }
 type componentRow struct {
@@ -166,7 +166,7 @@ func (m *desktopModel) sync() {
 		v.Raw = g.depRaw
 	case tabSign:
 		v.SignMethod = g.signMethod()
-		v.Identities, v.IdentitiesListed = g.signing.identities, g.signing.listed
+		v.Identities, v.IdentitiesListed, v.IdentitiesListing = g.signing.identities, g.signing.listed, g.signing.listing
 		v.Check = g.signingCheck()
 	case tabNotarize:
 		v.NotaryMethod = g.notaryMethod()

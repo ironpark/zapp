@@ -101,6 +101,7 @@ func (r *desktopRenderer) render() error {
 				g.switchTab(tabDep)
 			case "signing":
 				g.switchTab(tabSign)
+				g.signing.identities, g.signing.listed = "Developer ID Application: Example (TEAMID1234)", true
 			case "notarization":
 				g.switchTab(tabNotarize)
 			case "build":

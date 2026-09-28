@@ -252,7 +252,7 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	switch {
 	case v.Tab == tabProject:
 		content = ggui.Column(appCard(m), content, buildSteps(m)).Gap(28).Align(ggui.AlignStretch)
-	case v.Tab == tabSign && v.SignMethod == 0 && v.IdentitiesListed:
+	case v.Tab == tabSign && v.SignMethod == 0 && (v.IdentitiesListed || v.Identities != ""):
 		content = ggui.Column(content, identitySuggestions(m, v)).Gap(20).Align(ggui.AlignStretch)
 	}
 	if v.Tab != tabDMG && !v.Raw {
@@ -303,9 +303,11 @@ func checkResult(v workspaceState) ggui.Widget {
 // Keychain method's identity with one click.
 func identitySuggestions(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
-	children := []ggui.Widget{ggui.Text("In your keychain").Size(12).Color(uitheme.Use().Primary)}
+	refresh := ui.Tooltip(ui.Button("Refresh", g.action(g.refreshIdentities)).Ghost().Pad(2, 8).Disabled(v.IdentitiesListing),
+		"Look up the keychain again, as after importing a certificate")
+	children := []ggui.Widget{ggui.Row(ggui.Expanded(ggui.Text("In your keychain").Size(12).Color(uitheme.Use().Primary)), refresh).Align(ggui.AlignCenter)}
 	if v.Identities == "" {
-		children = append(children, ui.Caption("No valid signing identities were found. Import your Developer ID certificate, or use the PKCS#12 or PEM method."))
+		children = append(children, ui.Caption("No valid signing identities were found. Import your Developer ID certificate, then refresh, or use the PKCS#12 or PEM method."))
 	} else {
 		for _, name := range strings.Split(v.Identities, "\n") {
 			children = append(children, ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(name).NoWrap())), g.action(func() { g.useIdentity(name) })).Name("Use "+name).Outline())

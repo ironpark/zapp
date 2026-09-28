@@ -254,3 +254,22 @@ func TestRevealComponentScrollsToSelection(t *testing.T) {
 		t.Fatal("newly selected component is not revealed")
 	}
 }
+
+// Refreshing looks the keychain up again and keeps the identities offered
+// until the new list arrives; a lookup already running is not doubled.
+func TestRefreshIdentities(t *testing.T) {
+	g := testEditor(t)
+	g.signing.identities, g.signing.listed = "Developer ID Application: A", true
+	g.refreshIdentities()
+	if g.signing.identities == "" {
+		t.Fatal("refresh dropped the identities offered")
+	}
+	if g.signing.listed && !g.signing.listing {
+		t.Fatal("refresh did not ask for a new list")
+	}
+	g.signing.listed, g.signing.listing = true, true
+	g.refreshIdentities()
+	if !g.signing.listed {
+		t.Fatal("refresh restarted a lookup in progress")
+	}
+}
