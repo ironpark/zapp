@@ -35,6 +35,9 @@ type SignConfig struct {
 	P12File         string `json:"p12File,omitempty"`
 	PEMFile         string `json:"pemFile,omitempty"`
 	P12PasswordFile string `json:"p12PasswordFile,omitempty"`
+	// Entitlements is a plist to sign the app's executable with. Without it
+	// the app keeps the entitlements it was built with.
+	Entitlements string `json:"entitlements,omitempty"`
 	// Secrets are runtime-only: the strict decoder rejects their file keys.
 	// P12Base64 is a certificate as CI secrets hold it, an alternative to
 	// P12File.

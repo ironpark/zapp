@@ -44,6 +44,11 @@ inputs:
   identity:
     description: Keychain signing identity (macOS runners only).
     required: false
+  entitlements:
+    description: >-
+      Entitlements plist to sign the app with, e.g. build/app.entitlements.
+      By default the app keeps the entitlements it was built with.
+    required: false
   certificate:
     description: Developer ID certificate as base64 PKCS#12, e.g. a secret made with `base64 -i certificate.p12`.
     required: false
@@ -158,6 +163,7 @@ runs:
         IN_NOTARIZE: ${{ inputs.notarize }}
         IN_STAPLE: ${{ inputs.staple }}
         IN_IDENTITY: ${{ inputs.identity }}
+        IN_ENTITLEMENTS: ${{ inputs.entitlements }}
         IN_CERTIFICATE: ${{ inputs.certificate }}
         IN_CERTIFICATE_PASSWORD: ${{ inputs.certificate-password }}
         IN_PEM: ${{ inputs.pem }}

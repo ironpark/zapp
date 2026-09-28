@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 const Tool = "rcodesign"
@@ -26,6 +28,11 @@ type Options struct {
 	PEMFile string `json:"pem_file"` // the private key and certificate chain
 
 	APIKeyFile string `json:"api_key_file"` // JSON from rcodesign encode-app-store-connect-api-key
+
+	// EntitlementsFile replaces the main executable's entitlements; empty
+	// keeps the ones it has. Left out of the request when empty, so a library
+	// that predates it still takes every other request.
+	EntitlementsFile string `json:"entitlements_file,omitempty"`
 }
 
 // Configured reports whether a certificate was named at all. Without one
@@ -63,7 +70,11 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 		return errNoCertificate
 	}
 
-	if err := invoke(ctx, "sign", path, b.opts); err != nil {
+	opts := b.opts
+	if !strings.EqualFold(filepath.Ext(path), ".app") {
+		opts.EntitlementsFile = "" // only an app's executable has entitlements
+	}
+	if err := invoke(ctx, "sign", path, opts); err != nil {
 		return fmt.Errorf("rcodesign could not sign %s: %w", path, err)
 	}
 	return nil

@@ -183,6 +183,7 @@ notarize:
 - 既存の `--sign --notarize --profile ... --staple` フラグも使えます。
 - パスワードと証明書は `ZAPP_P12_PASSWORD`、`ZAPP_P12_BASE64`（CI シークレットなどから渡す base64 形式の PKCS#12 証明書）、`ZAPP_PASSWORD` 環境変数、または対応する CLI フラグで渡します。設定ファイルに `sign.p12Password`、`notarize.password` は記述できません。
 - `zapp config show` はパスワードを表示しません。
+- 署名時、アプリが元々持つ entitlements は保持されます。別の entitlements plist で署名するには `sign.entitlements`（または `--entitlements`）を指定します。詳しくは[署名ドキュメント](docs/signing.md#entitlements-and-nested-code)を参照してください。
 
 プラットフォームごとの証明書と認証方法は[署名・公証の説明](docs/signing.md)を参照してください。
 

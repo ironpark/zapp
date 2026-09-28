@@ -183,6 +183,7 @@ notarize:
 - 原有的 `--sign --notarize --profile ... --staple` 参数仍然可用。
 - 密码和证书通过 `ZAPP_P12_PASSWORD`、`ZAPP_P12_BASE64`（来自 CI 密钥等的 base64 格式 PKCS#12 证书）、`ZAPP_PASSWORD` 环境变量或对应的 CLI 参数传入。配置文件中不能包含 `sign.p12Password` 或 `notarize.password`。
 - `zapp config show` 不会显示密码。
+- 签名时会保留应用原有的 entitlements。若要改用指定的 entitlements plist 签名，请设置 `sign.entitlements`（或 `--entitlements`），详见[签名文档](docs/signing.md#entitlements-and-nested-code)。
 
 各平台的证书和认证方式请参阅[签名与公证说明](docs/signing.md)。
 

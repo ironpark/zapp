@@ -199,7 +199,8 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		s.P12File = path(s.P12File)
 		s.PEMFile = path(s.PEMFile)
 		s.P12PasswordFile = path(s.P12PasswordFile)
-		pl.SignCredentials = &signing.Credentials{Identity: s.Identity, P12File: s.P12File, P12Base64: s.P12Base64, PEMFile: s.PEMFile, P12Password: s.P12Password, P12PasswordFile: s.P12PasswordFile}
+		s.Entitlements = path(s.Entitlements)
+		pl.SignCredentials = &signing.Credentials{Identity: s.Identity, P12File: s.P12File, P12Base64: s.P12Base64, PEMFile: s.PEMFile, P12Password: s.P12Password, P12PasswordFile: s.P12PasswordFile, Entitlements: s.Entitlements}
 	}
 	if n := q.Notarize; n != nil {
 		n.APIKeyFile = path(n.APIKeyFile)

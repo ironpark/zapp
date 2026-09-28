@@ -326,7 +326,7 @@ func overlayProject(c *cli.Command, p *zapp.Project, kind string) error {
 				return err
 			}
 		}
-		for _, t := range []target{{"p12-file", &s.P12File}, {"pem-file", &s.PEMFile}, {"p12-password-file", &s.P12PasswordFile}} {
+		for _, t := range []target{{"p12-file", &s.P12File}, {"pem-file", &s.PEMFile}, {"p12-password-file", &s.P12PasswordFile}, {"entitlements", &s.Entitlements}} {
 			if err := assign(t.flag, t.dst, true); err != nil {
 				return err
 			}

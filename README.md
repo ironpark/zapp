@@ -198,6 +198,7 @@ notarize:
 - Existing `--sign --notarize --profile ... --staple` flags also work.
 - Supply secrets through `ZAPP_P12_PASSWORD`, `ZAPP_P12_BASE64` (a PKCS#12 certificate as base64, e.g. from a CI secret), `ZAPP_PASSWORD`, or their CLI flags. Configuration files cannot contain `sign.p12Password` or `notarize.password`.
 - `zapp config show` omits passwords.
+- Signing keeps the entitlements the app was built with. Set `sign.entitlements` (or `--entitlements`) to sign it with an entitlements plist instead; see [signing](docs/signing.md#entitlements-and-nested-code).
 
 See [signing and notarization](docs/signing.md) for platform-specific certificates and authentication.
 

@@ -47,6 +47,10 @@ type Credentials struct {
 	// directly; macOS repackages it as PKCS#12 for a temporary keychain.
 	PEMFile string
 
+	// Entitlements names a plist of entitlements to sign an app's main
+	// executable with. Empty keeps the entitlements it already carries.
+	Entitlements string
+
 	// Profile, or the Apple ID trio, authenticate notarytool.
 	Profile  string
 	AppleID  string

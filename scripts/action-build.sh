@@ -15,6 +15,7 @@ set -euo pipefail
 : "${IN_NOTARIZE:=}"
 : "${IN_STAPLE:=}"
 : "${IN_IDENTITY:=}"
+: "${IN_ENTITLEMENTS:=}"
 : "${IN_CERTIFICATE:=}"
 : "${IN_CERTIFICATE_PASSWORD:=}"
 : "${IN_PEM:=}"
@@ -82,6 +83,7 @@ setting() {
 setting STAPLE "$IN_STAPLE" staple
 
 set_env ZAPP_IDENTITY "$IN_IDENTITY"
+set_env ZAPP_ENTITLEMENTS "$IN_ENTITLEMENTS"
 set_env ZAPP_P12_BASE64 "$(printf '%s' "$IN_CERTIFICATE" | tr -d '[:space:]')"
 set_env ZAPP_P12_PASSWORD "$IN_CERTIFICATE_PASSWORD"
 if [[ -n $IN_PEM ]]; then
@@ -120,10 +122,15 @@ if ! zapp --version >/dev/null 2>&1; then
   exit 1
 fi
 
-# zip and upload arrived in 1.2.0; an older zapp would ignore their
-# variables and quietly skip them.
-if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $(zapp build --help 2>/dev/null) != *--upload-url* ]]; then
+# An older zapp would ignore the variables of a newer feature and quietly
+# build without it.
+help=$(zapp build --help 2>/dev/null || true)
+if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $help != *--upload-url* ]]; then
   echo "::error::zip and upload need zapp 1.2.0 or later" >&2
+  exit 1
+fi
+if [[ -n $IN_ENTITLEMENTS && $help != *--entitlements* ]]; then
+  echo "::error::entitlements need zapp 1.3.0 or later" >&2
   exit 1
 fi
 

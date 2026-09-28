@@ -20,6 +20,10 @@ type Options struct {
 	// Developer ID is chosen for the artifact being signed.
 	Identity string
 
+	// Entitlements is a plist of entitlements to sign an app with. Empty
+	// keeps the ones its executable already carries.
+	Entitlements string
+
 	// P12 is a PKCS#12 certificate and private key to sign with instead of the
 	// user's keychains. It is imported into a temporary keychain on first use
 	// and removed by Close.
@@ -171,8 +175,10 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 	switch ext {
 	case ".pkg":
 		return runProductsign(ctx, path, identity.String(), keychain)
-	case ".app", ".dmg":
-		return runCodesign(ctx, identity.Fingerprint, path, keychain)
+	case ".app":
+		return signApp(ctx, identity.Fingerprint, keychain, b.opts.Entitlements, path)
+	case ".dmg":
+		return runCodesign(ctx, identity.Fingerprint, keychain, "", path)
 	default:
 		return fmt.Errorf("%s is not a kind of artifact zapp signs; expected .app, .dmg or .pkg", path)
 	}

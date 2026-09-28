@@ -58,7 +58,7 @@ func TestResolvePathsSubstitutionAndClock(t *testing.T) {
 	p, err := Parse(strings.NewReader(`version: 1
 app: Demo.app
 out: artifacts
-sign: {p12File: cert.p12}
+sign: {p12File: cert.p12, entitlements: app.entitlements}
 notarize: {apiKeyFile: key.json, staple: true}
 dep: {libs: [lib]}
 dmg:
@@ -85,7 +85,7 @@ pkg:
 	if pl.PKG.App.OutputPath != filepath.Join(dir, "artifacts", "Demo.pkg") || pl.PKG.App.Identifier != "dev.zapp.demo" || pl.PKG.App.Version != "2.3" || pl.PKG.App.InstallLocation != "/Applications" {
 		t.Fatal(pl.PKG.App)
 	}
-	if pl.SignCredentials.P12File != filepath.Join(dir, "cert.p12") || pl.NotarizeCredentials.APIKeyFile != filepath.Join(dir, "key.json") || pl.Dep.Libs[0] != filepath.Join(dir, "lib") {
+	if pl.SignCredentials.P12File != filepath.Join(dir, "cert.p12") || pl.SignCredentials.Entitlements != filepath.Join(dir, "app.entitlements") || pl.NotarizeCredentials.APIKeyFile != filepath.Join(dir, "key.json") || pl.Dep.Libs[0] != filepath.Join(dir, "lib") {
 		t.Fatal(pl)
 	}
 	if p.App != "Demo.app" || p.PKG.Scripts != "scripts" {

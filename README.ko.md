@@ -199,6 +199,7 @@ notarize:
 - 기존 `--sign --notarize --profile ... --staple` 플래그도 사용할 수 있습니다.
 - 비밀번호와 인증서는 `ZAPP_P12_PASSWORD`, `ZAPP_P12_BASE64`(CI 시크릿 등에서 가져온 base64 PKCS#12 인증서), `ZAPP_PASSWORD` 환경 변수나 해당 CLI 플래그로 전달합니다. 설정 파일에 `sign.p12Password`, `notarize.password`를 넣을 수 없습니다.
 - `zapp config show`는 비밀번호를 출력하지 않습니다.
+- 서명할 때 앱에 원래 있던 entitlements를 유지합니다. 다른 entitlements plist로 서명하려면 `sign.entitlements`(또는 `--entitlements`)를 지정하세요. 자세한 내용은 [서명 문서](docs/signing.md#entitlements-and-nested-code)를 참고하세요.
 
 플랫폼별 인증서와 인증 방법은 [서명·공증 안내](docs/signing.md)를 참고하세요.
 

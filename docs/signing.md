@@ -106,6 +106,33 @@ In GitHub Actions this replaces the separate import and `codesign` steps:
 `zapp notarize` zips an `.app` itself, submits it with `notarytool`, waits for
 the verdict and fails unless it is `Accepted`.
 
+## Entitlements and nested code
+
+Signing an app replaces its signature, and codesign drops the entitlements of
+code it re-signs unless told to keep them. zapp keeps them: every executable,
+library and nested bundle is signed with the entitlements it already carries,
+so an app built with, say, `com.apple.security.cs.allow-jit` or a camera usage
+entitlement still has it after zapp signs it.
+
+To sign the app with a different set, name an entitlements plist:
+
+```yaml
+sign:
+  identity: ${env:ZAPP_IDENTITY}
+  entitlements: build/app.entitlements
+```
+
+or pass `--entitlements build/app.entitlements` (`ZAPP_ENTITLEMENTS`). The file
+applies to the app's main executable only; helpers, frameworks and other nested
+code keep their own. It is ignored when signing a `.dmg` or `.pkg`.
+
+On macOS the app is signed from the inside out, as Apple recommends in place of
+`codesign --deep`: loose Mach-O files (dylibs, helper tools) and nested
+bundles (frameworks, helper apps, XPC services, app extensions, plug-ins) are
+signed deepest first, then the app itself. Each is signed with the hardened
+runtime and a secure timestamp. rcodesign on Windows and Linux walks the bundle
+the same way on its own.
+
 ## Windows and Linux
 
 Export your Developer ID certificate and private key as a PKCS#12 bundle:

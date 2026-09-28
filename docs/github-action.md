@@ -58,6 +58,7 @@ to a private temporary directory deleted when the step ends.
 | `certificate-password` | Its password | All |
 | `pem` | A PEM bundle of certificate and private key, instead of `certificate` | All |
 | `identity` | A keychain identity; with `certificate`, which identity in it to use | macOS |
+| `entitlements` | An entitlements plist in the repository to sign the app with; by default it keeps its own (zapp 1.3.0+) | All |
 | `api-key` | App Store Connect API key JSON from `rcodesign encode-app-store-connect-api-key` | All |
 | `api-key-id`, `api-issuer-id`, `api-private-key` | The same key as its three parts, the last being the `AuthKey_*.p8` contents | All |
 | `apple-id`, `app-password`, `team-id` | Notarize with an Apple ID and app-specific password | macOS |

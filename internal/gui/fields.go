@@ -364,13 +364,14 @@ func (g *editor) depFields() []field {
 }
 func (g *editor) signFields() []field {
 	fields := g.signAllFields()
+	entitlements := fields[4]
 	switch g.signMethod() {
 	case 1:
-		return []field{fields[1], fields[3]}
+		return []field{fields[1], fields[3], entitlements}
 	case 2:
-		return []field{fields[2]}
+		return []field{fields[2], entitlements}
 	default:
-		return fields[:1]
+		return []field{fields[0], entitlements}
 	}
 }
 func (g *editor) notarizeFields() []field {
@@ -410,6 +411,7 @@ func (g *editor) signAllFields() []field {
 		pathField("PKCS#12 certificate", &c.P12File, ".p12 certificate and key; macOS imports it into a temporary keychain", pickFile),
 		pathField("PEM certificate", &c.PEMFile, "PEM certificate and key; macOS imports it into a temporary keychain", pickFile),
 		pathField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
+		pathField("Entitlements", &c.Entitlements, "Plist to sign the app with; empty keeps the app's own entitlements", pickFile),
 	}
 }
 

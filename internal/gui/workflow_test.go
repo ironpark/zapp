@@ -18,7 +18,8 @@ func TestAuthenticationSwitchRestoresValuesAndUndo(t *testing.T) {
 	g.tab = tabSign
 	g.rebuild()
 	g.selectSignMethod(1)
-	if len(g.fields) != 2 || g.s.Project.Sign.Identity != "" {
+	// Certificate and password file, then the entitlements every method has.
+	if len(g.fields) != 3 || g.s.Project.Sign.Identity != "" {
 		t.Fatal("keychain credentials stayed active")
 	}
 	g.focus(0)

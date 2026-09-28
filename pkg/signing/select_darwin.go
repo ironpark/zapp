@@ -10,7 +10,7 @@ func Select(c Credentials) (Backend, error) {
 	if err := c.checkP12(); err != nil {
 		return nil, err
 	}
-	opts := macos.Options{Identity: c.Identity, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID, APIKeyFile: c.APIKeyFile}
+	opts := macos.Options{Identity: c.Identity, Entitlements: c.Entitlements, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID, APIKeyFile: c.APIKeyFile}
 	if c.namesCertificate() {
 		key, cert, chain, err := c.certificate()
 		if err != nil {

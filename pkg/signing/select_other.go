@@ -21,7 +21,7 @@ func Select(c Credentials) (Backend, error) {
 	if err := rcodesign.Available(); err != nil {
 		return nil, err
 	}
-	opts := rcodesign.Options{APIKeyFile: c.APIKeyFile}
+	opts := rcodesign.Options{APIKeyFile: c.APIKeyFile, EntitlementsFile: c.Entitlements}
 	if !c.namesCertificate() {
 		return rcodesign.New(opts), nil
 	}
