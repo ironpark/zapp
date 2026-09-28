@@ -1,10 +1,10 @@
 {
   "repository": "ironpark/libcodesign",
-  "version": "v0.1.1",
+  "version": "v0.2.0",
   "archives": {
-    "linux_amd64": "87fc011bee7430a739c2649e1ff220912e592890a072c2c38c7a775f375763a8",
-    "linux_arm64": "c4d912a4b71f0e6c66e7b3dc017c3fe41a8527e638d9d8e8637f72ea80603261",
-    "windows_amd64": "6527430391bdc57fabf8667d2d4c0ccf67e626e6899f2fdd4c888bcdda2f39e3",
-    "windows_arm64": "638282a177aa82427436264dba765dd8ac67cc2faea9ae96b8d5db7aef1fe603"
+    "linux_amd64": "aff093c60410c3931326299c3407023778b6436a28053c23f09c304d08fa1687",
+    "linux_arm64": "f60bb0d9896c74b9382c4b2935da08dd7ec704738af75043dc20f31917e3e1b9",
+    "windows_amd64": "ef5f156051bb46d351dee07c2d467074ab0ff644be81074f2da91678cf534b40",
+    "windows_arm64": "9680c0bac7861b68103ffcf09fd6a02b000d4d6f57d69cf011b6f68dca8016f3"
   }
 }
