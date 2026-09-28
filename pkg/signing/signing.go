@@ -35,7 +35,8 @@ type Credentials struct {
 
 	// P12File and P12Base64 supply a PKCS#12 certificate and private key: as a
 	// file, or as base64 text, which is how CI secrets usually hold one. Both
-	// toolchains take either; macOS imports it into a temporary keychain.
+	// toolchains take either: macOS imports it into a temporary keychain, and
+	// rcodesign is handed it unpacked as PEM.
 	P12File         string
 	P12Base64       string
 	P12Password     string
@@ -59,13 +60,17 @@ type Credentials struct {
 func (c Credentials) namesP12() bool { return c.P12File != "" || c.P12Base64 != "" }
 
 // checkP12 rejects PKCS#12 options that cannot mean anything together: the
-// certificate given twice, or a password with no certificate for it to open.
+// certificate given twice, a password with no certificate for it to open, or
+// a PEM certificate alongside it.
 func (c Credentials) checkP12() error {
 	if c.P12File != "" && c.P12Base64 != "" {
 		return errors.New("pass the PKCS#12 certificate once: --p12-file or --p12-base64, not both")
 	}
 	if !c.namesP12() && (c.P12Password != "" || c.P12PasswordFile != "") {
 		return errors.New("a PKCS#12 password was given without --p12-file or --p12-base64")
+	}
+	if c.namesP12() && c.PEMFile != "" {
+		return errors.New("pass one certificate: --pem-file or a PKCS#12 certificate, not both")
 	}
 	return nil
 }

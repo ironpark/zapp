@@ -17,9 +17,6 @@ func Select(c Credentials) (Backend, error) {
 	if err := c.checkP12(); err != nil {
 		return nil, err
 	}
-	if c.PEMFile != "" && c.namesP12() {
-		return nil, errors.New("pass one certificate: --pem-file or a PKCS#12 certificate, not both")
-	}
 	opts := macos.Options{Identity: c.Identity, Profile: c.Profile, AppleID: c.AppleID, Password: c.Password, TeamID: c.TeamID}
 	switch {
 	case c.PEMFile != "":

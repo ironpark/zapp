@@ -147,3 +147,41 @@ func TestPEMToP12(t *testing.T) {
 		t.Error("missing file accepted")
 	}
 }
+
+// A PKCS#12 bundle in either encryption unpacks to a PEM bundle of the same
+// key, certificate and chain, and a wrong password says so.
+func TestP12ToPEM(t *testing.T) {
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := testCert(t, "Zapp Test CA", caKey, nil, nil)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf := testCert(t, "Zapp RSA", key, ca, caKey)
+	for name, enc := range map[string]*pkcs12.Encoder{"modern": pkcs12.Modern2023, "legacy": pkcs12.LegacyDES} {
+		p12, err := enc.Encode(key, leaf, []*x509.Certificate{ca}, "secret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		bundle, err := p12ToPEM(p12, "secret")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		gotKey, gotLeaf, chain, err := parsePEMBundle(bundle)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !gotLeaf.Equal(leaf) || len(chain) != 1 || !chain[0].Equal(ca) || !key.Equal(gotKey) {
+			t.Fatalf("%s: bundle does not match the PKCS#12", name)
+		}
+		if _, err := p12ToPEM(p12, "wrong"); err == nil || !strings.Contains(err.Error(), "incorrect PKCS#12 password") {
+			t.Fatalf("%s: wrong password: %v", name, err)
+		}
+	}
+	if _, err := p12ToPEM([]byte("not a bundle"), ""); err == nil {
+		t.Fatal("accepted garbage")
+	}
+}

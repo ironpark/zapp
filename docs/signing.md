@@ -117,9 +117,17 @@ zapp dmg --app MyApp.app --sign \
 zapp notarize --target MyApp.dmg --api-key-file key.json --staple
 ```
 
+`--p12-base64` / `ZAPP_P12_BASE64` take the same bundle as base64, as on macOS.
+The bundle may use any PKCS#12 encryption, including the AES encryption that
+OpenSSL 3 and recent Keychain Access exports use by default: zapp unpacks it
+to a private PEM file for the run, because rcodesign's own PKCS#12 reader only
+understands the legacy 3DES/RC2 encryption and reports anything else as a
+wrong password. The file is deleted when signing ends.
+
 `--pem-file` accepts a PEM bundle containing the certificate and private key.
+Pass either a PEM or a PKCS#12 certificate, not both.
 A password file takes precedence over `--p12-password`. With neither option,
-an empty PKCS#12 password is used; the library does not prompt on stdin.
+an empty PKCS#12 password is used; zapp does not prompt on stdin.
 The password file's first line is used. Prefer it to putting a password in the
 shell's command line. Signing requires a private key; certificate-only PEM
 inputs are rejected instead of producing ad-hoc signatures.

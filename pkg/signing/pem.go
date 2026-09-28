@@ -112,3 +112,26 @@ func parsePrivateKey(block *pem.Block) (crypto.Signer, error) {
 	}
 	return signer, nil
 }
+
+// p12ToPEM unpacks a PKCS#12 bundle into a PEM bundle of its private key,
+// certificate and chain. rcodesign's PKCS#12 reader only understands the
+// legacy 3DES/RC2 encryption and misreports anything newer, such as OpenSSL
+// 3's default AES export, as a wrong password; it reads PEM in any case.
+func p12ToPEM(p12 []byte, password string) ([]byte, error) {
+	key, cert, chain, err := pkcs12.DecodeChain(p12, password)
+	if errors.Is(err, pkcs12.ErrIncorrectPassword) {
+		return nil, errors.New("incorrect PKCS#12 password")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not read the PKCS#12 certificate: %w", err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported private key in the PKCS#12 certificate: %w", err)
+	}
+	out := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+	for _, c := range append([]*x509.Certificate{cert}, chain...) {
+		out = append(out, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})...)
+	}
+	return out, nil
+}

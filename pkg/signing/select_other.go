@@ -3,6 +3,7 @@
 package signing
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ironpark/zapp/pkg/signing/rcodesign"
@@ -19,29 +20,49 @@ func Select(c Credentials) (Backend, error) {
 	if err := rcodesign.Available(); err != nil {
 		return nil, err
 	}
-	opts := rcodesign.Options{P12File: c.P12File, P12Password: c.P12Password, P12PasswordFile: c.P12PasswordFile, PEMFile: c.PEMFile, APIKeyFile: c.APIKeyFile}
-	if c.P12Base64 == "" {
+	opts := rcodesign.Options{PEMFile: c.PEMFile, APIKeyFile: c.APIKeyFile}
+	if !c.namesP12() {
 		return rcodesign.New(opts), nil
 	}
-	// rcodesign reads the certificate from a path, so a base64 certificate is
-	// written to a private file for the run and removed by Close.
+	// rcodesign cannot read PKCS#12 in the encryption most tools now write, so
+	// the certificate is unpacked to a private PEM file for the run and removed
+	// by Close.
 	p12, err := c.p12()
 	if err != nil {
 		return nil, err
 	}
-	path, remove, err := writeSecretFile(p12, "certificate.p12")
+	password, err := c.p12Password()
 	if err != nil {
 		return nil, err
 	}
-	opts.P12File = path
-	return &decodedCertificate{Backend: rcodesign.New(opts), remove: remove}, nil
+	bundle, err := p12ToPEM(p12, password)
+	if err != nil {
+		return nil, err
+	}
+	path, remove, err := writeSecretFile(bundle, "certificate.pem")
+	if err != nil {
+		return nil, err
+	}
+	opts.PEMFile = path
+	source := c.P12File
+	if source == "" {
+		source = "PKCS#12 certificate from base64"
+	}
+	return &decodedCertificate{Backend: rcodesign.New(opts), source: source, remove: remove}, nil
 }
 
 // decodedCertificate is an rcodesign backend that owns the certificate file it
 // signs with.
 type decodedCertificate struct {
 	*rcodesign.Backend
+	source string // the certificate as the user named it, for logging
 	remove func() error
+}
+
+// Describe names the certificate the user supplied rather than the unpacked
+// copy rcodesign reads.
+func (d *decodedCertificate) Describe(context.Context, string) (string, error) {
+	return d.source, nil
 }
 
 // Close removes the certificate file. Closing twice is harmless.
