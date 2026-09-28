@@ -216,7 +216,7 @@ upload:
     artifacts: [zip, dmg, checksums]
 ```
 
-Credential headers must come from `${env:…}`. Skip uploading for one run with `--no-upload`. See [distributing and uploading](docs/distribution.md).
+An upload with `github: {tag: v${app.version}}` in place of `url` adds the artifacts to a GitHub release instead, using `GITHUB_TOKEN`. Credential headers must come from `${env:…}`. Skip uploading for one run with `--no-upload`. See [distributing and uploading](docs/distribution.md).
 
 ### Advanced configuration
 

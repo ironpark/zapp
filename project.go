@@ -3,6 +3,7 @@ package zapp
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"github.com/goccy/go-yaml"
@@ -66,15 +67,42 @@ type ChecksumsConfig struct {
 	Out string `json:"out,omitempty"`
 }
 
-// UploadConfig sends built artifacts to an HTTP endpoint. URL may name the
-// file with ${file.name}. Headers that carry a credential must come from the
-// environment, as ${env:NAME}, never the file itself.
+// UploadConfig sends built artifacts to an HTTP endpoint, or to a GitHub
+// release. URL may name the file with ${file.name}. Headers that carry a
+// credential must come from the environment, as ${env:NAME}, never the file
+// itself.
 type UploadConfig struct {
-	URL       string            `json:"url"`
+	URL       string            `json:"url,omitempty"`
 	Method    string            `json:"method,omitempty"`
 	Field     string            `json:"field,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
+	GitHub    *GitHubRelease    `json:"github,omitempty"`
 	Artifacts []string          `json:"artifacts,omitempty"`
+}
+
+// GitHubRelease uploads artifacts as the assets of a release, creating it
+// when there is none. Repo defaults to GITHUB_REPOSITORY and Tag to the tag
+// a GitHub Actions run was started for. The token comes from GITHUB_TOKEN or
+// GH_TOKEN.
+type GitHubRelease struct {
+	Repo  string `json:"repo,omitempty"`
+	Tag   string `json:"tag,omitempty"`
+	Draft bool   `json:"draft,omitempty"`
+}
+
+// release is the release g names, with the credentials of this run.
+func (g GitHubRelease) release() upload.Release {
+	return upload.Release{Repo: g.Repo, Tag: g.Tag, Draft: g.Draft, Token: githubToken(), API: os.Getenv("GITHUB_API_URL")}
+}
+
+func githubToken() string { return cmp.Or(os.Getenv("GITHUB_TOKEN"), os.Getenv("GH_TOKEN")) }
+
+// destination describes where u sends a file called name, for the log.
+func (u UploadConfig) destination(name string) string {
+	if u.GitHub != nil {
+		return u.GitHub.release().Location()
+	}
+	return u.Target().Location(name)
 }
 
 // UploadArtifacts are the artifacts an upload may name.
@@ -359,8 +387,11 @@ func (p *Project) validate() error {
 		}
 	}
 	for i, u := range p.Upload {
-		if u.URL == "" {
-			return fmt.Errorf("upload[%d] requires url", i)
+		switch {
+		case u.URL == "" && u.GitHub == nil:
+			return fmt.Errorf("upload[%d] requires url or github", i)
+		case u.GitHub != nil && (u.URL != "" || u.Method != "" || u.Field != "" || len(u.Headers) > 0):
+			return fmt.Errorf("upload[%d] sends to github; url, method, field and headers do not apply", i)
 		}
 		for _, a := range u.Artifacts {
 			if !slices.Contains(UploadArtifacts, a) {
@@ -431,6 +462,10 @@ func (p *Project) Clone() *Project {
 		for i, u := range q.Upload {
 			q.Upload[i].Headers = maps.Clone(u.Headers)
 			q.Upload[i].Artifacts = slices.Clone(u.Artifacts)
+			if u.GitHub != nil {
+				x := *u.GitHub
+				q.Upload[i].GitHub = &x
+			}
 		}
 	}
 	if p.DMG != nil {

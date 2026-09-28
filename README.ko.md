@@ -217,7 +217,7 @@ upload:
     artifacts: [zip, dmg, checksums]
 ```
 
-인증 헤더는 `${env:…}`로만 지정할 수 있습니다. 한 번만 업로드를 건너뛰려면 `--no-upload`를 쓰세요. 자세한 내용은 [배포와 업로드](docs/distribution.md)(영문)를 참고하세요.
+`url` 대신 `github: {tag: v${app.version}}`를 쓰면 `GITHUB_TOKEN`으로 GitHub 릴리즈에 결과물을 올립니다. 인증 헤더는 `${env:…}`로만 지정할 수 있습니다. 한 번만 업로드를 건너뛰려면 `--no-upload`를 쓰세요. 자세한 내용은 [배포와 업로드](docs/distribution.md)(영문)를 참고하세요.
 
 ### 고급 설정
 

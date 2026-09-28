@@ -50,6 +50,7 @@ dmg:
 #     headers:
 #       Authorization: Bearer ${env:RELEASE_TOKEN}   # never a literal token
 #     artifacts: [zip, dmg, checksums]
+#   - github: {tag: v${app.version}}   # a GitHub release; needs GITHUB_TOKEN
 
 # Short form: identifier and version default from the app's Info.plist.
 pkg:

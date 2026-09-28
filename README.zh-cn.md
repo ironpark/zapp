@@ -201,7 +201,7 @@ upload:
     artifacts: [zip, dmg, checksums]
 ```
 
-凭据类请求头只能通过 `${env:…}` 指定。单次跳过上传可使用 `--no-upload`。详见 [分发与上传](docs/distribution.md)（英文）。
+用 `github: {tag: v${app.version}}` 代替 `url`，即可通过 `GITHUB_TOKEN` 将产物添加到 GitHub Release。凭据类请求头只能通过 `${env:…}` 指定。单次跳过上传可使用 `--no-upload`。详见 [分发与上传](docs/distribution.md)（英文）。
 
 ### 高级配置
 

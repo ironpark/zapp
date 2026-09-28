@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -255,6 +256,10 @@ func (p *Plan) Build(ctx context.Context, steps ...Step) (Artifacts, error) {
 	if selected[StepUpload] && len(p.Uploads) == 0 {
 		return a, stepError(StepUpload, fmt.Errorf("upload section is not configured"))
 	}
+	// Found missing now rather than once everything is built.
+	if selected[StepUpload] && githubToken() == "" && slices.ContainsFunc(p.Uploads, func(u UploadConfig) bool { return u.GitHub != nil }) {
+		return a, stepError(StepUpload, fmt.Errorf("uploading to a GitHub release needs a token in GITHUB_TOKEN or GH_TOKEN"))
+	}
 	if selected[StepDep] {
 		if err := p.BundleDeps(ctx); err != nil {
 			return a, err
@@ -401,31 +406,66 @@ func (p *Plan) Upload(ctx context.Context, a Artifacts) (sent []Uploaded, err er
 	defer func() { err = stepError(StepUpload, err) }()
 	built := map[string]string{"zip": a.Zip, "dmg": a.DMG, "pkg": a.PKG, "checksums": a.Checksums}
 	for i, spec := range p.Uploads {
-		target := spec.Target()
 		names := spec.Artifacts
 		if len(names) == 0 {
 			names = UploadArtifacts
 		}
-		count := 0
+		var files []artifactFile
 		for _, name := range names {
-			path := built[name]
-			if path == "" {
-				if len(spec.Artifacts) > 0 {
-					p.log("Skipping %s upload: this build made no %s\n", name, name)
-				}
-				continue
+			if path := built[name]; path != "" {
+				files = append(files, artifactFile{name, path})
+			} else if len(spec.Artifacts) > 0 {
+				p.log("Skipping %s upload: this build made no %s\n", name, name)
 			}
-			p.log("Uploading %s to %s\n", path, target.Location(filepath.Base(path)))
-			url, err := upload.File(ctx, p.httpClient, target, path)
-			if err != nil {
-				return sent, err
-			}
-			sent = append(sent, Uploaded{Artifact: name, URL: url})
-			count++
 		}
-		if count == 0 {
+		if len(files) == 0 {
 			return sent, fmt.Errorf("upload[%d] has nothing to send; build a %s first", i, strings.Join(names, ", "))
 		}
+		if sent, err = p.send(ctx, spec, files, sent); err != nil {
+			return sent, err
+		}
+	}
+	return sent, nil
+}
+
+// UploadFiles sends files to every configured endpoint. Each is reported by
+// its file name.
+func (p *Plan) UploadFiles(ctx context.Context, paths ...string) (sent []Uploaded, err error) {
+	defer func() { err = stepError(StepUpload, err) }()
+	var files []artifactFile
+	for _, path := range paths {
+		files = append(files, artifactFile{filepath.Base(path), path})
+	}
+	for _, spec := range p.Uploads {
+		if sent, err = p.send(ctx, spec, files, sent); err != nil {
+			return sent, err
+		}
+	}
+	return sent, nil
+}
+
+// artifactFile is an artifact to upload and the file it was built as.
+type artifactFile struct{ artifact, path string }
+
+// send uploads files to one endpoint and appends where they went to sent.
+func (p *Plan) send(ctx context.Context, spec UploadConfig, files []artifactFile, sent []Uploaded) ([]Uploaded, error) {
+	file := func(ctx context.Context, path string) (string, error) {
+		return upload.File(ctx, p.httpClient, spec.Target(), path)
+	}
+	if spec.GitHub != nil {
+		assets, err := upload.OpenRelease(ctx, p.httpClient, spec.GitHub.release())
+		if err != nil {
+			return sent, err
+		}
+		file = assets.Send
+	}
+	for _, f := range files {
+		p.log("Uploading %s to %s\n", f.path, spec.destination(filepath.Base(f.path)))
+		url, err := file(ctx, f.path)
+		if err != nil {
+			return sent, err
+		}
+		sent = append(sent, Uploaded{Artifact: f.artifact, URL: url})
 	}
 	return sent, nil
 }

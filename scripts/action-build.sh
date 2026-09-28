@@ -35,6 +35,8 @@ set -euo pipefail
 : "${IN_UPLOAD_FIELD:=}"
 : "${IN_UPLOAD_HEADERS:=}"
 : "${IN_UPLOAD_ARTIFACTS:=}"
+: "${IN_GITHUB_RELEASE:=}"
+: "${IN_GITHUB_TOKEN:=}"
 
 native() {
   if command -v cygpath >/dev/null; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
@@ -113,6 +115,10 @@ set_env ZAPP_UPLOAD_METHOD "$IN_UPLOAD_METHOD"
 set_env ZAPP_UPLOAD_FIELD "$IN_UPLOAD_FIELD"
 set_env ZAPP_UPLOAD_HEADER "${IN_UPLOAD_HEADERS//$'\r'/}"
 set_env ZAPP_UPLOAD_ARTIFACTS "$IN_UPLOAD_ARTIFACTS"
+set_env ZAPP_GITHUB_RELEASE "$IN_GITHUB_RELEASE"
+# For GitHub release uploads, the project's included, unless the job set
+# its own.
+set_env GITHUB_TOKEN "${GITHUB_TOKEN:-$IN_GITHUB_TOKEN}"
 
 set_env ZAPP_APPLE_ID "$IN_APPLE_ID"
 set_env ZAPP_PASSWORD "$IN_APP_PASSWORD"
@@ -131,8 +137,8 @@ if [[ -n $IN_ZIP$IN_UPLOAD$IN_UPLOAD_URL && $help != *--upload-url* ]]; then
   echo "::error::zip and upload need zapp 1.2.0 or later" >&2
   exit 1
 fi
-if [[ -n $IN_ENTITLEMENTS$IN_CHECKSUMS && $help != *--checksums* ]]; then
-  echo "::error::entitlements and checksums need zapp 1.3.0 or later" >&2
+if [[ -n $IN_ENTITLEMENTS$IN_CHECKSUMS$IN_GITHUB_RELEASE && $help != *--github-release* ]]; then
+  echo "::error::entitlements, checksums and github-release need zapp 1.3.0 or later" >&2
   exit 1
 fi
 

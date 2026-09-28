@@ -72,6 +72,30 @@ is loaded. `zapp config show` prints such headers as `<redacted>` and drops
 the user information and query string of upload URLs, where presigned URLs
 keep their signatures. Logs and outputs leave them out as well.
 
+## GitHub releases
+
+An upload with `github` instead of `url` adds the artifacts to a GitHub
+release as assets:
+
+```yaml
+upload:
+  - github:
+      repo: me/my-app             # default: $GITHUB_REPOSITORY
+      tag: v${app.version}        # default: the tag a GitHub Actions run was started for
+      draft: true                 # only for a release zapp creates
+    artifacts: [zip, dmg, checksums]
+```
+
+- The release is found by its tag, drafts included, and created when there is
+  none; `draft` applies to that case only. Create the tag first, or GitHub
+  makes it from the default branch when the release is published.
+- An asset of the same name is replaced, so a build can be run again.
+- The token comes from `GITHUB_TOKEN` or `GH_TOKEN` and needs write access to
+  the repository's contents; the build stops before building anything when
+  neither is set. `GITHUB_API_URL` points zapp at GitHub Enterprise Server.
+- The reported URL is the asset's download URL. GitHub replaces spaces in an
+  asset's name with dots.
+
 ## Command line
 
 ```sh
@@ -90,18 +114,21 @@ zapp build --zip --upload-url 'https://example.com/${file.name}' \
 | `--upload-method` | `ZAPP_UPLOAD_METHOD` | `PUT` or `POST` |
 | `--upload-field` | `ZAPP_UPLOAD_FIELD` | Form field of a POST |
 | `--upload-header` | `ZAPP_UPLOAD_HEADER` | `"Name: value"`, repeatable; the variable holds one per line |
-| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg`, `checksums` |
+| `--github-release` | `ZAPP_GITHUB_RELEASE` | Adds a GitHub release, by tag, to the project's uploads |
+| `--github-repo` | `ZAPP_GITHUB_REPO` | Its `owner/name` (default: `$GITHUB_REPOSITORY`) |
+| `--upload-artifacts` | `ZAPP_UPLOAD_ARTIFACTS` | `zip`, `dmg`, `pkg`, `checksums`, for the endpoints above |
 | `--no-upload` | `ZAPP_NO_UPLOAD` | Skip every upload |
 
 Headers given on the command line or in the environment are runtime values,
-so they may be literal. When steps are named, `--zip`, `--checksums` and
-`--upload-url` add their steps to them.
+so they may be literal. When steps are named, `--zip`, `--checksums`,
+`--upload-url` and `--github-release` add their steps to them.
 
 `--artifacts FILE` writes `zip=` and `checksums=` next to the other paths, and
 the URL each artifact was uploaded to as `zip-url=`, `dmg-url=`, `pkg-url=` and
 `checksums-url=`.
 
-`zapp upload` sends existing files with the same flags:
+`zapp upload` sends existing files with the same flags, to an endpoint or a
+release (`zapp upload --github-release v1.2.0 MyApp.zip`):
 
 ```sh
 zapp upload --upload-url 'https://example.com/${file.name}' \

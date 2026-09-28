@@ -106,7 +106,13 @@ inputs:
     description: 'Headers sent with each upload, one "Name: value" per line, such as "Authorization: Bearer" and a token from a secret.'
     required: false
   upload-artifacts:
-    description: Artifacts to send to upload-url, from zip, dmg, pkg and checksums, separated by spaces. Default every artifact built.
+    description: Artifacts to send to upload-url and github-release, from zip, dmg, pkg and checksums, separated by spaces. Default every artifact built.
+    required: false
+  github-release:
+    description: >-
+      Tag of a GitHub release to add the artifacts to, such as the
+      github.ref_name of a tag build; the release is created if it does not
+      exist. github-token then needs contents: write.
     required: false
   upload:
     description: '"false" skips every upload, the project''s included.'
@@ -117,7 +123,9 @@ inputs:
       --fs=apfs. Lines are passed as they are, without shell quoting.
     required: false
   github-token:
-    description: Token used to find and download the release.
+    description: >-
+      Token used to download zapp, and to upload to github-release or the
+      project's github uploads.
     required: false
     default: ${{ github.token }}
 
@@ -193,5 +201,7 @@ runs:
         IN_UPLOAD_FIELD: ${{ inputs.upload-field }}
         IN_UPLOAD_HEADERS: ${{ inputs.upload-headers }}
         IN_UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
+        IN_GITHUB_RELEASE: ${{ inputs.github-release }}
+        IN_GITHUB_TOKEN: ${{ inputs.github-token }}
         IN_ARGS: ${{ inputs.args }}
       run: bash "$GITHUB_ACTION_PATH/scripts/action-build.sh"

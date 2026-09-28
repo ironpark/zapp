@@ -1,6 +1,7 @@
 package zapp
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -180,6 +181,22 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	}
 	for i := range q.Upload {
 		u := &q.Upload[i]
+		if g := u.GitHub; g != nil {
+			g.Repo = cmp.Or(g.Repo, os.Getenv("GITHUB_REPOSITORY"))
+			if g.Tag == "" && os.Getenv("GITHUB_REF_TYPE") == "tag" {
+				g.Tag = os.Getenv("GITHUB_REF_NAME")
+			}
+			switch {
+			case g.Repo == "":
+				return nil, fmt.Errorf("upload[%d]: github needs repo (owner/name), or GITHUB_REPOSITORY set", i)
+			case g.Tag == "":
+				return nil, fmt.Errorf("upload[%d]: github needs a tag outside a GitHub Actions tag build", i)
+			}
+			if err := g.release().Check(); err != nil {
+				return nil, fmt.Errorf("upload[%d]: %w", i, err)
+			}
+			continue
+		}
 		// Normalized so `config show` states what will be sent.
 		u.Method = strings.ToUpper(u.Method)
 		if u.Method == "" {

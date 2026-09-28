@@ -73,6 +73,9 @@ func TestUploadOverlay(t *testing.T) {
 	if u.URL != "https://example.com/${file.name}" || u.Headers["Authorization"] != "Bearer literal-token" || u.Headers["X-Channel"] != "beta" || strings.Join(u.Artifacts, ",") != "zip,dmg" {
 		t.Fatalf("upload = %+v", u)
 	}
+	if p := run("--github-release", "v1.0.0", "--github-repo", "me/app"); len(p.Upload) != 2 || p.Upload[1].GitHub == nil || *p.Upload[1].GitHub != (zapp.GitHubRelease{Repo: "me/app", Tag: "v1.0.0"}) || strings.Join(p.Upload[1].Artifacts, ",") != "zip,dmg" {
+		t.Fatalf("--github-release = %+v", p.Upload)
+	}
 	if p := run("--checksums"); p.Checksums == nil {
 		t.Fatal("--checksums did not turn checksums on")
 	}
@@ -110,6 +113,9 @@ func TestBuildStepsFollowFlags(t *testing.T) {
 	}
 	if got := steps("--zip", "--upload-url", "https://example.com/${file.name}", "dmg"); got != "dmg zip upload" {
 		t.Fatalf("flags = %q", got)
+	}
+	if got := steps("--github-release", "v1", "dmg"); got != "dmg upload" {
+		t.Fatalf("--github-release = %q", got)
 	}
 	if got := steps("--checksums", "dmg"); got != "dmg checksums" {
 		t.Fatalf("--checksums = %q", got)

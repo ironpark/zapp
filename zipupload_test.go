@@ -185,3 +185,54 @@ func TestUploadConfigValidation(t *testing.T) {
 		t.Fatalf("file.name outside upload: %v", err)
 	}
 }
+
+// A GitHub release defaults to the repository and tag of the Actions run,
+// and a missing token stops the build before anything is built.
+func TestGitHubReleaseUpload(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("GITHUB_REPOSITORY", "me/app")
+	t.Setenv("GITHUB_REF_TYPE", "tag")
+	t.Setenv("GITHUB_REF_NAME", "v2.3")
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	p := &Project{App: syntheticApp(t, dir), Out: filepath.Join(dir, "out"), Zip: &ZipConfig{}, Upload: []UploadConfig{{GitHub: &GitHubRelease{}}}}
+	pl, err := p.Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g := pl.Uploads[0].GitHub; g.Repo != "me/app" || g.Tag != "v2.3" || pl.Uploads[0].Method != "" {
+		t.Fatalf("github = %+v, method %q", g, pl.Uploads[0].Method)
+	}
+	var se *StepError
+	if _, err := pl.Build(t.Context()); !errors.As(err, &se) || se.Step != StepUpload || !strings.Contains(err.Error(), "GITHUB_TOKEN") {
+		t.Fatalf("no token: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "out", "Demo.zip")); !os.IsNotExist(err) {
+		t.Fatal("built before finding the token missing")
+	}
+
+	// Outside a tag build the tag has to be named.
+	t.Setenv("GITHUB_REF_TYPE", "branch")
+	if _, err := p.Resolve(); err == nil || !strings.Contains(err.Error(), "tag") {
+		t.Fatalf("no tag: %v", err)
+	}
+	p.Upload[0].GitHub.Tag = "v${app.version}"
+	if pl, err = p.Resolve(); err != nil || pl.Uploads[0].GitHub.Tag != "v2.3" {
+		t.Fatalf("tag = %v, %v", pl, err)
+	}
+}
+
+func TestGitHubUploadValidation(t *testing.T) {
+	for _, config := range []string{
+		"upload:\n  - github: {}\n    url: https://example.com/\n",
+		"upload:\n  - github: {}\n    method: POST\n",
+		"upload:\n  - artifacts: [zip]\n",
+	} {
+		if _, err := Parse(strings.NewReader("version: 1\n"+config), t.TempDir()); err == nil {
+			t.Errorf("accepted:\n%s", config)
+		}
+	}
+	if _, err := Parse(strings.NewReader("version: 1\nupload:\n  - github: {repo: me/app, tag: v1, draft: true}\n"), t.TempDir()); err != nil {
+		t.Error(err)
+	}
+}

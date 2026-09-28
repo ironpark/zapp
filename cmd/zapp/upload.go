@@ -6,16 +6,17 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/pkg/upload"
 	"github.com/urfave/cli/v3"
 )
 
 const uploadCategory = "[upload]"
 
-// endpointFlags describe one upload endpoint, for `zapp upload` and for the
-// endpoint `zapp build` adds to the project's.
+// endpointFlags describe an upload endpoint and a GitHub release, for `zapp
+// upload` and for the ones `zapp build` adds to the project's.
 func endpointFlags() []cli.Flag {
 	return []cli.Flag{
+		&cli.StringFlag{Category: uploadCategory, Name: "github-release", Usage: "Tag of a GitHub release to add artifacts to, created if missing; needs GITHUB_TOKEN"},
+		&cli.StringFlag{Category: uploadCategory, Name: "github-repo", Usage: "owner/name of the --github-release repository (default: $GITHUB_REPOSITORY)"},
 		&cli.StringFlag{Category: uploadCategory, Name: "upload-url", Usage: "Endpoint to send artifacts to; ${file.name} is replaced by each file's name"},
 		&cli.StringFlag{Category: uploadCategory, Name: "upload-method", Usage: "PUT sends the file as the body, POST as a multipart form field (default: PUT)"},
 		&cli.StringFlag{Category: uploadCategory, Name: "upload-field", Usage: "Form field of a POST upload (default: file)"},
@@ -29,7 +30,7 @@ func distributionFlags() []cli.Flag {
 		&cli.BoolFlag{Name: "zip", Usage: "Archive the notarized app as a ZIP (--zip=false skips it)"},
 		&cli.BoolFlag{Name: "checksums", Usage: "List the SHA-256 of the ZIP, DMG and PKG built (--checksums=false skips it)"},
 		&cli.BoolFlag{Name: "no-upload", Usage: "Skip uploading"},
-		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url: zip, dmg, pkg, checksums (default: all built)"},
+		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url and --github-release: zip, dmg, pkg, checksums (default: all built)"},
 	}, endpointFlags()...)
 }
 
@@ -56,26 +57,37 @@ func splitWords(v string) []string {
 	return strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' })
 }
 
-// endpoint reads the endpoint flags, or their environment variables. Its URL
-// is empty when none was given; the other endpoint flags then have nothing
-// to describe.
-func endpoint(c *cli.Command) (e zapp.UploadConfig, err error) {
+// endpoints reads the endpoint flags, or their environment variables: an
+// HTTP endpoint, a GitHub release, both or neither.
+func endpoints(c *cli.Command) ([]zapp.UploadConfig, error) {
+	var list []zapp.UploadConfig
+	var e zapp.UploadConfig
 	e.URL, _ = flagValue(c, "upload-url")
 	e.Method, _ = flagValue(c, "upload-method")
 	e.Field, _ = flagValue(c, "upload-field")
 	if lines, _ := flagList(c, "upload-header", splitLines); len(lines) > 0 {
+		var err error
 		if e.Headers, err = parseHeaders(lines); err != nil {
-			return e, err
+			return nil, err
 		}
 	}
-	if e.URL == "" && (e.Method != "" || e.Field != "" || len(e.Headers) > 0) {
-		return e, fmt.Errorf("upload method, field and headers need --upload-url")
+	if e.URL != "" {
+		list = append(list, e)
+	} else if e.Method != "" || e.Field != "" || len(e.Headers) > 0 {
+		return nil, fmt.Errorf("upload method, field and headers need --upload-url")
 	}
-	return e, nil
+	tag, _ := flagValue(c, "github-release")
+	repo, _ := flagValue(c, "github-repo")
+	if tag != "" {
+		list = append(list, zapp.UploadConfig{GitHub: &zapp.GitHubRelease{Repo: repo, Tag: tag}})
+	} else if repo != "" {
+		return nil, fmt.Errorf("--github-repo needs --github-release")
+	}
+	return list, nil
 }
 
-// overlayUpload adds the endpoint given on the command line to the project's
-// and applies --zip, --checksums and --no-upload.
+// overlayUpload adds the endpoints given on the command line to the
+// project's and applies --zip, --checksums and --no-upload.
 func overlayUpload(c *cli.Command, p *zapp.Project) error {
 	if err := toggle(c, "zip", &p.Zip); err != nil {
 		return err
@@ -83,16 +95,17 @@ func overlayUpload(c *cli.Command, p *zapp.Project) error {
 	if err := toggle(c, "checksums", &p.Checksums); err != nil {
 		return err
 	}
-	e, err := endpoint(c)
+	list, err := endpoints(c)
 	if err != nil {
 		return err
 	}
 	artifacts, _ := flagList(c, "upload-artifacts", splitWords)
-	if e.URL != "" {
+	if len(list) == 0 && len(artifacts) > 0 {
+		return fmt.Errorf("--upload-artifacts needs --upload-url or --github-release")
+	}
+	for _, e := range list {
 		e.Artifacts = artifacts
 		p.Upload = append(p.Upload, e)
-	} else if len(artifacts) > 0 {
-		return fmt.Errorf("--upload-artifacts needs --upload-url")
 	}
 	if b, _, err := flagBool(c, "no-upload"); err != nil {
 		return err
@@ -121,28 +134,29 @@ func toggle[T any](c *cli.Command, flag string, section **T) error {
 func uploadCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "upload",
-		Usage:     "Send files to an HTTP endpoint",
+		Usage:     "Send files to an HTTP endpoint or a GitHub release",
 		ArgsUsage: "<file> ...",
 		Flags:     endpointFlags(),
 		Action: func(ctx context.Context, c *cli.Command) error {
 			if c.NArg() == 0 {
 				return fmt.Errorf("name the files to upload")
 			}
-			e, err := endpoint(c)
+			list, err := endpoints(c)
 			if err != nil {
 				return err
 			}
-			if e.URL == "" {
-				return fmt.Errorf("upload requires --upload-url")
+			if len(list) == 0 {
+				return fmt.Errorf("upload requires --upload-url or --github-release")
 			}
-			for _, path := range c.Args().Slice() {
-				where, err := upload.File(ctx, nil, e.Target(), path)
-				if err != nil {
-					return err
-				}
-				_, _ = fmt.Fprintf(c.Root().Writer, "%s -> %s\n", path, where)
+			pl, err := (&zapp.Project{Upload: list}).Resolve()
+			if err != nil {
+				return err
 			}
-			return nil
+			sent, err := pl.UploadFiles(ctx, c.Args().Slice()...)
+			for _, u := range sent {
+				_, _ = fmt.Fprintf(c.Root().Writer, "%s -> %s\n", u.Artifact, u.URL)
+			}
+			return err
 		},
 	}
 }

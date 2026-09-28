@@ -33,6 +33,10 @@ type Target struct {
 	Field string
 	// Headers are sent with every request, such as Authorization.
 	Headers map[string]string
+
+	// raw sends a POST's file as the body, as a PUT does, rather than in a
+	// form. GitHub's asset uploads take it that way.
+	raw bool
 }
 
 // Check reports a target that cannot work, before anything is built.
@@ -69,22 +73,31 @@ var (
 // It returns where the file was sent, without the URL's query string, which
 // may hold a presigned credential.
 func File(ctx context.Context, client *http.Client, t Target, path string) (string, error) {
-	if err := t.Check(); err != nil {
+	if _, err := deliver(ctx, client, t, path); err != nil {
 		return "", err
+	}
+	return t.Location(filepath.Base(path)), nil
+}
+
+// deliver sends the file at path to t, retrying as File does, and returns
+// the start of the response body.
+func deliver(ctx context.Context, client *http.Client, t Target, path string) ([]byte, error) {
+	if err := t.Check(); err != nil {
+		return nil, err
 	}
 	if client == nil {
 		client = http.DefaultClient
 	}
 	name := filepath.Base(path)
 	target := strings.ReplaceAll(t.URL, FileName, url.PathEscape(name))
-	shown := t.Location(name)
 	delay := RetryDelay
 	var err error
 	for attempt := 1; attempt <= Attempts; attempt++ {
 		var retry bool
-		retry, err = send(ctx, client, t, target, path)
+		var body []byte
+		body, retry, err = send(ctx, client, t, target, path)
 		if err == nil {
-			return shown, nil
+			return body, nil
 		}
 		if !retry || attempt == Attempts {
 			break
@@ -93,40 +106,40 @@ func File(ctx context.Context, client *http.Client, t Target, path string) (stri
 		case <-time.After(delay):
 			delay *= 2
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return nil, ctx.Err()
 		}
 	}
-	return "", fmt.Errorf("sending %s to %s: %w", name, shown, err)
+	return nil, fmt.Errorf("sending %s to %s: %w", name, t.Location(name), err)
 }
 
 // send makes one attempt, reporting whether a failure is worth retrying.
-func send(ctx context.Context, client *http.Client, t Target, target, path string) (bool, error) {
+func send(ctx context.Context, client *http.Client, t Target, target, path string) ([]byte, bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	defer func() { _ = f.Close() }()
 	info, err := f.Stat()
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	if info.IsDir() {
-		return false, fmt.Errorf("%s is a directory; upload an archive of it", path)
+		return nil, false, fmt.Errorf("%s is a directory; upload an archive of it", path)
 	}
 	body, length, contentType := io.Reader(f), info.Size(), contentTypeOf(path)
 	method := strings.ToUpper(t.Method)
 	if method == "" {
 		method = http.MethodPut
 	}
-	if method == http.MethodPost {
+	if method == http.MethodPost && !t.raw {
 		body, length, contentType, err = multipartBody(f, info.Size(), t.Field, filepath.Base(path), contentType)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	req.ContentLength = length
 	req.Header.Set("Content-Type", contentType)
@@ -140,20 +153,24 @@ func send(ctx context.Context, client *http.Client, t Target, target, path strin
 		if errors.As(err, &urlErr) {
 			err = urlErr.Err
 		}
-		return ctx.Err() == nil, err
+		return nil, ctx.Err() == nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
-		return false, nil
+		reply, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		return reply, false, nil
 	}
 	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 	err = fmt.Errorf("server answered %s", resp.Status)
 	if text := strings.TrimSpace(string(detail)); text != "" {
 		err = fmt.Errorf("%w: %s", err, text)
 	}
-	retry := resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
-	return retry, err
+	return nil, retryable(resp.StatusCode), err
+}
+
+// retryable reports whether a response status may pass on a later attempt.
+func retryable(status int) bool {
+	return status == http.StatusRequestTimeout || status == http.StatusTooManyRequests || status >= 500
 }
 
 // multipartBody wraps the file in a form with one field, with its length

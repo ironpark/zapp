@@ -64,7 +64,8 @@ func buildCommand() *cli.Command {
 }
 
 // buildSteps are the steps named on the command line. Asking for a ZIP,
-// checksums or an upload endpoint alongside them runs those steps too, as the project's own
+// checksums, an upload endpoint or a GitHub release alongside them runs those
+// steps too, as the project's own
 // sections would with no steps named. p is the project with the command line
 // applied, so --zip=false and --no-upload have already had their say.
 func buildSteps(c *cli.Command, p *zapp.Project) []zapp.Step {
@@ -80,7 +81,9 @@ func buildSteps(c *cli.Command, p *zapp.Project) []zapp.Step {
 			steps = append(steps, step)
 		}
 	}
-	if url, _ := flagValue(c, "upload-url"); url != "" && len(p.Upload) > 0 && !slices.Contains(steps, zapp.StepUpload) {
+	url, _ := flagValue(c, "upload-url")
+	tag, _ := flagValue(c, "github-release")
+	if url+tag != "" && len(p.Upload) > 0 && !slices.Contains(steps, zapp.StepUpload) {
 		steps = append(steps, zapp.StepUpload)
 	}
 	return steps

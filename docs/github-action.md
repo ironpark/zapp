@@ -42,7 +42,8 @@ empty input leaves the project's value alone.
 | `upload-url` | Endpoint to send artifacts to, added to the project's `upload`; `${file.name}` is each file's name |
 | `upload-method`, `upload-field` | `PUT` (default) or `POST`, and the form field of a POST |
 | `upload-headers` | Headers sent with each upload, one `Name: value` per line |
-| `upload-artifacts` | Artifacts to send to `upload-url`: `zip`, `dmg`, `pkg`, `checksums`, separated by spaces |
+| `github-release` | Tag of a GitHub release to add the artifacts to, created if missing; `github-token` needs `contents: write` (zapp 1.3.0+) |
+| `upload-artifacts` | Artifacts to send to `upload-url` and `github-release`: `zip`, `dmg`, `pkg`, `checksums`, separated by spaces |
 | `upload` | `false` skips every upload |
 | `args` | Further `zapp build` options, one per line, such as `--title=My App` |
 | `version` | zapp release to use, such as `1.2.0` or `latest`; `local` uses a `zapp` already on `PATH` |
@@ -143,8 +144,37 @@ secret; with `steps` named, `zip` and `upload-url` add their steps:
 - run: echo "Published ${{ steps.zapp.outputs.zip-url }}"
 ```
 
-See [distributing and uploading](distribution.md) for the project's `zip`
-and `upload` sections.
+Attach the notarized ZIP, the DMG and their checksums to the release of the
+tag being built:
+
+```yaml
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      # ... build the app
+      - uses: ironpark/zapp@v1
+        with:
+          app: build/MyApp.app
+          steps: dmg
+          zip: true
+          checksums: true
+          sign: true
+          notarize: true
+          staple: true
+          certificate: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+          certificate-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+          api-key: ${{ secrets.ASC_API_KEY }}
+          github-release: ${{ github.ref_name }}
+```
+
+See [distributing and uploading](distribution.md) for the project's `zip`,
+`checksums` and `upload` sections.
 
 Install zapp only, and run its commands directly:
 

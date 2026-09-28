@@ -201,7 +201,7 @@ upload:
     artifacts: [zip, dmg, checksums]
 ```
 
-憑證類標頭只能透過 `${env:…}` 指定。單次略過上傳可使用 `--no-upload`。詳見 [發布與上傳](docs/distribution.md)（英文）。
+以 `github: {tag: v${app.version}}` 取代 `url`，即可透過 `GITHUB_TOKEN` 將產物加入 GitHub Release。憑證類標頭只能透過 `${env:…}` 指定。單次略過上傳可使用 `--no-upload`。詳見 [發布與上傳](docs/distribution.md)（英文）。
 
 ### 高階設定
 

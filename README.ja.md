@@ -201,7 +201,7 @@ upload:
     artifacts: [zip, dmg, checksums]
 ```
 
-認証ヘッダーは `${env:…}` でのみ指定できます。一度だけアップロードを省くには `--no-upload` を使います。詳しくは [配布とアップロード](docs/distribution.md)（英語）を参照してください。
+`url` の代わりに `github: {tag: v${app.version}}` を指定すると、`GITHUB_TOKEN` を使って GitHub リリースに成果物を追加します。認証ヘッダーは `${env:…}` でのみ指定できます。一度だけアップロードを省くには `--no-upload` を使います。詳しくは [配布とアップロード](docs/distribution.md)（英語）を参照してください。
 
 ### 詳細設定
 
