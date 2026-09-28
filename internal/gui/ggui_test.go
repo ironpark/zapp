@@ -60,6 +60,8 @@ func TestWidgetsRejectInvalidJSONBeforeSwitch(t *testing.T) {
 }
 func TestWidgetsHelpAndModal(t *testing.T) {
 	g := testEditor(t)
+	// Narrow enough that the form is not already held to its maximum width.
+	g.w = 900
 	g.tab = tabProject
 	g.rebuild()
 	p := widgetProbe(t, g)

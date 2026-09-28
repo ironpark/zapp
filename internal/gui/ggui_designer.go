@@ -15,7 +15,9 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
 	canvas := &designerCanvas{model: m}
 	preview := surface(ggui.Column(
-		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(), modeButtons([]string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
+		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(),
+			ui.Button("Reset layout", g.action(g.guard(func() { g.s.checkpoint(); g.s.Project.DMG.Contents = nil; g.selected = ""; g.rebuild() }))).Ghost().Pad(5, 10).Disabled(v.DefaultLayout),
+			modeButtons([]string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
 		ggui.Expanded(canvas),
 		ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan"),
@@ -49,8 +51,7 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 	})
 	side := ggui.Box(ui.Resizable(m.InspectorSplit, list, details).Vertical().MinSizes(130, 220)).Width(248)
 	right := ggui.Row(ggui.Expanded(preview), side).Gap(12).Align(ggui.AlignStretch)
-	settings := ggui.Column(ggui.Expanded(settingsView(m, v)), ui.Button("Default layout", g.action(g.guard(func() { g.s.checkpoint(); g.s.Project.DMG.Contents = nil; g.selected = ""; g.rebuild() }))).Outline().Disabled(v.DefaultLayout)).Gap(10).Align(ggui.AlignStretch)
-	return ui.Resizable(m.Split, settings, right).MinSizes(290, 570).WithHandle()
+	return ui.Resizable(m.Split, settingsView(m, v), right).MinSizes(290, 570).WithHandle()
 }
 
 // The only custom widget is the Finder-like canvas. Layout supplies its size;

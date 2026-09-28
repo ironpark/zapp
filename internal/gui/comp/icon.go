@@ -29,6 +29,9 @@ const (
 //go:embed icons/*.svg
 var iconFiles embed.FS
 
+// IconSVG returns an icon's SVG source, for renderers other than the painter.
+func IconSVG(name Icon) ([]byte, error) { return iconFiles.ReadFile("icons/" + string(name) + ".svg") }
+
 // Rasterize once at 4x the button size; the painter owns the resulting textures.
 // White SVG strokes form a mask tinted with the button's current text color.
 func rasterizeIcon(data []byte) (*image.RGBA, error) {

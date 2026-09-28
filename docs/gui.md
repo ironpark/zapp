@@ -23,6 +23,17 @@ migrated to the version 1 project format first.
 | Signing | Identity, PKCS#12/PEM certificate and password-file path |
 | Notarization | Keychain profile, Apple ID, team ID, API key file and stapling |
 
+The header names the app being packaged, read from its Info.plist, with the
+configuration path below it. The project is checked as you edit, without moving
+you: the header badge shows **Ready** or the number of issues, and a tab whose
+step has a problem carries a red dot whose tooltip names it. Disabled steps are
+dimmed. Clicking the badge (or **Ctrl/Cmd+Shift+V**) runs Validate, which opens
+the first problem.
+
+**Project** shows the app's icon, name, version and bundle identifier, then the
+build steps in the order Build runs them — Dependencies, Signing, DMG, PKG,
+Notarization — each with its state and output path. Click a step to open its tab.
+
 Each step can be enabled or disabled. Disabled sections are omitted from the
 saved project. Their values are retained while toggling within the same editor
 session. The step toolbar shows whether the selected step is enabled. Validation errors
@@ -45,7 +56,7 @@ distribution settings to be cleared; the generated default component can be
 switched back directly.
 
 **Dependencies** provides a path list with Browse and remove controls. Use the
-empty row to type another path, or **Add directory** to choose one. **Text** mode
+empty row to type another path, or its **Browse** button to choose one. **Text** mode
 edits one directory per line; spaces within paths are preserved. Both modes edit
 the same list and support Undo. Leave the list empty for automatic discovery;
 disable Dependencies when the app has no external libraries to bundle.
@@ -59,6 +70,17 @@ credentials to the project; switching methods retains previous input within the
 current session. Keychain/Profile/Apple ID use macOS tools; PKCS#12 and PEM
 certificates work on every host (macOS imports them into a temporary keychain),
 while API key JSON uses rcodesign on Windows/Linux.
+
+On macOS the Keychain method lists the valid signing identities found in your
+keychains; click one to use it, or leave the identity blank to pick the first
+matching Developer ID. **Check** asks the signing backend which certificate the
+current settings would sign the app with, and the installer too when PKG is
+enabled, without building. Apple uses separate Developer ID Application and
+Installer certificates, so each is reported on its own. A result is hidden once
+the settings change.
+
+Drop a `.app` bundle anywhere outside the DMG preview to make it the project's
+app, or a `.p12`/`.pem` certificate to sign with it; both are undoable.
 
 Apple ID authentication includes a masked app-specific password input. Its value
 is session-only and never serialized into the project; reopening requires entering
@@ -90,8 +112,8 @@ Add file picker remains unrestricted.
 5. Select an icon or a row in **Contents**. The fixed **Item details** panel edits
    its name and X/Y coordinates without moving the layout settings. The list
    shows item types and coordinates and scrolls independently, including items
-   outside the preview. **Remove selected** removes the selected entry. **Default
-   layout** restores the automatic app + Applications arrangement.
+   outside the preview. **Remove selected** removes the selected entry. **Reset
+   layout** in the preview header restores the automatic app + Applications arrangement.
 6. Click **Save**, then build normally with `zapp dmg` or `zapp build`.
 
 Moving a default icon creates explicit `dmg.contents` entries for both the app
@@ -108,7 +130,8 @@ images are limited to 8192 pixels per side and 32 million pixels in total.
 - **Ctrl/Cmd+A**, **C**, **X**, **V** select all, copy, cut and paste within a field.
   Arrow keys move the cursor; multiline fields also support Up/Down.
 - **Esc** cancels the current field edit.
-- **Ctrl/Cmd+S** saves all tabs together.
+- **Ctrl/Cmd+S** saves all tabs together. **Ctrl/Cmd+B** builds and
+  **Ctrl/Cmd+Shift+V** validates.
 - **Ctrl/Cmd+1–6** switches tabs. **Tab** moves through tabs, fields and actions. Choice fields open a dropdown with a click, Enter or Space. Click an option or use Up/Down and Enter to select; Esc or an outside
   click dismisses the list without changing the value.
 - With an icon selected and no text field active, **arrow keys** move it one
@@ -139,9 +162,11 @@ settings, including configured signing and notarization. It uses the same
 `Plan.Build` engine as the CLI. Pending input is applied and validated first;
 building does not save or rewrite the project file.
 
-A progress dialog shows build messages and supports **Cancel build**. Editing
-and duplicate builds are blocked while the job runs. Completion shows output
-paths or the error. A failed build offers **Go to issue** to review the relevant
+A progress dialog shows the build log as it runs and supports **Cancel build**;
+**Copy log** copies it. Building with unsaved settings says so at the top of the
+log. Editing and duplicate builds are blocked while the job runs. Completion
+shows output paths or the error, and **Show in Finder** (Explorer on Windows,
+the folder elsewhere) reveals the built artifact. A failed build offers **Go to issue** to review the relevant
 settings. Closing the window during a build cancels it and waits for
 cleanup before continuing the normal unsaved-changes flow.
 
@@ -167,8 +192,9 @@ stepping (1 per step, or 10 with Shift). Stepping starts from the effective defa
 for automatic numeric values and stays within the field's supported range.
 As with typed edits, Enter or leaving the field applies the draft; Escape cancels it.
 
-The tab bar groups step actions on its right: **Enabled** and DMG
-**Default layout**, or PKG **Single app / Components**. **Add file** stays in Contents
+The tab bar groups step actions on its right: **Enabled**, and PKG
+**Single app / Components**. **Reset layout** sits in the DMG preview header next
+to **Fit / 100%**. **Add file** stays in Contents
 and **Remove from DMG** in Item details. The settings
 column adjusts to the window width to leave more room for the preview. Contents
 shows the item count, type and source path; hover a row or path input to read its
@@ -185,8 +211,9 @@ preserved, and Undo restores the previous mode.
 Undo, Redo and Add file have named controls with hover tooltips.
 Save, Validate and Remove from DMG show icons alongside their labels.
 
-**Validate** is in the top header beside **Save**. The compact bottom status bar
-shows feedback; hover a truncated status message to read its expanded text.
+The Validate badge is in the top header beside **Save**. The compact bottom
+status bar shows feedback; hover a truncated status message to read its expanded
+text. Single-column forms are held to a readable width in wide windows.
 
 The preview and Contents list use embedded macOS default icons for apps, folders,
 documents, text, PDF, images, audio, video, archives, disk images, installer packages,

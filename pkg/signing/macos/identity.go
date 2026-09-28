@@ -51,6 +51,10 @@ func (i Identity) String() string {
 	return fmt.Sprintf("%s: %s (%s)", i.Type, i.DeveloperName, i.DeveloperID)
 }
 
+// ListIdentities lists the valid signing identities in the user's keychain
+// search list, for offering them to choose from.
+func ListIdentities(ctx context.Context) ([]Identity, error) { return listIdentities(ctx, "") }
+
 // listIdentities lists the valid signing identities in keychain, or in the
 // user's search list when keychain is "".
 func listIdentities(ctx context.Context, keychain string) ([]Identity, error) {

@@ -80,7 +80,7 @@ func (r *desktopRenderer) render() error {
 		m := newDesktopModel(g)
 		p := ggui.ProbeBuilder(func() ggui.Widget { return ggui.Provide(ggui.ReducedMotionKey, true, desktopView(m)) }, ggui.Sz(width, 760))
 		p.Setup(func() { uitheme.Bind(m.Dark, editorTheme(true), editorTheme(false)) })
-		for _, name := range []string{"project", "dmg", "pkg", "components", "help", "json", "dependencies", "signing", "notarization", "light", "close"} {
+		for _, name := range []string{"project", "dmg", "pkg", "components", "help", "json", "dependencies", "signing", "notarization", "build", "light", "close"} {
 			switch name {
 			case "project":
 				g.switchTab(tabProject)
@@ -103,7 +103,11 @@ func (r *desktopRenderer) render() error {
 				g.switchTab(tabSign)
 			case "notarization":
 				g.switchTab(tabNotarize)
+			case "build":
+				g.build = &buildJob{finished: true, message: "Built dist/Example.dmg", artifacts: zapp.Artifacts{DMG: "dist/Example.dmg"},
+					log: []string{"Bundling libraries for Example.app", "Signing Example.app", "Creating DMG dist/Example.dmg", "Signing dist/Example.dmg", "Submitting dist/Example.dmg for notarization", "Notarization accepted"}}
 			case "light":
+				g.build = nil
 				m.Dark.Set(false)
 				g.switchTab(tabPKG)
 				g.pkgRaw = false

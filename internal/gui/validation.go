@@ -3,8 +3,10 @@ package gui
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -128,24 +130,29 @@ func (g *editor) pathFields(tab int, section section) []field {
 	return section.fields(g)
 }
 
-// Validate checks build inputs, while Save continues to permit unfinished drafts.
-func (g *editor) validatePaths() bool {
+// pathProblem is a path setting that points at nothing usable. item names the
+// DMG content whose custom icon is missing; otherwise label names the field.
+type pathProblem struct {
+	tab         int
+	label, item string
+	err         error
+}
+
+// pathProblems lists, without moving the user, every enabled path setting
+// that points at nothing usable. It stops early when first is set.
+func (g *editor) pathProblems(first bool) []pathProblem {
+	var problems []pathProblem
 	if g.s.Project.DMG != nil {
-		for path, item := range g.s.Project.DMG.Contents {
+		for _, path := range slices.Sorted(maps.Keys(g.s.Project.DMG.Contents)) {
+			item := g.s.Project.DMG.Contents[path]
 			if item.Icon == "" || strings.Contains(item.Icon, "${") {
 				continue
 			}
 			if _, err := os.Stat(g.assetPath(item.Icon)); err != nil {
-				g.tab = tabDMG
-				g.selected = path
-				g.rebuild()
-				if len(g.fields)-g.inspectorStart > itemIconFieldIndex {
-					g.focus(g.inspectorStart + itemIconFieldIndex)
-					g.fieldError(err)
-				} else {
-					g.report(err, "")
+				problems = append(problems, pathProblem{tab: tabDMG, label: "Item icon", item: path, err: err})
+				if first {
+					return problems
 				}
-				return false
 			}
 		}
 	}
@@ -153,41 +160,113 @@ func (g *editor) validatePaths() bool {
 		if !section.Enabled(g.s.Project) {
 			continue
 		}
-		fields := g.pathFields(tab, section)
-		for _, f := range fields {
-			if f.picker == "" || f.picker == pickSave || f.Value == "" || strings.Contains(f.Value, "${") {
-				continue
-			}
-			info, err := os.Stat(g.assetPath(f.Value))
-			if f.mayNotExist && os.IsNotExist(err) {
-				continue
-			}
-			if err == nil {
-				switch f.picker {
-				case pickFile, pickImage, pickIcon, pickItemIcon:
-					if info.IsDir() {
-						err = fmt.Errorf("Choose a file, not a directory")
-					}
-				case pickFolder:
-					if !info.IsDir() {
-						err = fmt.Errorf("Choose a directory")
-					}
-				case pickApp:
-					if !info.IsDir() || !strings.HasSuffix(strings.ToLower(f.Value), ".app") {
-						err = fmt.Errorf("Choose an .app bundle directory")
-					}
+		for _, f := range g.pathFields(tab, section) {
+			if err := g.checkPath(f); err != nil {
+				problems = append(problems, pathProblem{tab: tab, label: f.Label, err: err})
+				if first {
+					return problems
 				}
-			}
-			if err != nil {
-				if os.IsNotExist(err) {
-					err = fmt.Errorf("Path does not exist: %s", f.Value)
-				}
-				g.showFieldError(tab, f.Label, err)
-				return false
 			}
 		}
 	}
-	return true
+	return problems
+}
+
+// checkPath reports why a path field's value is unusable, or nil.
+func (g *editor) checkPath(f field) error {
+	if f.picker == "" || f.picker == pickSave || f.Value == "" || strings.Contains(f.Value, "${") {
+		return nil
+	}
+	info, err := os.Stat(g.assetPath(f.Value))
+	if f.mayNotExist && os.IsNotExist(err) {
+		return nil
+	}
+	if err == nil {
+		switch f.picker {
+		case pickFile, pickImage, pickIcon, pickItemIcon:
+			if info.IsDir() {
+				err = fmt.Errorf("Choose a file, not a directory")
+			}
+		case pickFolder:
+			if !info.IsDir() {
+				err = fmt.Errorf("Choose a directory")
+			}
+		case pickApp:
+			if !info.IsDir() || !strings.HasSuffix(strings.ToLower(f.Value), ".app") {
+				err = fmt.Errorf("Choose an .app bundle directory")
+			}
+		}
+	}
+	if os.IsNotExist(err) {
+		err = fmt.Errorf("Path does not exist: %s", f.Value)
+	}
+	return err
+}
+
+// Validate checks build inputs, while Save continues to permit unfinished
+// drafts. The first problem is shown on its field.
+func (g *editor) validatePaths() bool {
+	problems := g.pathProblems(true)
+	if len(problems) == 0 {
+		return true
+	}
+	p := problems[0]
+	if p.item == "" {
+		g.showFieldError(p.tab, p.label, p.err)
+		return false
+	}
+	g.tab = tabDMG
+	g.selected = p.item
+	g.rebuild()
+	if len(g.fields)-g.inspectorStart > itemIconFieldIndex {
+		g.focus(g.inspectorStart + itemIconFieldIndex)
+		g.fieldError(p.err)
+	} else {
+		g.report(p.err, "")
+	}
+	return false
+}
+
+// issueTab names the tab a Resolve error belongs to, by the same rules
+// locateValidationError uses to move the user there.
+func (g *editor) issueTab(err error) int {
+	var pathError *os.PathError
+	if errors.As(err, &pathError) {
+		for tab, section := range sections {
+			if !section.Enabled(g.s.Project) {
+				continue
+			}
+			for _, f := range g.pathFields(tab, section) {
+				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
+					return tab
+				}
+			}
+		}
+		if g.s.Project.DMG != nil {
+			return tabDMG
+		}
+	}
+	message := err.Error()
+	switch {
+	case strings.HasPrefix(message, "app ") || strings.Contains(message, "requires app") || strings.Contains(message, "provide --app"):
+		return tabProject
+	case strings.HasPrefix(message, "dep:") && g.s.Project.Dep != nil:
+		return tabDep
+	case (strings.HasPrefix(message, "pkg") || strings.Contains(message, "component") || strings.HasPrefix(message, "choice ")) && g.s.Project.PKG != nil:
+		if strings.Contains(message, "root must") || strings.Contains(message, "root is") {
+			if !g.s.Project.PKG.HasFullForm() {
+				return tabProject
+			}
+		}
+		return tabPKG
+	case strings.HasPrefix(message, "sign:") && g.s.Project.Sign != nil:
+		return tabSign
+	case strings.HasPrefix(message, "notarize:") && g.s.Project.Notarize != nil:
+		return tabNotarize
+	case strings.HasPrefix(message, "dmg") && g.s.Project.DMG != nil:
+		return tabDMG
+	}
+	return tabProject
 }
 func (g *editor) locateValidationError(err error) {
 	var pathError *os.PathError

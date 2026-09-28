@@ -19,8 +19,20 @@ type buildJob struct {
 	events                               chan string
 	done                                 chan buildResult
 	message                              string
+	log                                  []string // every line reported, oldest first
+	artifacts                            zapp.Artifacts
 	finished, cancelling, closeRequested bool
 	err                                  error
+}
+
+// maxBuildLog bounds the lines a build dialog keeps; older ones are dropped.
+const maxBuildLog = 1000
+
+func (j *buildJob) record(line string) {
+	j.log = append(j.log, line)
+	if len(j.log) > maxBuildLog {
+		j.log = j.log[len(j.log)-maxBuildLog:]
+	}
 }
 
 type buildLogger struct {
@@ -61,7 +73,10 @@ func (g *editor) startBuild() {
 		ctx = context.Background()
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	job := &buildJob{cancel: cancel, events: make(chan string, 32), done: make(chan buildResult, 1), message: "Resolving current project settings…"}
+	job := &buildJob{cancel: cancel, events: make(chan string, 256), done: make(chan buildResult, 1), message: "Resolving current project settings…"}
+	if g.dirty() {
+		job.record("Building with unsaved settings; " + g.s.Name + " is unchanged until you save.")
+	}
 	g.build = job
 	project := g.s.Project.Clone()
 	g.report(nil, "Building project…")
@@ -78,13 +93,14 @@ func (g *editor) pollBuild() {
 	if j == nil || j.finished {
 		return
 	}
-	// A burst of log lines shows only its last one, so report once after
-	// draining rather than syncing the UI per line.
+	// A burst of log lines shows only its last one in the status bar, so
+	// report once after draining rather than syncing the UI per line.
 	latest := ""
 drain:
 	for {
 		select {
 		case message := <-j.events:
+			j.record(message)
 			if !j.cancelling {
 				latest = message
 			}
@@ -98,7 +114,7 @@ drain:
 	}
 	select {
 	case result := <-j.done:
-		j.finished, j.err = true, result.err
+		j.finished, j.err, j.artifacts = true, result.err, result.artifacts
 		j.cancel()
 		switch {
 		case errors.Is(result.err, context.Canceled):
@@ -115,7 +131,7 @@ drain:
 			if len(paths) == 0 {
 				paths = append(paths, result.artifacts.App)
 			}
-			j.message = "Built: " + strings.Join(paths, " · ")
+			j.message = "Built " + strings.Join(paths, " · ")
 		}
 		g.report(result.err, j.message)
 		if result.err != nil && !errors.Is(result.err, context.Canceled) {
@@ -125,6 +141,7 @@ drain:
 		}
 		// Builds can change app resources; refresh the preview on the next rebuild.
 		g.previewSig = ""
+		g.recheckHealth()
 		if j.closeRequested {
 			g.finishClose()
 		}

@@ -39,6 +39,9 @@ func (g *editor) runWidgets() error {
 	}
 	// "cmd" is ggui's platform command modifier: Meta on macOS, Ctrl elsewhere.
 	app.Shortcut("cmd+s", ready(func() { g.save() }))
+	app.Shortcut("cmd+b", ready(g.startBuild))
+	app.Shortcut("cmd+shift+v", ready(g.validate))
+	app.OnDrop(func(e ggui.DropEvent) { ready(func() { g.dropFiles(e.Paths()) })() })
 	app.OnKey(func(e ggui.KeyEvent) bool {
 		if e.Kind == ggui.KeyPress && e.Mods.Cmd() && e.Key == ggui.KeyZ && g.active < 0 {
 			ready(func() { g.history(e.Mods.Shift) })()
@@ -69,6 +72,7 @@ func (g *editor) runWidgets() error {
 		}
 		g.pollAppIcons()
 		g.pollBuild()
+		g.pollSigning()
 		if g.picking != nil {
 			g.pollPicker()
 		}

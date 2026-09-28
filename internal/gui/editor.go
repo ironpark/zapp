@@ -22,6 +22,10 @@ type editor struct {
 	signStash                             zapp.SignConfig
 	notaryStash                           zapp.NotarizeConfig
 	issue                                 *validationIssue
+	health                                projectHealth
+	signing                               signingAssist
+	projectIconPath                       string        // app whose icon projectIconKey holds
+	healthOf                              *zapp.Project // the project health describes
 
 	dmgYAML                                  bool
 	appIconResults                           chan appIconResult
@@ -207,6 +211,7 @@ func (g *editor) validate() {
 	if err == nil {
 		g.rebuild()
 	}
+	g.recheckHealth()
 	g.report(err, "Build inputs are valid. No files were built, signed or submitted.")
 }
 

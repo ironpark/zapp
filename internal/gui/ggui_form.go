@@ -111,6 +111,10 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	if f.ID.tab == tabDMG && spec.Label == "Item icon" && f.Value.Get() != "" {
 		control = ggui.Column(control, ui.Button("Reset item icon", g.action(func() { binding.Set(""); m.commitField(f) })).Ghost()).Gap(6)
 	}
+	if spec.Boolean {
+		// The switch carries the label itself; a caption above would repeat it.
+		return ggui.Column(control, ui.Caption(spec.Hint)).Gap(uitheme.Use().Space / 2).Align(ggui.AlignStretch)
+	}
 	field := ui.Field(spec.Label, control).Help(spec.Hint).BindError(f.Error)
 	if spec.Browse {
 		return ggui.Pointer(field).OnDrop(func(e ggui.DropEvent) {

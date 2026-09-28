@@ -10,6 +10,7 @@ const (
 	tabDep
 	tabSign
 	tabNotarize
+	tabCount
 )
 
 // section describes one editor tab: how it is labelled and described, how its

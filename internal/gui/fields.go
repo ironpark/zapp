@@ -30,7 +30,7 @@ func stringField(label string, value *string, hint string) field {
 	return field{Label: label, Value: *value, Hint: hint, Placeholder: fieldPlaceholders[label], set: func(s string) error { *value = s; return nil }}
 }
 func choiceField(label string, value *string, choices ...string) field {
-	f := stringField(label, value, "Click to choose, or press Enter")
+	f := stringField(label, value, "")
 	f.Choices = choices
 	if *value == "" {
 		f.DisplayValue = "Default"
@@ -106,6 +106,8 @@ func jsonField[T any](label string, value *T, hint string) field {
 func (g *editor) rebuild() {
 	g.rebuildFields()
 	g.refreshDerived()
+	g.refreshHealth()
+	g.refreshProjectIcon()
 }
 
 func (g *editor) rebuildFields() {
@@ -334,7 +336,10 @@ func (g *editor) depFields() []field {
 	for i := 0; i <= len(c.Libs); i++ {
 		value := ""
 		label := "Add search directory"
-		hint := "Type a path or Browse to add a directory"
+		hint := "Type a path or Browse to add another directory"
+		if len(c.Libs) == 0 {
+			hint = "None yet, so libraries are found automatically. Type a path or Browse to add one"
+		}
 		if i < len(c.Libs) {
 			value = c.Libs[i]
 			label = fmt.Sprintf("Directory %d", i+1)

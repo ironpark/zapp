@@ -1,9 +1,12 @@
 package gui
 
 import (
+	"cmp"
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/ironpark/ggui"
 	guiruntime "github.com/ironpark/ggui/runtime"
@@ -22,7 +25,9 @@ type desktopModel struct {
 	Fields, Inspector                           *ggui.StateValue[[]*desktopField]
 	Components                                  *ggui.StateValue[[]componentRow]
 	Items                                       *ggui.StateValue[[]layoutItem]
-	Status, SaveState                           *ggui.StateValue[string]
+	Status, SaveState, Title                    *ggui.StateValue[string]
+	Health                                      *ggui.StateValue[projectHealth]
+	Enabled                                     *ggui.StateValue[[tabCount]bool]
 	Failed, CanUndo, CanRedo, Busy, Help, Close *ggui.StateValue[bool]
 	Tab                                         *ggui.StateValue[int]
 	Modal                                       *ggui.StateValue[modalState]
@@ -38,6 +43,11 @@ type workspaceState struct {
 	Enabled, Full, Raw, Advanced, Actual, DefaultLayout bool
 	Selected                                            string
 	IssueTab                                            int
+	// Signing tab: keychain identities offered (newline-separated) and the
+	// credential check for the current settings.
+	Identities                                      string
+	IdentitiesListed, CheckShown, Checking, CheckOK bool
+	CheckMessage                                    string
 }
 type componentRow struct {
 	Index int
@@ -45,6 +55,8 @@ type componentRow struct {
 }
 type modalState struct {
 	Title, Message                     string
+	Log                                string // the build's lines so far
+	Reveal                             string // artifact to show in the file manager
 	Build, Finished, Cancelling, Issue bool
 }
 type fieldIdentity struct {
@@ -101,6 +113,9 @@ func newDesktopModel(g *editor) *desktopModel {
 		Items:           ggui.State([]layoutItem{}).WithEqual(slices.Equal),
 		Status:          ggui.State(""),
 		SaveState:       ggui.State(""),
+		Title:           ggui.State(""),
+		Health:          ggui.State(projectHealth{}),
+		Enabled:         ggui.State([tabCount]bool{}),
 		Failed:          ggui.State(false),
 		CanUndo:         ggui.State(false),
 		CanRedo:         ggui.State(false),
@@ -152,6 +167,11 @@ func (m *desktopModel) sync() {
 		v.Raw = g.depRaw
 	case tabSign:
 		v.SignMethod = g.signMethod()
+		if v.SignMethod == 0 && v.Enabled {
+			g.listIdentities()
+		}
+		v.Identities, v.IdentitiesListed = strings.Join(g.signing.identities, "\n"), g.signing.listed
+		v.CheckShown, v.Checking, v.CheckOK, v.CheckMessage = g.signingCheck()
 	case tabNotarize:
 		v.NotaryMethod = g.notaryMethod()
 	}
@@ -172,6 +192,17 @@ func (m *desktopModel) sync() {
 		state = "Unsaved changes"
 	}
 	m.SaveState.Set(state)
+	m.Health.Set(g.health)
+	var enabled [tabCount]bool
+	for i, s := range sections {
+		enabled[i] = s.Enabled(g.s.Project)
+	}
+	m.Enabled.Set(enabled)
+	title := g.health.App.Name
+	if title == "" {
+		title = "Untitled project"
+	}
+	m.Title.Set(title)
 	fields, inspector := []*desktopField{}, []*desktopField{}
 	next := map[fieldIdentity]*desktopField{}
 	for i, f := range g.fields {
@@ -220,7 +251,14 @@ func (m *desktopModel) sync() {
 		modal = modalState{Title: "Choose a path", Message: "Select a path in the system dialog."}
 	} else if g.build != nil {
 		d := g.buildDialog()
-		modal = modalState{Title: d.Title, Message: d.Message, Build: true, Finished: g.build.finished, Cancelling: g.build.cancelling, Issue: g.issue != nil}
+		j := g.build
+		modal = modalState{Title: d.Title, Message: d.Message, Log: strings.Join(j.log, "\n"), Build: true, Finished: j.finished, Cancelling: j.cancelling, Issue: g.issue != nil}
+		if j.finished && j.err == nil {
+			modal.Reveal = cmp.Or(j.artifacts.DMG, j.artifacts.PKG, j.artifacts.App)
+		}
+		if modal.Log != m.Modal.Get().Log {
+			m.offset("build-log").Set(math.MaxFloat64)
+		}
 	}
 	m.Modal.Set(modal)
 }
