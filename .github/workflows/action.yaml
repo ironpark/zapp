@@ -28,7 +28,8 @@ jobs:
         shell: bash
         run: |
           test "${{ steps.zapp.outputs.version }}" = 1.0.0
-          zapp info | grep -q 'Version *: *1.0.0'
+          # 1.0.0's Linux and Windows builds report their tag, with a v.
+          zapp info | grep -Eq 'Version *: *v?1\.0\.0'
           test -x "${{ steps.zapp.outputs.path }}"
 
   # Builds a DMG and a PKG through the action with zapp from this checkout.

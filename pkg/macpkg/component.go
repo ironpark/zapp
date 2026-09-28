@@ -270,6 +270,11 @@ func outputOutside(output, root, only string) error {
 	if only != "" {
 		r = filepath.Join(r, only)
 	}
+	// On another Windows drive the output cannot be inside the tree, and Rel
+	// has no path between the two.
+	if !strings.EqualFold(filepath.VolumeName(r), filepath.VolumeName(o)) {
+		return nil
+	}
 	rel, err := filepath.Rel(r, o)
 	if err != nil {
 		return err
