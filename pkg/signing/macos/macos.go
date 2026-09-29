@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ironpark/zapp/pkg/signing/notarylog"
 )
 
 // Options are the credentials Apple's tools take. The certificate comes from
@@ -231,9 +233,21 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 		}
 	}
 	if result.Status != "Accepted" {
-		return fmt.Errorf("notarization failed: %s", result.Message)
+		return rejected(ctx, result, profile)
 	}
 	return nil
+}
+
+// rejected reports a submission the notary refused, with the issues its log
+// lists, which name the files at fault.
+func rejected(ctx context.Context, result *submissionResult, profile string) error {
+	err := fmt.Errorf("notarization of submission %s ended %s", result.ID, result.Status)
+	if log, logErr := notaryLog(ctx, result.ID, profile); logErr == nil {
+		if summary := notarylog.Summary([]byte(log)); summary != "" {
+			return fmt.Errorf("%w: %s", err, summary)
+		}
+	}
+	return fmt.Errorf("%w: %s; read why with `xcrun notarytool log %s`", err, result.Message, result.ID)
 }
 
 // timedOut reports a submission still in progress when zapp stopped waiting.

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/ironpark/zapp/pkg/signing/notarylog"
 )
 
 const Tool = "rcodesign"
@@ -92,9 +94,22 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 			"create one with `rcodesign encode-app-store-connect-api-key`")
 	}
 	if err := invoke(ctx, "submit", path, b.opts); err != nil {
-		return fmt.Errorf("rcodesign could not notarize %s: %w", path, err)
+		return fmt.Errorf("rcodesign could not notarize %s: %w", path, readableLog(err))
 	}
 	return nil
+}
+
+// readableLog renders the notary log a rejection carries, as JSON after
+// "; notary log: ", as the issues it lists.
+func readableLog(err error) error {
+	verdict, log, ok := strings.Cut(err.Error(), "; notary log: ")
+	if !ok {
+		return err
+	}
+	if summary := notarylog.Summary([]byte(log)); summary != "" {
+		return errors.New(verdict + ": " + summary)
+	}
+	return err
 }
 
 // Staple attaches an already issued notarization ticket.
@@ -103,4 +118,11 @@ func (b *Backend) Staple(ctx context.Context, path string) error {
 		return fmt.Errorf("rcodesign could not staple %s: %w", path, err)
 	}
 	return nil
+}
+
+// Verify checks the code digests and CMS signature of the Mach-O at path, or
+// of every Mach-O in the bundle at path. It reads no credentials. A bundle's
+// sealed resources are not checked.
+func Verify(ctx context.Context, path string) error {
+	return invoke(ctx, "verify", path, Options{})
 }

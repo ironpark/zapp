@@ -33,19 +33,10 @@ func xcrunJSON(ctx context.Context, result any, args ...string) error {
 
 // submissionResult represents the result of a notarization submission.
 type submissionResult struct {
-	ID              string `json:"id"`
-	Status          string `json:"status"`
-	Message         string `json:"message"`
-	SubmissionTime  string `json:"submissionTime"`
-	keychainProfile string `json:"-"`
-}
-
-func (r submissionResult) GetLog(ctx context.Context) (string, error) {
-	msg, err := notaryLog(ctx, r.ID, r.keychainProfile)
-	if err != nil {
-		return "", fmt.Errorf("getting notarization log failed: %w", err)
-	}
-	return msg, nil
+	ID             string `json:"id"`
+	Status         string `json:"status"`
+	Message        string `json:"message"`
+	SubmissionTime string `json:"submissionTime"`
 }
 
 // notaryStoreCredentials stores the Apple ID credentials for notarization.
@@ -175,7 +166,7 @@ func notaryIsStapled(ctx context.Context, filePath string) (bool, error) {
 	return strings.Contains(output, "The validate action worked!"), nil
 }
 
-// notaryLog
+// notaryLog fetches the log the notary kept for a submission, as JSON.
 func notaryLog(ctx context.Context, submissionID, keychainProfile string) (string, error) {
 	output, err := xcrun(ctx,
 		"notarytool", "log", submissionID,
