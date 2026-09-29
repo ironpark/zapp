@@ -82,6 +82,7 @@ zapp config show
 zapp build                  # 설정된 단계 실행
 zapp build dmg pkg          # dep 생략; 설정된 서명·공증은 실행
 zapp build --dry-run        # 실제로 실행하지 않고 할 일만 나열
+zapp verify dist/MyApp.dmg  # 서명·staple·Gatekeeper 통과 여부 검사
 zapp dmg --title "MyApp"    # 프로젝트 제목을 덮어씀
 zapp pkg --no-sign --no-notarize
 ```
@@ -219,6 +220,8 @@ upload:
 ```
 
 `url` 대신 `github: {tag: v${app.version}}`를 쓰면 `GITHUB_TOKEN`으로 GitHub 릴리즈에 결과물을 올립니다. 인증 헤더는 `${env:…}`로만 지정할 수 있습니다. 한 번만 업로드를 건너뛰려면 `--no-upload`를 쓰세요. 자세한 내용은 [배포와 업로드](docs/distribution.md)(영문)를 참고하세요.
+
+`verify: true`는 앱과 모든 결과물이 Developer ID로 서명되고 타임스탬프·hardened runtime·staple까지 갖췄는지 확인하고, 아니면 무엇이든 배포하기 전에 빌드를 멈춥니다. 이미 만든 파일은 `zapp verify`로 같은 방식으로 검사합니다([검증](docs/signing.md#verifying), 영문). `homebrew:`는 릴리즈용 Homebrew cask를 만들어 탭 저장소에 커밋합니다([Homebrew cask](docs/distribution.md#homebrew-casks), 영문).
 
 ### 고급 설정
 

@@ -22,7 +22,7 @@ migrated to the version 1 project format first.
 | Dependencies | Library search paths |
 | Signing | Identity, PKCS#12/PEM certificate and password-file path |
 | Notarization | Keychain profile, Apple ID, team ID, API key file, stapling and timeout |
-| Distribution | ZIP archive and checksums with their outputs; uploads and the Sparkle appcast as YAML |
+| Distribution | ZIP archive and checksums with their outputs, verification before publishing; uploads, the Sparkle appcast and the Homebrew cask as YAML |
 
 The header names the app being packaged, read from its Info.plist, with the
 configuration path below it. The project is checked as you edit, without moving

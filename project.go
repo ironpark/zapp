@@ -30,8 +30,12 @@ type Project struct {
 	Checksums *ChecksumsConfig `json:"checksums,omitempty"`
 	Appcast   *AppcastConfig   `json:"appcast,omitempty"`
 	Upload    []UploadConfig   `json:"upload,omitempty"`
-	dir       string
-	legacy    bool
+	Homebrew  *HomebrewConfig  `json:"homebrew,omitempty"`
+	// Verify checks the app and every artifact built are signed, stapled
+	// and accepted, and stops the build before anything is published if not.
+	Verify bool `json:"verify,omitempty"`
+	dir    string
+	legacy bool
 }
 type SignConfig struct {
 	Identity        string `json:"identity,omitempty"`
@@ -86,6 +90,29 @@ type AppcastConfig struct {
 	ReleaseNotes string `json:"releaseNotes,omitempty"`
 	KeyFile      string `json:"keyFile,omitempty"`
 	Out          string `json:"out,omitempty"`
+}
+
+// HomebrewConfig writes a Homebrew cask for the build's DMG, ZIP or PKG, and
+// can commit it to a tap. The token for the tap comes from
+// ZAPP_HOMEBREW_TOKEN, GITHUB_TOKEN or GH_TOKEN.
+type HomebrewConfig struct {
+	// Token names the cask; default the app's name in lower case, hyphenated.
+	Token string `json:"token,omitempty"`
+	// Artifact is dmg, zip or pkg; default the first of them the project
+	// builds.
+	Artifact string `json:"artifact,omitempty"`
+	// URL is where the artifact is downloaded from; ${file.name} is its
+	// name. Default where an upload sent it, such as a GitHub release.
+	URL string `json:"url,omitempty"`
+	// Name defaults to the app's CFBundleName.
+	Name     string `json:"name,omitempty"`
+	Desc     string `json:"desc,omitempty"`
+	Homepage string `json:"homepage"`
+	// Tap is a repository, owner/homebrew-name, to commit Casks/<token>.rb
+	// to, on Branch or its default branch.
+	Tap    string `json:"tap,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Out    string `json:"out,omitempty"`
 }
 
 // UploadConfig sends built artifacts to an HTTP endpoint, or to a GitHub
@@ -349,7 +376,7 @@ func Parse(r io.Reader, baseDir string) (*Project, error) {
 	p := new(Project)
 	// Without section keys this is the old flat DMG schema.
 	section := false
-	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "checksums", "appcast", "upload"} {
+	for _, k := range []string{"dmg", "pkg", "dep", "sign", "notarize", "zip", "checksums", "appcast", "upload", "homebrew", "verify"} {
 		if _, ok := keys[k]; ok {
 			section = true
 		}
@@ -421,6 +448,11 @@ func (p *Project) validate() error {
 		}
 		if c.Artifact != "" && c.Artifact != "zip" && c.Artifact != "dmg" {
 			return fmt.Errorf("appcast artifact must be zip or dmg, not %q", c.Artifact)
+		}
+	}
+	if c := p.Homebrew; c != nil {
+		if err := c.check(); err != nil {
+			return err
 		}
 	}
 	for i, u := range p.Upload {
@@ -498,6 +530,10 @@ func (p *Project) Clone() *Project {
 		x := *p.Checksums
 		q.Checksums = &x
 	}
+	if p.Homebrew != nil {
+		x := *p.Homebrew
+		q.Homebrew = &x
+	}
 	if p.Appcast != nil {
 		x := *p.Appcast
 		q.Appcast = &x
@@ -539,4 +575,19 @@ func (p *Project) Clone() *Project {
 		}
 	}
 	return &q
+}
+
+func (c *HomebrewConfig) check() error {
+	web := func(u string) bool { return strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://") }
+	switch {
+	case !web(c.Homepage):
+		return fmt.Errorf("homebrew requires homepage, an http or https URL")
+	case c.Artifact != "" && c.Artifact != "dmg" && c.Artifact != "zip" && c.Artifact != "pkg":
+		return fmt.Errorf("homebrew artifact must be dmg, zip or pkg, not %q", c.Artifact)
+	case c.URL != "" && !web(c.URL):
+		return fmt.Errorf("homebrew url must be an http or https URL")
+	case c.Tap != "":
+		return upload.CheckRepo(c.Tap)
+	}
+	return nil
 }

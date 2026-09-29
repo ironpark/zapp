@@ -14,6 +14,7 @@ import (
 	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/ironpark/zapp/pkg/upload"
+	"github.com/ironpark/zapp/pkg/verify"
 	"io"
 	"os"
 	"path/filepath"
@@ -39,6 +40,10 @@ const (
 	StepChecksums Step = "checksums"
 	// StepAppcast adds the release to a Sparkle appcast.
 	StepAppcast Step = "appcast"
+	// StepHomebrew writes a Homebrew cask and commits it to a tap.
+	StepHomebrew Step = "homebrew"
+	// StepVerify checks the app and the artifacts built are ready to ship.
+	StepVerify Step = "verify"
 )
 
 type Artifacts struct {
@@ -49,6 +54,8 @@ type Artifacts struct {
 	Checksums string
 	Appcast   string
 	Uploads   []Uploaded
+	// Homebrew is the cask written.
+	Homebrew string
 }
 
 // Uploaded is one artifact sent to one endpoint. URL leaves out the query
@@ -262,10 +269,12 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 		selected[StepChecksums] = p.Checksums != nil
 		selected[StepAppcast] = p.Appcast != nil
 		selected[StepUpload] = len(p.Uploads) > 0
+		selected[StepVerify] = p.Verify
+		selected[StepHomebrew] = p.Homebrew != nil
 	} else {
 		for _, s := range steps {
 			switch s {
-			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepAppcast, StepUpload:
+			case StepDep, StepDMG, StepPKG, StepZip, StepChecksums, StepAppcast, StepUpload, StepVerify, StepHomebrew:
 				selected[s] = true
 			default:
 				return nil, stepError(s, fmt.Errorf("unknown build step %q", s))
@@ -275,7 +284,7 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 	for _, c := range []struct {
 		step       Step
 		configured bool
-	}{{StepDep, p.Dep != nil}, {StepDMG, p.DMG != nil}, {StepPKG, p.PKG != nil}, {StepZip, p.Zip != nil}, {StepChecksums, p.Checksums != nil}, {StepAppcast, p.Appcast != nil}, {StepUpload, len(p.Uploads) > 0}} {
+	}{{StepDep, p.Dep != nil}, {StepDMG, p.DMG != nil}, {StepPKG, p.PKG != nil}, {StepZip, p.Zip != nil}, {StepChecksums, p.Checksums != nil}, {StepAppcast, p.Appcast != nil}, {StepUpload, len(p.Uploads) > 0}, {StepVerify, p.Verify}, {StepHomebrew, p.Homebrew != nil}} {
 		if selected[c.step] && !c.configured {
 			return nil, stepError(c.step, fmt.Errorf("%s section is not configured", c.step))
 		}
@@ -291,6 +300,11 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 	if selected[StepAppcast] {
 		if _, err := p.sparkleKey(); err != nil {
 			return nil, stepError(StepAppcast, err)
+		}
+	}
+	if selected[StepHomebrew] {
+		if err := p.checkHomebrew(selected); err != nil {
+			return nil, stepError(StepHomebrew, err)
 		}
 	}
 	if selected[StepUpload] && githubToken() == "" && slices.ContainsFunc(p.Uploads, func(u UploadConfig) bool { return u.GitHub != nil }) {
@@ -370,6 +384,25 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 			notarize(path)
 		}
 	}
+	// Once every artifact is final, and before any is listed or published.
+	if selected[StepVerify] {
+		var targets []string
+		if p.App != "" {
+			targets = append(targets, p.App)
+		}
+		if selected[StepZip] {
+			targets = append(targets, p.Zip.Output)
+		}
+		if selected[StepDMG] {
+			targets = append(targets, p.DMG.FileName)
+		}
+		if selected[StepPKG] {
+			targets = append(targets, p.PKG.Output)
+		}
+		add(StepVerify, "verify "+strings.Join(targets, ", ")+" are signed, stapled and accepted", func(ctx context.Context, _ *Artifacts) error {
+			return stepError(StepVerify, p.verify(ctx, targets))
+		})
+	}
 	// Listed once every artifact is final: signed, notarized and stapled.
 	if selected[StepChecksums] {
 		add(StepChecksums, "write the SHA-256 of the ZIP, DMG and PKG to "+p.Checksums.Output, func(ctx context.Context, a *Artifacts) (err error) {
@@ -398,6 +431,18 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 				return stepError(StepUpload, err)
 			})
 		}
+	}
+	// Once the artifact is where the cask downloads it from.
+	if selected[StepHomebrew] {
+		c := p.Homebrew
+		what := fmt.Sprintf("write Homebrew cask %s for the %s to %s", c.Token, c.Artifact, c.Output)
+		if c.Tap != "" {
+			what += ", and commit it as " + c.tapFile().Location()
+		}
+		add(StepHomebrew, what, func(ctx context.Context, a *Artifacts) (err error) {
+			a.Homebrew, err = p.WriteCask(ctx, *a)
+			return err
+		})
 	}
 	return list, nil
 }
@@ -534,4 +579,29 @@ func (p *Plan) send(ctx context.Context, spec UploadConfig, files []artifactFile
 		sent = append(sent, Uploaded{Artifact: f.artifact, URL: url})
 	}
 	return sent, nil
+}
+
+// verify checks each artifact at paths, logging what it finds, and fails
+// naming the checks any of them failed.
+func (p *Plan) verify(ctx context.Context, paths []string) error {
+	var failed []string
+	for _, path := range paths {
+		p.log("Verifying %s\n", path)
+		reports, err := verify.Path(ctx, path)
+		if err != nil {
+			return err
+		}
+		for _, r := range reports {
+			p.log("%s", r)
+			for _, c := range r.Checks {
+				if c.Status == verify.Fail {
+					failed = append(failed, fmt.Sprintf("%s: %s", filepath.Base(r.Path), c.Name))
+				}
+			}
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("not ready to ship: %s", strings.Join(failed, ", "))
+	}
+	return nil
 }

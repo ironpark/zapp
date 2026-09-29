@@ -25,7 +25,8 @@ upload:
 
 ```
 dep → sign app → [zip: notarize app → staple → archive] → DMG → PKG
-    → sign installers → notarize installers → [checksums] → [appcast] → [upload]
+    → sign installers → notarize installers → [verify] → [checksums] → [appcast] → [upload]
+    → [homebrew]
 ```
 
 With a `zip` section and `staple: true`, the app is notarized and stapled
@@ -149,6 +150,55 @@ upload:
 - The reported URL is the asset's download URL. GitHub replaces spaces in an
   asset's name with dots.
 
+## Homebrew casks
+
+`homebrew` writes a [Homebrew cask](https://docs.brew.sh/Cask-Cookbook) for
+the release, so `brew install --cask` can install it, and commits it to your
+tap:
+
+```yaml
+homebrew:
+  homepage: https://example.com        # required
+  desc: Makes demos                    # optional one-line summary
+  tap: me/homebrew-tap                 # optional: commit Casks/<token>.rb there
+  branch: main                         # default: the tap's default branch
+  artifact: dmg                        # dmg, zip or pkg; default the first built
+  token: my-app                        # default: the app's name, hyphenated
+  url: https://dl.example.com/${app.version}/${file.name}   # default: where upload sent it
+  out: dist/my-app.rb                  # default: <out>/<token>.rb
+```
+
+```ruby
+cask "my-app" do
+  version "1.2.0"
+  sha256 "6f1ed0…"
+
+  url "https://github.com/me/my-app/releases/download/v1.2.0/My.App.dmg"
+  name "My App"
+  desc "Makes demos"
+  homepage "https://example.com"
+
+  auto_updates true
+  depends_on macos: ">= :monterey"
+
+  app "My App.app"
+end
+```
+
+- It runs last, once the artifact has been uploaded, and downloads it from
+  where the upload put it: a GitHub release asset, or an HTTP endpoint's URL
+  without its query string. Set `url` when the download URL differs, as with
+  a presigned upload. The build stops before starting when there is neither.
+- The version, name and `depends_on macos` come from the app's Info.plist,
+  and `auto_updates` is set when the app has a Sparkle feed.
+- A PKG is installed with `pkg`, and uninstalling removes its receipts.
+- Committing to the tap needs a token with write access to it, in
+  `ZAPP_HOMEBREW_TOKEN`, or else `GITHUB_TOKEN` or `GH_TOKEN`. In GitHub
+  Actions the job's own token cannot reach another repository, so pass a
+  fine-grained token for the tap. The same content twice makes no commit.
+- Users install with `brew install --cask me/tap/my-app`, the tap
+  `me/homebrew-tap` shortened.
+
 ## Command line
 
 ```sh
@@ -165,6 +215,9 @@ zapp build --zip --upload-url 'https://example.com/${file.name}' \
 | `--appcast` | `ZAPP_APPCAST` | `--appcast=false` skips the project's `appcast`; its settings live in the project |
 | — | `ZAPP_SPARKLE_KEY` | Sparkle's private EdDSA key, base64 |
 | `--checksums` | `ZAPP_CHECKSUMS` | List the artifacts' SHA-256 (`--checksums=false` skips the project's `checksums`) |
+| `--verify` | `ZAPP_VERIFY` | Verify the app and artifacts before publishing ([verifying](signing.md#verifying)) |
+| `--homebrew` | `ZAPP_HOMEBREW` | `--homebrew=false` skips the project's `homebrew` |
+| — | `ZAPP_HOMEBREW_TOKEN` | Token for the Homebrew tap (default `GITHUB_TOKEN`) |
 | `--upload-url` | `ZAPP_UPLOAD_URL` | Adds an endpoint to the project's |
 | `--upload-method` | `ZAPP_UPLOAD_METHOD` | `PUT` or `POST` |
 | `--upload-field` | `ZAPP_UPLOAD_FIELD` | Form field of a POST |
@@ -178,7 +231,7 @@ Headers given on the command line or in the environment are runtime values,
 so they may be literal. When steps are named, `--zip`, `--checksums`,
 `--appcast`, `--upload-url` and `--github-release` add their steps to them.
 
-`--artifacts FILE` writes `zip=`, `checksums=` and `appcast=` next to the other
+`--artifacts FILE` writes `zip=`, `checksums=`, `appcast=` and `homebrew=` next to the other
 paths, and the URL each artifact was uploaded to as `zip-url=`, `dmg-url=`,
 `pkg-url=`, `checksums-url=` and `appcast-url=`.
 

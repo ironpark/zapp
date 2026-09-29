@@ -35,7 +35,7 @@ def main():
     env["CC"] = env.get("CC", "gcc" if env["GOOS"] == "linux"
                         else MINGW_ARCHES[env["GOARCH"]] + "-w64-mingw32-clang")
     if args.test:
-        subprocess.run(["go", "test", "-count=1", "./pkg/signing/..."], env=env, check=True)
+        subprocess.run(["go", "test", "-count=1", "./pkg/signing/...", "./pkg/verify"], env=env, check=True)
         if env["GOOS"] == "windows":
             subprocess.run(["go", "test", "-count=1", "-run", "^TestWindowsPayloadMetadata$", "./pkg/macpkg"], env=env, check=True)
     output = ROOT / "dist" / args.target / binary_name(env["GOOS"])

@@ -11,10 +11,11 @@ import (
 )
 
 func (g *editor) distributionFields() []field {
-	return append(g.archiveFields(), g.uploadsField(), g.appcastField())
+	return append(g.archiveFields(), g.uploadsField(), g.appcastField(), g.homebrewField())
 }
 
-// archiveFields are the ZIP and checksums settings, the tab's only paths.
+// archiveFields are the ZIP, checksums and verify settings, which hold the
+// tab's only paths.
 func (g *editor) archiveFields() []field {
 	p, stash := g.s.Project, &g.disabled
 	fields := []field{presenceField("Archive as ZIP", &p.Zip, &stash.Zip, "The notarized, stapled app, ready to download")}
@@ -25,7 +26,7 @@ func (g *editor) archiveFields() []field {
 	if p.Checksums != nil {
 		fields = append(fields, pathField("Checksums output", &p.Checksums.Out, "Blank uses <output>/SHA256SUMS", pickSave))
 	}
-	return fields
+	return append(fields, boolField("Verify before publishing", &p.Verify, "Stop unless the app and every artifact are signed, stapled and accepted"))
 }
 
 // presenceField switches an optional part on, with what it held when it was
@@ -58,6 +59,13 @@ func (g *editor) appcastField() field {
 	return g.sectionField("Sparkle appcast", "appcast", 130, p.Appcast != nil, p.Appcast, "url: https://example.com/${file.name}",
 		"Signed with ZAPP_SPARKLE_KEY from the environment; blank publishes none",
 		func(parsed *zapp.Project) { p.Appcast = parsed.Appcast })
+}
+
+func (g *editor) homebrewField() field {
+	p := g.s.Project
+	return g.sectionField("Homebrew cask", "homebrew", 130, p.Homebrew != nil, p.Homebrew, "homepage: https://example.com\ntap: owner/homebrew-tap",
+		"Committed to the tap with ZAPP_HOMEBREW_TOKEN or GITHUB_TOKEN; blank writes none",
+		func(parsed *zapp.Project) { p.Homebrew = parsed.Homebrew })
 }
 
 // sectionField edits the project's key section as YAML, checked exactly as
@@ -97,8 +105,14 @@ func distributionSummary(p *zapp.Project) string {
 	if p.Checksums != nil {
 		parts = append(parts, "checksums")
 	}
+	if p.Verify {
+		parts = append(parts, "verify")
+	}
 	if p.Appcast != nil {
 		parts = append(parts, "appcast")
+	}
+	if p.Homebrew != nil {
+		parts = append(parts, "Homebrew")
 	}
 	if n := len(p.Upload); n > 0 {
 		parts = append(parts, fmt.Sprintf("%d upload%s", n, plural(n)))

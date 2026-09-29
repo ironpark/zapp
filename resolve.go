@@ -14,6 +14,7 @@ import (
 	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/dep"
 	"github.com/ironpark/zapp/pkg/dmg"
+	"github.com/ironpark/zapp/pkg/homebrew"
 	"github.com/ironpark/zapp/pkg/macpkg"
 	"github.com/ironpark/zapp/pkg/signing"
 	"github.com/ironpark/zapp/pkg/udif"
@@ -151,6 +152,9 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	if q.Appcast != nil {
 		q.Appcast.URL = strings.ReplaceAll(q.Appcast.URL, upload.FileName, fileName)
 	}
+	if q.Homebrew != nil {
+		q.Homebrew.URL = strings.ReplaceAll(q.Homebrew.URL, upload.FileName, fileName)
+	}
 	if err := expandValue(reflect.ValueOf(q).Elem(), map[string]string{"app": path(app), "app.name": name, "app.version": version}); err != nil {
 		return nil, err
 	}
@@ -159,6 +163,9 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 	}
 	if q.Appcast != nil {
 		q.Appcast.URL = strings.ReplaceAll(q.Appcast.URL, fileName, upload.FileName)
+	}
+	if q.Homebrew != nil {
+		q.Homebrew.URL = strings.ReplaceAll(q.Homebrew.URL, fileName, upload.FileName)
 	}
 	q.App = path(app)
 	q.Out = path(q.Out)
@@ -182,12 +189,18 @@ func (p *Project) Resolve(opts ...Option) (*Plan, error) {
 		}
 		pl.Zip = &ZipSpec{Output: c.Out}
 	}
+	pl.Verify = q.Verify
 	if c := q.Checksums; c != nil {
 		c.Out = output(c.Out, "SHA256SUMS", "")
 		pl.Checksums = &ChecksumsSpec{Output: c.Out}
 	}
 	if c := q.Appcast; c != nil {
 		if pl.Appcast, err = resolveAppcast(c, q.App, name, output, path, o.clock); err != nil {
+			return nil, err
+		}
+	}
+	if c := q.Homebrew; c != nil {
+		if pl.Homebrew, err = resolveHomebrew(c, q, name, output); err != nil {
 			return nil, err
 		}
 	}
@@ -474,4 +487,41 @@ func resolveAppcast(c *AppcastConfig, app, name string, output func(out, stem, e
 	}
 	return &AppcastSpec{Output: c.Out, URL: c.URL, Artifact: c.Artifact, Feed: c.Feed, Title: c.Title, ReleaseNotes: c.ReleaseNotes, KeyFile: c.KeyFile,
 		Version: version, ShortVersion: short, MinimumSystemVersion: minOS, PublicKey: publicKey, Published: published}, nil
+}
+
+func resolveHomebrew(c *HomebrewConfig, q *Project, name string, output func(out, stem, ext string) string) (*HomebrewSpec, error) {
+	if q.App == "" {
+		return nil, fmt.Errorf("homebrew requires app")
+	}
+	info, err := appbundle.Open(q.App)
+	if err != nil {
+		return nil, fmt.Errorf("homebrew: %w", err)
+	}
+	version, err := info.Version()
+	if err != nil {
+		return nil, fmt.Errorf("homebrew: a cask names the app's version: %w", err)
+	}
+	if c.Artifact == "" {
+		switch {
+		case q.DMG != nil:
+			c.Artifact = "dmg"
+		case q.Zip != nil:
+			c.Artifact = "zip"
+		case q.PKG != nil:
+			c.Artifact = "pkg"
+		default:
+			return nil, fmt.Errorf("homebrew installs a dmg, zip or pkg; the project builds none")
+		}
+	}
+	bundleName, _ := info.BundleName()
+	c.Name = cmp.Or(c.Name, bundleName, name)
+	c.Token = cmp.Or(c.Token, homebrew.Token(c.Name))
+	if c.Token == "" {
+		return nil, fmt.Errorf("homebrew cannot make a token of %q; set homebrew.token", c.Name)
+	}
+	c.Out = output(c.Out, c.Token, ".rb")
+	minOS, _ := info.GetString("LSMinimumSystemVersion")
+	feed, _ := info.GetString("SUFeedURL")
+	return &HomebrewSpec{Token: c.Token, Artifact: c.Artifact, URL: c.URL, Name: c.Name, Desc: c.Desc, Homepage: c.Homepage, Tap: c.Tap, Branch: c.Branch, Output: c.Out,
+		Version: version, MinimumMacOS: minOS, AutoUpdates: feed != "" || q.Appcast != nil}, nil
 }

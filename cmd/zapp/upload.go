@@ -24,13 +24,15 @@ func endpointFlags() []cli.Flag {
 	}
 }
 
-// distributionFlags choose the build's zip, checksums, appcast and upload
-// steps.
+// distributionFlags choose the build's zip, checksums, appcast, verify,
+// upload and homebrew steps.
 func distributionFlags() []cli.Flag {
 	return append([]cli.Flag{
 		&cli.BoolFlag{Name: "zip", Usage: "Archive the notarized app as a ZIP (--zip=false skips it)"},
 		&cli.BoolFlag{Name: "checksums", Usage: "List the SHA-256 of the ZIP, DMG and PKG built (--checksums=false skips it)"},
 		&cli.BoolFlag{Name: "appcast", Usage: "Add the release to the project's Sparkle appcast (--appcast=false skips it)"},
+		&cli.BoolFlag{Name: "homebrew", Usage: "Write the project's Homebrew cask, and commit it to its tap (--homebrew=false skips it)"},
+		&cli.BoolFlag{Name: "verify", Usage: "Check the app and each artifact are signed, stapled and accepted before anything is published (--verify=false skips it)"},
 		&cli.BoolFlag{Name: "no-upload", Usage: "Skip uploading"},
 		&cli.StringSliceFlag{Category: uploadCategory, Name: "upload-artifacts", Usage: "Artifacts to send to --upload-url and --github-release: zip, dmg, pkg, checksums, appcast (default: all built)"},
 	}, endpointFlags()...)
@@ -89,7 +91,8 @@ func endpoints(c *cli.Command) ([]zapp.UploadConfig, error) {
 }
 
 // overlayUpload adds the endpoints given on the command line to the
-// project's and applies --zip, --checksums, --appcast and --no-upload.
+// project's and applies --zip, --checksums, --appcast, --homebrew, --verify
+// and --no-upload.
 func overlayUpload(c *cli.Command, p *zapp.Project) error {
 	if err := toggle(c, "zip", &p.Zip); err != nil {
 		return err
@@ -99,6 +102,17 @@ func overlayUpload(c *cli.Command, p *zapp.Project) error {
 	}
 	if err := toggle(c, "appcast", &p.Appcast); err != nil {
 		return err
+	}
+	// Only off: a cask cannot be written without the project's settings.
+	if b, ok, err := flagBool(c, "homebrew"); err != nil {
+		return err
+	} else if ok && !b {
+		p.Homebrew = nil
+	}
+	if b, ok, err := flagBool(c, "verify"); err != nil {
+		return err
+	} else if ok {
+		p.Verify = b
 	}
 	list, err := endpoints(c)
 	if err != nil {

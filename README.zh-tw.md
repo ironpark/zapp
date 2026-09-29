@@ -83,6 +83,7 @@ zapp config show
 zapp build                  # 執行已設定的步驟
 zapp build dmg pkg          # 跳過 dep，仍執行已設定的簽章和公證
 zapp build --dry-run        # 只列出將執行的動作，不實際執行
+zapp verify dist/MyApp.dmg  # 檢查簽章、票據與 Gatekeeper 是否通過
 zapp dmg --title "MyApp"     # 覆蓋專案標題
 zapp pkg --no-sign --no-notarize
 ```
@@ -203,6 +204,8 @@ upload:
 ```
 
 以 `github: {tag: v${app.version}}` 取代 `url`，即可透過 `GITHUB_TOKEN` 將產物加入 GitHub Release。憑證類標頭只能透過 `${env:…}` 指定。單次略過上傳可使用 `--no-upload`。詳見 [發布與上傳](docs/distribution.md)（英文）。
+
+`verify: true` 會檢查應用程式與所有產物是否已用 Developer ID 簽章，並帶有時間戳記、Hardened Runtime 與票據；否則在發布任何內容之前停止建置。既有檔案可用 `zapp verify` 以相同方式檢查（[驗證](docs/signing.md#verifying)，英文）。`homebrew:` 會為該版本產生 Homebrew cask 並提交到你的 tap（[Homebrew cask](docs/distribution.md#homebrew-casks)，英文）。
 
 ### 高階設定
 

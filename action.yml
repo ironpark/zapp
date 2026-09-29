@@ -94,10 +94,26 @@ inputs:
       "true" writes a SHA256SUMS file for the ZIP, DMG and PKG built;
       "false" skips the project's checksums section.
     required: false
+  verify:
+    description: >-
+      "true" checks the app and every artifact are signed with a Developer
+      ID, timestamped, hardened, stapled and accepted, and stops before
+      anything is published if not; "false" skips the project's verify.
+    required: false
   appcast:
     description: >-
       "false" skips the project's Sparkle appcast; "true" runs it alongside
       named steps. The appcast itself is configured in the project.
+    required: false
+  homebrew:
+    description: >-
+      "false" skips the project's Homebrew cask; "true" runs it alongside
+      named steps. The cask itself is configured in the project.
+    required: false
+  homebrew-token:
+    description: >-
+      Token with write access to the project's Homebrew tap, which the job's
+      own github-token cannot reach. Defaults to github-token.
     required: false
   sparkle-key:
     description: Sparkle's private EdDSA key, as generate_keys -x exports it, to sign the appcast with.
@@ -171,6 +187,9 @@ outputs:
   appcast-url:
     description: Where the appcast was uploaded, without the query string.
     value: ${{ steps.build.outputs.appcast-url }}
+  homebrew:
+    description: Absolute path of the Homebrew cask, if one was written.
+    value: ${{ steps.build.outputs.homebrew }}
   checksums-url:
     description: Where the checksum list was uploaded, without the query string.
     value: ${{ steps.build.outputs.checksums-url }}
@@ -213,7 +232,10 @@ runs:
         IN_TEAM_ID: ${{ inputs.team-id }}
         IN_ZIP: ${{ inputs.zip }}
         IN_CHECKSUMS: ${{ inputs.checksums }}
+        IN_VERIFY: ${{ inputs.verify }}
         IN_APPCAST: ${{ inputs.appcast }}
+        IN_HOMEBREW: ${{ inputs.homebrew }}
+        IN_HOMEBREW_TOKEN: ${{ inputs.homebrew-token }}
         IN_SPARKLE_KEY: ${{ inputs.sparkle-key }}
         IN_UPLOAD: ${{ inputs.upload }}
         IN_UPLOAD_URL: ${{ inputs.upload-url }}

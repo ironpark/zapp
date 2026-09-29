@@ -119,8 +119,67 @@ notarize:
   timeout: 2h
 ```
 
-Apple keeps processing a submission after zapp stops waiting. On macOS the
-error names its submission ID, which `xcrun notarytool info` reports on later.
+Apple keeps processing a submission after zapp stops waiting. The error
+names its submission ID, on every platform, which `xcrun notarytool info`
+reports on later.
+
+## Rejected submissions
+
+When the notary rejects a submission, zapp fetches its log and prints the
+issues it lists, file by file, on every platform:
+
+```
+notarization of submission 2efe2717-… ended Invalid: Archive contains critical validation errors
+  Demo.app/Contents/MacOS/helper (arm64): The executable does not have the hardened runtime enabled.
+    https://developer.apple.com/documentation/security/…
+```
+
+## Verifying
+
+`zapp verify` checks that an app, DMG, PKG or ZIP is ready to ship, and exits
+non-zero when it is not:
+
+```sh
+zapp verify dist/MyApp.app dist/MyApp.dmg dist/MyApp.pkg dist/MyApp.zip
+```
+
+```
+dist/MyApp.dmg
+  ok    signature           Developer ID Application: Example Corp (ABCDE12345)
+  ok    Developer ID        Developer ID Application
+  ok    secure timestamp
+  ok    stapled             the notarization ticket is attached
+  ok    signature integrity valid on disk; satisfies its Designated Requirement
+  ok    Gatekeeper          accepted; source=Notarized Developer ID
+```
+
+Read from the files on every platform:
+
+| Check | Fails when |
+| --- | --- |
+| `bundle` | Info.plist or the executable it names is missing, or the executable is not executable |
+| `framework links` | A framework's `Versions/Current` or top-level entries are no longer symbolic links |
+| `signature` | Code is unsigned or signed ad hoc; object files and dSYMs are left out |
+| `Developer ID` | A certificate other than Developer ID Application (Installer, for a PKG) signed it |
+| `team` | Code from more than one team |
+| `secure timestamp` | A signature has no timestamp |
+| `hardened runtime` | An executable lacks the hardened runtime |
+| `entitlements` | The app's executable allows `get-task-allow`, which the notary rejects |
+| `minimum macOS` | Warns when the executable needs a newer macOS than `LSMinimumSystemVersion` |
+| `stapled` | Warns when no notarization ticket is attached |
+
+On macOS, `codesign --verify --strict` (with `--deep` for an app) or
+`pkgutil --check-signature` checks integrity, sealed resources included, and
+`spctl --assess` asks Gatekeeper. Elsewhere the signature library checks the
+code digests and signature of every binary in an app; a DMG's or PKG's
+integrity and Gatekeeper are reported as skipped. A DMG is checked as an
+image, without opening the app inside, and a ZIP is extracted and each app
+at its top level checked.
+
+`verify: true` in the project, or `--verify` (`ZAPP_VERIFY`), makes it a
+build step: once the artifacts are signed, notarized and stapled, and before
+checksums, the appcast or any upload, the app and each ZIP, DMG and PKG built
+are verified, and the build stops if any check fails.
 
 ## Entitlements and nested code
 

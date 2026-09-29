@@ -55,6 +55,10 @@ dmg:
 #       Authorization: Bearer ${env:RELEASE_TOKEN}   # never a literal token
 #     artifacts: [zip, dmg, checksums]
 #   - github: {tag: v${app.version}}   # a GitHub release; needs GITHUB_TOKEN
+# verify: true                    # stop before publishing unless everything is signed and stapled
+# homebrew:                       # a cask, downloading the DMG from where upload put it
+#   homepage: https://example.com
+#   tap: me/homebrew-tap          # commits Casks/<token>.rb; token from ZAPP_HOMEBREW_TOKEN
 
 # Short form: identifier and version default from the app's Info.plist.
 pkg:

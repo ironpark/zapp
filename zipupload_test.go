@@ -311,3 +311,34 @@ func TestBrokenFrameworkLinks(t *testing.T) {
 		t.Fatal("built from a broken app")
 	}
 }
+
+// Verification runs once the artifacts are final and stops the build before
+// anything is listed or published.
+func TestVerifyStep(t *testing.T) {
+	dir := t.TempDir()
+	srv, uploaded := uploadServer(t)
+	p := &Project{App: syntheticApp(t, dir), Out: filepath.Join(dir, "out"), Zip: &ZipConfig{}, Checksums: &ChecksumsConfig{}, Verify: true,
+		Upload: []UploadConfig{{URL: srv.URL + "/${file.name}"}}}
+	pl, err := p.Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions, err := pl.DryRun()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var steps []Step
+	for _, a := range actions {
+		steps = append(steps, a.Step)
+	}
+	if !slices.Equal(steps, []Step{StepZip, StepVerify, StepChecksums, StepUpload}) {
+		t.Fatalf("steps %v", steps)
+	}
+	var se *StepError
+	if _, err := pl.Build(t.Context()); !errors.As(err, &se) || se.Step != StepVerify || !strings.Contains(err.Error(), "Demo.app: bundle") {
+		t.Fatalf("build: %v", err)
+	}
+	if got := uploaded(); len(got) != 0 {
+		t.Fatalf("uploaded %v from an app that failed verification", got)
+	}
+}

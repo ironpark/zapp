@@ -39,6 +39,7 @@ func TestWriteArtifacts(t *testing.T) {
 		"pkg=\n" +
 		"checksums=\n" +
 		"appcast=\n" +
+		"homebrew=\n" +
 		"dmg-url=https://example.com/MyApp.dmg\n"
 	if string(data) != want {
 		t.Fatalf("output =\n%s\nwant\n%s", data, want)

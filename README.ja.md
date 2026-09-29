@@ -83,6 +83,7 @@ zapp config show
 zapp build                  # 設定した手順を実行
 zapp build dmg pkg          # dep を省略。設定済みの署名・公証は実行
 zapp build --dry-run        # 実行せずに処理内容だけを表示
+zapp verify dist/MyApp.dmg  # 署名・ステープル・Gatekeeper の通過を確認
 zapp dmg --title "MyApp"     # プロジェクトのタイトルを上書き
 zapp pkg --no-sign --no-notarize
 ```
@@ -203,6 +204,8 @@ upload:
 ```
 
 `url` の代わりに `github: {tag: v${app.version}}` を指定すると、`GITHUB_TOKEN` を使って GitHub リリースに成果物を追加します。認証ヘッダーは `${env:…}` でのみ指定できます。一度だけアップロードを省くには `--no-upload` を使います。詳しくは [配布とアップロード](docs/distribution.md)（英語）を参照してください。
+
+`verify: true` は、アプリとすべての成果物が Developer ID で署名され、タイムスタンプ・Hardened Runtime・ステープルを備えているかを確認し、そうでなければ何かを公開する前にビルドを止めます。既存のファイルは `zapp verify` で同じように確認できます（[検証](docs/signing.md#verifying)、英語）。`homebrew:` はリリースの Homebrew cask を作成し、タップにコミットします（[Homebrew cask](docs/distribution.md#homebrew-casks)、英語）。
 
 ### 詳細設定
 

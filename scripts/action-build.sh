@@ -30,6 +30,9 @@ set -euo pipefail
 : "${IN_ARGS:=}"
 : "${IN_ZIP:=}"
 : "${IN_CHECKSUMS:=}"
+: "${IN_VERIFY:=}"
+: "${IN_HOMEBREW:=}"
+: "${IN_HOMEBREW_TOKEN:=}"
 : "${IN_APPCAST:=}"
 : "${IN_SPARKLE_KEY:=}"
 : "${IN_UPLOAD:=}"
@@ -113,7 +116,10 @@ elif [[ -n $IN_API_KEY_ID || -n $IN_API_ISSUER_ID || -n $IN_API_PRIVATE_KEY ]]; 
 fi
 setting ZIP "$IN_ZIP" zip
 setting CHECKSUMS "$IN_CHECKSUMS" checksums
+setting VERIFY "$IN_VERIFY" verify
 setting APPCAST "$IN_APPCAST" appcast
+setting HOMEBREW "$IN_HOMEBREW" homebrew
+set_env ZAPP_HOMEBREW_TOKEN "$IN_HOMEBREW_TOKEN"
 set_env ZAPP_SPARKLE_KEY "$IN_SPARKLE_KEY"
 bool UPLOAD "$IN_UPLOAD" upload
 set_env ZAPP_UPLOAD_URL "$IN_UPLOAD_URL"
@@ -149,6 +155,10 @@ if [[ -n $IN_ENTITLEMENTS$IN_CHECKSUMS$IN_GITHUB_RELEASE$IN_APPCAST$IN_SPARKLE_K
 fi
 if [[ -n $IN_NOTARIZE_TIMEOUT && $help != *--notarize-timeout* ]]; then
   echo "::error::notarize-timeout needs zapp 1.4.0 or later" >&2
+  exit 1
+fi
+if [[ -n $IN_VERIFY$IN_HOMEBREW$IN_HOMEBREW_TOKEN && $help != *--homebrew* ]]; then
+  echo "::error::verify and homebrew need zapp 1.5.0 or later" >&2
   exit 1
 fi
 

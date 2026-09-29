@@ -86,3 +86,57 @@ func TestZipReportsMissingSource(t *testing.T) {
 		t.Fatal("an archive was left behind")
 	}
 }
+
+// What Zip writes, Unzip restores, and an entry climbing out of the
+// directory is refused.
+func TestUnzip(t *testing.T) {
+	dir := t.TempDir()
+	app := filepath.Join(dir, "Demo.app")
+	if err := os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app, "Contents", "MacOS", "Demo"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	symlinks := runtime.GOOS != "windows"
+	if symlinks {
+		if err := os.Symlink("MacOS/Demo", filepath.Join(app, "Contents", "Link")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	archive := filepath.Join(dir, "Demo.zip")
+	if err := Zip(t.Context(), app, archive); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "out")
+	if err := Unzip(t.Context(), archive, out); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(out, "Demo.app", "Contents", "MacOS", "Demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+		t.Fatal("executable lost its permissions")
+	}
+	if symlinks {
+		if target, err := os.Readlink(filepath.Join(out, "Demo.app", "Contents", "Link")); err != nil || target != "MacOS/Demo" {
+			t.Fatalf("link: %q, %v", target, err)
+		}
+	}
+
+	evil := filepath.Join(dir, "evil.zip")
+	f, err := os.Create(evil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := zip.NewWriter(f)
+	if _, err := w.Create("../escape"); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+	_ = f.Close()
+	if err := Unzip(t.Context(), evil, filepath.Join(dir, "evil")); err == nil {
+		t.Fatal("extracted an entry outside the directory")
+	}
+}

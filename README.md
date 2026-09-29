@@ -83,6 +83,7 @@ zapp config show
 zapp build                  # Run configured steps
 zapp build dmg pkg          # Skip dep; configured signing/notarization still run
 zapp build --dry-run        # List what build would do, without doing it
+zapp verify dist/MyApp.dmg  # Check it is signed, stapled and accepted by Gatekeeper
 zapp dmg --title "MyApp"     # overrides project title
 zapp pkg --no-sign --no-notarize
 ```
@@ -218,6 +219,8 @@ upload:
 ```
 
 An upload with `github: {tag: v${app.version}}` in place of `url` adds the artifacts to a GitHub release instead, using `GITHUB_TOKEN`. Credential headers must come from `${env:…}`. Skip uploading for one run with `--no-upload`. See [distributing and uploading](docs/distribution.md).
+
+`verify: true` stops the build before anything is published unless the app and every artifact are signed with a Developer ID, timestamped, hardened and stapled; `zapp verify` checks existing files the same way ([verifying](docs/signing.md#verifying)). `homebrew:` writes a Homebrew cask for the release and commits it to your tap ([Homebrew casks](docs/distribution.md#homebrew-casks)).
 
 ### Advanced configuration
 

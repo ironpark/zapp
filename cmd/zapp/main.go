@@ -24,6 +24,7 @@ func newApp() *cli.Command {
 			notarizeCommand,
 			depCommand,
 			uploadCommand(),
+			verifyCommand(),
 		},
 		Usage: "Simplify your macOS App deployment",
 		Action: func(ctx context.Context, c *cli.Command) error {

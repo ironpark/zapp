@@ -30,12 +30,20 @@ type Release struct {
 
 // Check reports a release that cannot be reached, before anything is built.
 func (r Release) Check() error {
-	owner, name, ok := strings.Cut(r.Repo, "/")
-	if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
-		return fmt.Errorf("github repo must be written owner/name, not %q", r.Repo)
+	if err := CheckRepo(r.Repo); err != nil {
+		return err
 	}
 	if r.Tag == "" {
 		return errors.New("github release needs a tag")
+	}
+	return nil
+}
+
+// CheckRepo reports a repository not written owner/name.
+func CheckRepo(repo string) error {
+	owner, name, ok := strings.Cut(repo, "/")
+	if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
+		return fmt.Errorf("github repo must be written owner/name, not %q", repo)
 	}
 	return nil
 }
@@ -48,7 +56,7 @@ func (r Release) Location() string {
 // ReleaseAssets uploads files to one release.
 type ReleaseAssets struct {
 	r      Release
-	client *http.Client
+	api    githubAPI
 	upload string           // the release's asset upload URL
 	assets map[string]int64 // the assets it has, by name
 }
@@ -74,16 +82,13 @@ func OpenRelease(ctx context.Context, client *http.Client, r Release) (*ReleaseA
 	if r.Token == "" {
 		return nil, errors.New("uploading to a GitHub release needs a token in GITHUB_TOKEN or GH_TOKEN")
 	}
-	if client == nil {
-		client = http.DefaultClient
-	}
-	a := &ReleaseAssets{r: r, client: client, assets: map[string]int64{}}
+	a := &ReleaseAssets{r: r, api: newGitHubAPI(client, r.API, r.Repo, r.Token, r.Location()), assets: map[string]int64{}}
 	var rel githubRelease
-	status, err := a.call(ctx, http.MethodGet, "releases/tags/"+url.PathEscape(r.Tag), nil, &rel)
+	status, err := a.api.call(ctx, http.MethodGet, "releases/tags/"+url.PathEscape(r.Tag), nil, &rel)
 	if status == http.StatusNotFound {
 		// The tag lookup does not see drafts; the list does.
 		var list []githubRelease
-		if _, err = a.call(ctx, http.MethodGet, "releases?per_page=100", nil, &list); err != nil {
+		if _, err = a.api.call(ctx, http.MethodGet, "releases?per_page=100", nil, &list); err != nil {
 			return nil, err
 		}
 		found := false
@@ -95,7 +100,7 @@ func OpenRelease(ctx context.Context, client *http.Client, r Release) (*ReleaseA
 		}
 		if !found {
 			create := map[string]any{"tag_name": r.Tag, "name": r.Tag, "draft": r.Draft}
-			_, err = a.call(ctx, http.MethodPost, "releases", create, &rel)
+			_, err = a.api.call(ctx, http.MethodPost, "releases", create, &rel)
 		}
 	}
 	if err != nil {
@@ -122,13 +127,13 @@ func (a *ReleaseAssets) Send(ctx context.Context, path string) (string, error) {
 		if !ok {
 			continue
 		}
-		if _, err := a.call(ctx, http.MethodDelete, fmt.Sprintf("releases/assets/%d", id), nil, nil); err != nil {
+		if _, err := a.api.call(ctx, http.MethodDelete, fmt.Sprintf("releases/assets/%d", id), nil, nil); err != nil {
 			return "", fmt.Errorf("replacing %s: %w", stored, err)
 		}
 		delete(a.assets, stored)
 	}
-	t := Target{URL: a.upload + "?name=" + url.QueryEscape(name), Method: http.MethodPost, Headers: a.headers(), raw: true}
-	body, err := deliver(ctx, a.client, t, path)
+	t := Target{URL: a.upload + "?name=" + url.QueryEscape(name), Method: http.MethodPost, Headers: a.api.headers(), raw: true}
+	body, err := deliver(ctx, a.api.client, t, path)
 	if err != nil {
 		return "", err
 	}
@@ -140,9 +145,31 @@ func (a *ReleaseAssets) Send(ctx context.Context, path string) (string, error) {
 	return asset.DownloadURL, nil
 }
 
-func (a *ReleaseAssets) headers() map[string]string {
+// githubAPI makes requests to one repository's REST API.
+type githubAPI struct {
+	client            *http.Client
+	root, repo, token string
+	// what names the thing being reached, for errors.
+	what string
+}
+
+// newGitHubAPI reaches repo through the API at root, empty meaning
+// https://api.github.com; GitHub Enterprise Server has its own. client nil
+// means http.DefaultClient.
+func newGitHubAPI(client *http.Client, root, repo, token, what string) githubAPI {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	root = strings.TrimSuffix(root, "/")
+	if root == "" {
+		root = "https://api.github.com"
+	}
+	return githubAPI{client, root, repo, token, what}
+}
+
+func (g githubAPI) headers() map[string]string {
 	return map[string]string{
-		"Authorization":        "Bearer " + a.r.Token,
+		"Authorization":        "Bearer " + g.token,
 		"Accept":               "application/vnd.github+json",
 		"X-GitHub-Api-Version": "2022-11-28",
 	}
@@ -150,11 +177,7 @@ func (a *ReleaseAssets) headers() map[string]string {
 
 // call makes one request to the repository's API, decoding a JSON answer
 // into out. It returns the status even when it is an error.
-func (a *ReleaseAssets) call(ctx context.Context, method, path string, in, out any) (int, error) {
-	api := strings.TrimSuffix(a.r.API, "/")
-	if api == "" {
-		api = "https://api.github.com"
-	}
+func (g githubAPI) call(ctx context.Context, method, path string, in, out any) (int, error) {
 	var body io.Reader
 	if in != nil {
 		data, err := json.Marshal(in)
@@ -163,24 +186,24 @@ func (a *ReleaseAssets) call(ctx context.Context, method, path string, in, out a
 		}
 		body = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, api+"/repos/"+a.r.Repo+"/"+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, g.root+"/repos/"+g.repo+"/"+path, body)
 	if err != nil {
 		return 0, err
 	}
-	for name, value := range a.headers() {
+	for name, value := range g.headers() {
 		req.Header.Set(name, value)
 	}
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := a.client.Do(req)
+	resp, err := g.client.Do(req)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		err := fmt.Errorf("%s: GitHub answered %s", a.r.Location(), resp.Status)
+		err := fmt.Errorf("%s: GitHub answered %s", g.what, resp.Status)
 		if text := strings.TrimSpace(string(detail)); text != "" {
 			err = fmt.Errorf("%w: %s", err, text)
 		}

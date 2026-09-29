@@ -312,6 +312,8 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 		return at(tabDistribution, "Uploads")
 	case strings.HasPrefix(message, "appcast"):
 		return at(tabDistribution, "Sparkle appcast")
+	case strings.HasPrefix(message, "homebrew"):
+		return at(tabDistribution, "Homebrew cask")
 	case strings.HasPrefix(message, "zip"):
 		return at(tabDistribution, "ZIP output")
 	case strings.HasPrefix(message, "checksums"):

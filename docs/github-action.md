@@ -40,7 +40,9 @@ empty input leaves the project's value alone.
 | `notarize-timeout` | How long to wait for Apple's verdict, such as `30m` or `2h`; default `1h` (zapp 1.4.0+) |
 | `zip` | `true` archives the notarized, stapled app as a ZIP; `false` skips the project's `zip` |
 | `appcast` | `false` skips the project's Sparkle `appcast`; `true` runs it with named `steps` (zapp 1.3.0+) |
+| `homebrew` | `false` skips the project's Homebrew cask; `true` runs it with named `steps` (zapp 1.5.0+) |
 | `checksums` | `true` writes `SHA256SUMS` for the ZIP, DMG and PKG; `false` skips the project's `checksums` (zapp 1.3.0+) |
+| `verify` | `true` checks the app and every artifact are signed, timestamped, hardened, stapled and accepted, and stops before anything is published if not; `false` skips the project's `verify` (zapp 1.5.0+) |
 | `upload-url` | Endpoint to send artifacts to, added to the project's `upload`; `${file.name}` is each file's name |
 | `upload-method`, `upload-field` | `PUT` (default) or `POST`, and the form field of a POST |
 | `upload-headers` | Headers sent with each upload, one `Name: value` per line |
@@ -67,6 +69,7 @@ to a private temporary directory deleted when the step ends.
 | `api-key-id`, `api-issuer-id`, `api-private-key` | The same key as its three parts, the last being the `AuthKey_*.p8` contents | All |
 | `apple-id`, `app-password`, `team-id` | Notarize with an Apple ID and app-specific password | macOS |
 | `sparkle-key` | Sparkle's private EdDSA key from `generate_keys -x`, to sign the project's appcast | All |
+| `homebrew-token` | A token with write access to the project's Homebrew tap; default `github-token`, which cannot reach another repository (zapp 1.5.0+) | All |
 
 An App Store Connect API key is the one notarization credential every runner
 accepts. Create a Team Key with the Developer role under **Users and Access →
@@ -84,6 +87,7 @@ Integrations → App Store Connect API**, and keep its issuer ID, key ID and
 | `zip` | Absolute path of the app ZIP, empty if none was built |
 | `checksums` | Absolute path of `SHA256SUMS`, empty if none was written |
 | `appcast` | Absolute path of the Sparkle appcast, empty if none was written |
+| `homebrew` | Absolute path of the Homebrew cask, empty if none was written |
 | `zip-url`, `dmg-url`, `pkg-url`, `checksums-url`, `appcast-url` | Where each artifact was uploaded, without the query string |
 | `version` | The zapp version used |
 

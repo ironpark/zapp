@@ -117,11 +117,13 @@ func loadProject(c *cli.Command, kind string) (*zapp.Project, error) {
 			if p.Checksums == nil {
 				p.Checksums = &zapp.ChecksumsConfig{}
 			}
+		case "verify":
+			p.Verify = true
 		}
 	}
 	if kind == "build" {
 		for _, step := range c.Args().Slice() {
-			if !slices.Contains([]string{"dep", "zip", "dmg", "pkg", "checksums", "appcast", "upload"}, step) {
+			if !slices.Contains([]string{"dep", "zip", "dmg", "pkg", "checksums", "appcast", "verify", "upload", "homebrew"}, step) {
 				return nil, fmt.Errorf("unknown build step %q", step)
 			}
 			ensure(step)
