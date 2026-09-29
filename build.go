@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ironpark/zapp/internal/fsutil"
+	"github.com/ironpark/zapp/pkg/appbundle"
 	"github.com/ironpark/zapp/pkg/archive"
 	"github.com/ironpark/zapp/pkg/dep"
 	"github.com/ironpark/zapp/pkg/dmg"
@@ -277,6 +278,13 @@ func (p *Plan) actions(steps []Step) ([]Action, error) {
 	}{{StepDep, p.Dep != nil}, {StepDMG, p.DMG != nil}, {StepPKG, p.PKG != nil}, {StepZip, p.Zip != nil}, {StepChecksums, p.Checksums != nil}, {StepAppcast, p.Appcast != nil}, {StepUpload, len(p.Uploads) > 0}} {
 		if selected[c.step] && !c.configured {
 			return nil, stepError(c.step, fmt.Errorf("%s section is not configured", c.step))
+		}
+	}
+	// An app whose frameworks lost their links cannot be signed or shipped,
+	// and is refused before anything is built from it.
+	if p.App != "" && (p.SignCredentials != nil || selected[StepZip] || selected[StepDMG] || selected[StepPKG]) {
+		if err := appbundle.CheckLinks(p.App); err != nil {
+			return nil, err
 		}
 	}
 	// A missing or wrong key or token is found before the build, not after.

@@ -35,9 +35,22 @@ is submitted for notarization, so the app is archived only once.
 
 The archive keeps Unix permissions and stores symbolic links as links, as
 `ditto -c -k --keepParent` does, so a framework's `Versions/Current` link does
-not break the app's code signature. Build the ZIP on macOS or Linux when the
-app came from a macOS build: Windows file systems do not keep the executable
-bit.
+not break the app's code signature.
+
+Windows file systems keep no execute bits, so on Windows zapp gives them back
+in the ZIP, DMG and PKG alike: a file is executable when it sits in a
+bundle's `MacOS` directory, is a Mach-O binary or starts with `#!`. Other
+files get `0644` and directories `0755`, and a link's target is written with
+`/` whatever the host's separator.
+
+A framework's `Versions/Current`, and every entry beside `Versions`, must be
+a symbolic link: the code signature seals them as links. Git on Windows checks
+a link out as a text file holding its target unless `core.symlinks` is true
+(which needs Developer Mode), and copying or unpacking with a tool that
+follows links leaves a copy in its place. Either breaks the signature on the
+Mac, so zapp checks the app's frameworks before it signs or packages the app,
+and stops with the entries at fault. Build such an app on macOS or Linux, or
+bring it over with its links, as a tar or a `ditto` archive.
 
 ## Checksums
 

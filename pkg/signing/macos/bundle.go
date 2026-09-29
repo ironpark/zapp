@@ -1,7 +1,6 @@
 package macos
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 	"io/fs"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp/pkg/appbundle"
+	"github.com/ironpark/zapp/pkg/macho"
 )
 
 // codeBundles are the directory extensions that codesign signs as a bundle
@@ -114,21 +114,10 @@ func isMachO(path string) (bool, error) {
 		return false, err
 	}
 	defer f.Close()
-	var header [8]byte
-	if _, err := io.ReadFull(f, header[:]); err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			return false, nil // too short to be a binary
-		}
+	header := make([]byte, macho.HeaderSize)
+	n, err := io.ReadFull(f, header)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return false, err
 	}
-	switch binary.BigEndian.Uint32(header[:4]) {
-	case 0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe:
-		return true, nil
-	case 0xcafebabe, 0xcafebabf:
-		// Java class files share the universal magic; there the next word is
-		// a class file version, 45 or more, where a universal binary counts
-		// its few architectures.
-		return binary.BigEndian.Uint32(header[4:]) < 45, nil
-	}
-	return false, nil
+	return macho.IsHeader(header[:n]), nil
 }

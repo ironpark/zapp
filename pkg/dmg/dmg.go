@@ -246,8 +246,12 @@ func nodeFromPath(path string) (*imageNode, error) {
 // name is the entry's name in its parent, which differs from info.Name() only
 // for a directory named on the command line.
 func nodeFromInfo(path, name string, info fs.FileInfo) (*imageNode, error) {
-	node := &imageNode{Name: name, Mode: info.Mode(), ModTime: info.ModTime()}
-	switch mode := info.Mode(); {
+	mode, err := macfs.Mode(path, info)
+	if err != nil {
+		return nil, err
+	}
+	node := &imageNode{Name: name, Mode: mode, ModTime: info.ModTime()}
+	switch {
 	case mode&fs.ModeSymlink != 0:
 		// A link carries no Finder metadata of its own, and reading its
 		// extended attributes would follow it to its target.
@@ -255,7 +259,8 @@ func nodeFromInfo(path, name string, info fs.FileInfo) (*imageNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		node.Mode, node.LinkTarget = fs.ModeSymlink, target
+		// Windows writes a link's target with its own separator.
+		node.Mode, node.LinkTarget = fs.ModeSymlink, filepath.ToSlash(target)
 		return node, nil
 	case mode.IsDir():
 		entries, err := os.ReadDir(path)

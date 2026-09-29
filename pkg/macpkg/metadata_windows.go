@@ -3,6 +3,7 @@ package macpkg
 import (
 	"io/fs"
 
+	"github.com/ironpark/zapp/pkg/macfs"
 	"golang.org/x/sys/windows"
 )
 
@@ -11,12 +12,18 @@ import (
 const ownershipSupported = false
 
 func payloadMetadata(path string, info fs.FileInfo) (*payloadStat, error) {
-	mode := uint32(info.Mode().Perm()) | 0100000
+	var mode uint32
 	switch {
 	case info.IsDir():
 		mode = 0040755
 	case info.Mode()&fs.ModeSymlink != 0:
 		mode = 0120777
+	default:
+		m, err := macfs.Mode(path, info)
+		if err != nil {
+			return nil, err
+		}
+		mode = uint32(m.Perm()) | 0100000
 	}
 	// Dev and Ino identify hard links, which only regular files share. Opening
 	// a handle is expensive on Windows, so skip it for everything else.

@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/ironpark/zapp/pkg/macfs"
 )
 
 // Zip archives source, a file or directory, as target, the way
@@ -63,6 +65,11 @@ func add(w *zip.Writer, source, path string) error {
 	if err != nil {
 		return err
 	}
+	mode, err := macfs.Mode(path, info)
+	if err != nil {
+		return err
+	}
+	header.SetMode(mode)
 	rel, err := filepath.Rel(filepath.Dir(source), path)
 	if err != nil {
 		return err

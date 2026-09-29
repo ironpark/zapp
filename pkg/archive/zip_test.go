@@ -52,7 +52,7 @@ func TestZipKeepsBundleStructure(t *testing.T) {
 			t.Fatalf("missing %s in %v", name, entries)
 		}
 	}
-	if runtime.GOOS != "windows" && entries["Demo.app/Contents/MacOS/Demo"].Mode()&0o111 == 0 {
+	if entries["Demo.app/Contents/MacOS/Demo"].Mode()&0o111 == 0 {
 		t.Fatal("executable lost its permissions")
 	}
 	if symlinks {

@@ -116,6 +116,8 @@ func collect(ctx context.Context, root, only string, ownership Ownership) ([]fil
 			if err != nil {
 				return err
 			}
+			// Windows writes a link's target with its own separator.
+			e.link = filepath.ToSlash(e.link)
 			if !utf8.ValidString(e.link) || strings.ContainsRune(e.link, 0) {
 				return fmt.Errorf("invalid symlink target: %s", p)
 			}

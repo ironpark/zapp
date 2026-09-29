@@ -32,8 +32,22 @@ func TestWindowsPayloadMetadata(t *testing.T) {
 	if a.Dev != b.Dev || a.Ino != b.Ino {
 		t.Fatal("hard links have different identities")
 	}
-	if a.Mode&0170000 != 0100000 || a.Uid != 0 || a.Gid != 0 {
+	if a.Mode != 0100644 || a.Uid != 0 || a.Gid != 0 {
 		t.Fatalf("invalid Unix metadata: %+v", a)
+	}
+	// Windows keeps no execute bits; an app's executable gets them back.
+	exe := filepath.Join(dir, "MacOS", "Demo")
+	if err := os.MkdirAll(filepath.Dir(exe), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("launcher"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if info, err = os.Stat(exe); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := payloadMetadata(exe, info); err != nil || s.Mode != 0100755 {
+		t.Fatalf("executable: %+v, %v", s, err)
 	}
 	// Windows has no Unix ownership, and collect rejects it before the walk.
 	if _, err := collect(context.Background(), dir, "", PreserveOwnership); err == nil {

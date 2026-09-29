@@ -2,9 +2,9 @@ name: action
 
 on:
   pull_request:
-    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/archive/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/appbundle/**', 'pkg/archive/**', 'pkg/macfs/**', 'pkg/macho/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
   push:
-    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/archive/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
+    paths: ['action.yml', 'setup/**', 'scripts/action-build.sh', 'cmd/zapp/**', 'pkg/appbundle/**', 'pkg/archive/**', 'pkg/macfs/**', 'pkg/macho/**', 'pkg/upload/**', '.github/workflows/action.yaml', '.github/scripts/put-server.py']
   workflow_dispatch:
 
 permissions:
@@ -53,6 +53,10 @@ jobs:
         run: |
           go build -o "$RUNNER_TEMP/bin/" ./cmd/zapp
           echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+      - name: Test the Windows file modes and links
+        if: runner.os == 'Windows'
+        shell: bash
+        run: go test -count=1 ./pkg/appbundle ./pkg/macfs ./pkg/archive && go test -count=1 -run '^TestWindowsPayloadMetadata$' ./pkg/macpkg
       - name: Make a test app
         shell: bash
         run: |
@@ -121,4 +125,9 @@ jobs:
           for line in lines:
               digest, name = line.split("  ", 1)
               assert hashlib.sha256(open(name, "rb").read()).hexdigest() == digest, name')
-          "$PY" -c 'import sys, zipfile; assert "Demo.app/Contents/Info.plist" in zipfile.ZipFile(sys.argv[1]).namelist()' "${{ steps.zapp.outputs.zip }}"
+          # The executable keeps, or on Windows gains, its execute bits.
+          "$PY" -c 'import sys, zipfile
+          z = zipfile.ZipFile(sys.argv[1])
+          mode = lambda name: z.getinfo(name).external_attr >> 16
+          assert mode("Demo.app/Contents/MacOS/Demo") & 0o111, oct(mode("Demo.app/Contents/MacOS/Demo"))
+          assert not mode("Demo.app/Contents/Info.plist") & 0o111, oct(mode("Demo.app/Contents/Info.plist"))' "${{ steps.zapp.outputs.zip }}"

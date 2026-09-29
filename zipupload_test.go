@@ -283,3 +283,31 @@ func TestDryRun(t *testing.T) {
 		t.Fatal("dry run accepted an unconfigured step")
 	}
 }
+
+// A framework checked out without its links stops the build, and the dry
+// run, before anything is built.
+func TestBrokenFrameworkLinks(t *testing.T) {
+	dir := t.TempDir()
+	app := syntheticApp(t, dir)
+	fw := filepath.Join(app, "Contents", "Frameworks", "Lib.framework")
+	if err := os.MkdirAll(filepath.Join(fw, "Versions", "A"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fw, "Versions", "Current"), []byte("A"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := &Project{App: app, Out: filepath.Join(dir, "out"), Zip: &ZipConfig{}}
+	pl, err := p.Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pl.DryRun(); err == nil || !strings.Contains(err.Error(), "Versions/Current is a text file") {
+		t.Fatalf("dry run: %v", err)
+	}
+	if _, err := pl.Build(t.Context()); err == nil || !strings.Contains(err.Error(), "symbolic links") {
+		t.Fatalf("build: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "out")); !os.IsNotExist(err) {
+		t.Fatal("built from a broken app")
+	}
+}
