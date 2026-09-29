@@ -64,6 +64,8 @@ jobs:
           mkdir -p "$app/MacOS" "$app/Resources"
           cp iconfile.icns "$app/Resources/AppIcon.icns"
           printf '#!/bin/sh\n' >"$app/MacOS/Demo"
+          # A no-op on Windows, where zapp has to restore the bit itself.
+          chmod +x "$app/MacOS/Demo"
           cat >"$app/Info.plist" <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <plist version="1.0"><dict>
