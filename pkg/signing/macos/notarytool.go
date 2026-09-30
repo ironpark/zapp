@@ -2,7 +2,9 @@ package macos
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -77,6 +79,20 @@ func readAPIKey(path string) (apiKey, error) {
 	return key, nil
 }
 
+// p8 is the private key as the .p8 file App Store Connect hands out, which
+// notarytool reads. rcodesign's JSON holds it as base64 DER; a PEM key, as
+// earlier versions of the GitHub Action wrote, is taken as it is.
+func (k apiKey) p8() ([]byte, error) {
+	if strings.Contains(k.PrivateKey, "-----BEGIN") {
+		return []byte(k.PrivateKey), nil
+	}
+	der, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(k.PrivateKey), ""))
+	if err != nil {
+		return nil, fmt.Errorf("private_key is neither PEM nor base64 DER: %w", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), nil
+}
+
 // notaryStoreAPIKey stores an App Store Connect API key for notarization.
 // notarytool reads the private key from a .p8 file, which exists only while
 // it copies the key into the keychain profile.
@@ -85,13 +101,17 @@ func notaryStoreAPIKey(ctx context.Context, path, profileName string) error {
 	if err != nil {
 		return err
 	}
+	data, err := key.p8()
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
 	dir, err := os.MkdirTemp("", "zapp-notary-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(dir)
 	p8 := filepath.Join(dir, "AuthKey_"+key.KeyID+".p8")
-	if err := os.WriteFile(p8, []byte(key.PrivateKey), 0o600); err != nil {
+	if err := os.WriteFile(p8, data, 0o600); err != nil {
 		return err
 	}
 	_, err = xcrun(ctx,

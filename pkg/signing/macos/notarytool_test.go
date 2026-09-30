@@ -1,6 +1,8 @@
 package macos
 
 import (
+	"encoding/base64"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +33,22 @@ func TestReadAPIKey(t *testing.T) {
 	}
 	if _, err := readAPIKey(write("bad.json", `AuthKey`)); err == nil {
 		t.Fatal("accepted a non-JSON key")
+	}
+}
+
+// notarytool gets the key as the PEM .p8 whichever way the JSON holds it:
+// base64 DER as rcodesign writes it, or PEM as earlier actions did.
+func TestAPIKeyP8(t *testing.T) {
+	der := []byte{0x30, 0x03, 0x02, 0x01, 0x01}
+	want := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+	for _, private := range []string{base64.StdEncoding.EncodeToString(der), "MAMC\nAQE=", want} {
+		got, err := apiKey{PrivateKey: private}.p8()
+		if err != nil || string(got) != want {
+			t.Fatalf("p8(%q) = %q, %v", private, got, err)
+		}
+	}
+	if _, err := (apiKey{PrivateKey: "not a key!"}).p8(); err == nil {
+		t.Fatal("accepted a key neither PEM nor base64")
 	}
 }
 

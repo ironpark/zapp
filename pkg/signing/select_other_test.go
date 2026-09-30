@@ -92,3 +92,27 @@ func TestSelectUnpacksP12(t *testing.T) {
 		t.Fatal("accepted two certificates")
 	}
 }
+
+// A key JSON holding the PEM, which rcodesign would reject as an invalid
+// unified key, is refused up front with the format it needs.
+func TestSelectRejectsPEMAPIKey(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, private string) string {
+		path := filepath.Join(dir, name)
+		data := `{"issuer_id":"issuer","key_id":"ABC123","private_key":"` + private + `"}`
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	pemKey := write("pem.json", `-----BEGIN PRIVATE KEY-----\nMAMCAQE=\n-----END PRIVATE KEY-----\n`)
+	if err := checkAPIKey(pemKey); err == nil || !strings.Contains(err.Error(), "base64 DER") {
+		t.Fatalf("PEM key: %v", err)
+	}
+	if err := checkAPIKey(write("der.json", "MAMCAQE=")); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkAPIKey(""); err != nil {
+		t.Fatal(err)
+	}
+}

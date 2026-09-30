@@ -5,7 +5,10 @@ package signing
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/ironpark/zapp/pkg/signing/rcodesign"
@@ -17,6 +20,9 @@ func Select(c Credentials) (Backend, error) {
 		return nil, fmt.Errorf("keychain and Apple ID credentials are macOS-only; use --p12-file, --p12-base64 or --pem-file and --api-key-file")
 	}
 	if err := c.checkP12(); err != nil {
+		return nil, err
+	}
+	if err := checkAPIKey(c.APIKeyFile); err != nil {
 		return nil, err
 	}
 	if err := rcodesign.Available(); err != nil {
@@ -43,6 +49,29 @@ func Select(c Credentials) (Backend, error) {
 	opts.PEMFile = path
 	source := cmp.Or(c.PEMFile, c.P12File, "PKCS#12 certificate from base64")
 	return &decodedCertificate{Backend: rcodesign.New(opts), source: source, remove: remove}, nil
+}
+
+// checkAPIKey rejects an API key JSON rcodesign cannot read before it fails
+// with "invalid unified api key": its private_key must be the base64 DER of
+// the .p8, not the PEM itself.
+func checkAPIKey(path string) error {
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var key struct {
+		PrivateKey string `json:"private_key"`
+	}
+	if err := json.Unmarshal(data, &key); err != nil {
+		return fmt.Errorf("%s is not an App Store Connect API key JSON: %w", path, err)
+	}
+	if strings.Contains(key.PrivateKey, "-----BEGIN") {
+		return fmt.Errorf("%s holds the private key as PEM; rcodesign needs its base64 DER, as `rcodesign encode-app-store-connect-api-key` writes it", path)
+	}
+	return nil
 }
 
 // decodedCertificate is an rcodesign backend that owns the certificate file it

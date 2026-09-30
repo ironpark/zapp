@@ -107,10 +107,10 @@ elif [[ -n $IN_API_KEY_ID || -n $IN_API_ISSUER_ID || -n $IN_API_PRIVATE_KEY ]]; 
     echo "::error::api-key-id, api-issuer-id and api-private-key go together" >&2
     exit 1
   fi
-  # The same JSON rcodesign encode-app-store-connect-api-key writes. A PEM
-  # key holds nothing that needs escaping in JSON except its line breaks.
-  key=${IN_API_PRIVATE_KEY//$'\r'/}
-  key=${key//$'\n'/\\n}
+  # The same JSON rcodesign encode-app-store-connect-api-key writes: its
+  # private_key is the base64 DER of the .p8, the PEM body without its
+  # armor or line breaks, which is also all JSON has to carry.
+  key=$(printf '%s\n' "$IN_API_PRIVATE_KEY" | grep -v -e '-----' | tr -d '[:space:]')
   secret_file ZAPP_API_KEY_FILE api-key.json \
     "{\"issuer_id\":\"$IN_API_ISSUER_ID\",\"key_id\":\"$IN_API_KEY_ID\",\"private_key\":\"$key\"}"
 fi
