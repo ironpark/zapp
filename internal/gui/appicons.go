@@ -9,11 +9,6 @@ import (
 	"github.com/ironpark/zapp/pkg/appbundle"
 )
 
-type appIconResult struct {
-	path string
-	png  []byte
-}
-
 // nativeAppIconKey names the cache slot holding the icon the OS extracted for a
 // bundle, so the writer and the reader cannot spell it differently.
 func nativeAppIconKey(path string) string { return assetCachePrefix + "native-app:" + path }
@@ -56,52 +51,42 @@ func (g *editor) loadAppIcon(key, path string) {
 	if g.ctx == nil || g.appIconPending[path] {
 		return
 	}
-	if g.appIconResults == nil {
-		g.appIconResults = make(chan appIconResult, 32)
+	if g.appIconPending == nil {
 		g.appIconPending = make(map[string]bool)
 	}
 	g.appIconPending[path] = true
-	ctx, wake := g.ctx, g.wakeFunc()
+	ctx, post := g.ctx, g.poster()
 	go func() {
 		data := nativeAppIcon(ctx, path)
-		select {
-		case g.appIconResults <- appIconResult{path, data}:
-			wake()
-		case <-ctx.Done():
-		}
+		post(func() { g.applyAppIcon(path, data) })
 	}()
 }
 
-func (g *editor) pollAppIcons() {
-	for {
-		select {
-		case result := <-g.appIconResults:
-			delete(g.appIconPending, result.path)
-			if len(result.png) == 0 {
-				continue
-			}
-			keys := []string{}
-			for key, path := range g.appIconPaths {
-				if path == result.path {
-					keys = append(keys, key)
-				}
-			}
-			if len(keys) == 0 {
-				continue
-			}
-			img, err := png.Decode(bytes.NewReader(result.png))
-			if err != nil {
-				continue
-			}
-			texture := ggfx.NewImageFromImage(img)
-			g.assets[nativeAppIconKey(result.path)] = texture
-			for _, key := range keys {
-				g.assets[key] = texture
-			}
-			g.pruneAssets()
-			g.assetsChanged()
-		default:
-			return
+// applyAppIcon stores the icon the OS extracted for the bundle at path under
+// every key still showing that bundle.
+func (g *editor) applyAppIcon(path string, data []byte) {
+	delete(g.appIconPending, path)
+	if len(data) == 0 {
+		return
+	}
+	keys := []string{}
+	for key, p := range g.appIconPaths {
+		if p == path {
+			keys = append(keys, key)
 		}
 	}
+	if len(keys) == 0 {
+		return
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return
+	}
+	texture := ggfx.NewImageFromImage(img)
+	g.assets[nativeAppIconKey(path)] = texture
+	for _, key := range keys {
+		g.assets[key] = texture
+	}
+	g.pruneAssets()
+	g.assetsChanged()
 }

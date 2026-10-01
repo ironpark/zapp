@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -25,11 +24,11 @@ func desktopView(m *desktopModel) ggui.Widget {
 			ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9),
 			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap()).Gap(3)),
 			ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
-			ui.Tooltip(ghostIcon(icons.New(undoIcon()), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo · "+shortcut("Z")),
-			ui.Tooltip(ghostIcon(icons.New(redoIcon()), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo · "+shortcut("Shift+Z")),
+			ui.Tooltip(ghostIcon(icons.New(undoIcon()), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo · "+shortcut("cmd+z")),
+			ui.Tooltip(ghostIcon(icons.New(redoIcon()), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo · "+shortcut("cmd+shift+z")),
 			healthBadge(m),
-			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Outline().BindDisabled(m.Busy), "Save · "+shortcut("S")),
-			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).BindDisabled(m.Busy), "Build · "+shortcut("B")),
+			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Outline().BindDisabled(m.Busy), "Save · "+shortcut("cmd+s")),
+			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).BindDisabled(m.Busy), "Build · "+shortcut("cmd+b")),
 			ggui.View(m.Dark, func(dark bool) ggui.Widget {
 				icon, label := "sun", "Light appearance"
 				if !dark {
@@ -52,12 +51,9 @@ func desktopView(m *desktopModel) ggui.Widget {
 }
 
 // shortcut spells a command chord the way the platform's menus do.
-func shortcut(keys string) string {
-	if runtime.GOOS == "darwin" {
-		return strings.ReplaceAll("⌘"+keys, "Shift+", "⇧")
-	}
-	return "Ctrl+" + keys
-}
+// shortcut labels a chord the way the platform writes it, e.g. ⇧⌘Z on macOS
+// and Ctrl+Shift+Z elsewhere.
+func shortcut(chord string) string { return ggui.MustChord(chord).Label() }
 
 // readyColor marks a project that passes its checks. The theme has no
 // success color of its own, so one is picked to suit its background.
@@ -76,9 +72,9 @@ func healthBadge(m *desktopModel) ggui.Widget {
 	return ggui.View(m.Health.Map(func(h projectHealth) int { return h.Count }), func(count int) ggui.Widget {
 		t := uitheme.Use()
 		icon, col := statusIcon(t, count == 0)
-		label, tip := "Ready", "Build inputs look complete · Validate "+shortcut("Shift+V")
+		label, tip := "Ready", "Build inputs look complete · Validate "+shortcut("cmd+shift+v")
 		if count > 0 {
-			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue · "+shortcut("Shift+V")
+			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue · "+shortcut("cmd+shift+v")
 		}
 		content := ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Text(label).Color(col)).Gap(6).Align(ggui.AlignCenter)
 		return ui.Tooltip(ui.ButtonOf(content, g.action(g.validate)).Name("Validate").Ghost().BindDisabled(m.Busy), tip)
@@ -458,24 +454,22 @@ func buildDialogView(m *desktopModel, v modalState) ggui.Widget {
 	g := m.editor
 	actions := []ggui.Widget{}
 	body := []ggui.Widget{ggui.Text(v.Message)}
-	if v.Build {
-		if v.Log != "" {
-			t := uitheme.Use()
-			log := ggui.Scroll(ggui.Padding(ggui.Text(v.Log).Style(ggui.TextStyle{Font: codeFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.offset("build-log"))
-			body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
-			actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(v.Log) }).Ghost(), ggui.Spacer())
-		}
-		if v.Reveal != "" {
-			actions = append(actions, ui.Button(revealLabel(), func() { g.reveal(v.Reveal) }).Outline())
-		}
-		label := "Cancel build"
-		if v.Finished {
-			label = "Close"
-		}
-		actions = append(actions, ui.Button(label, g.action(g.dismissBuild)).Outline().Disabled(v.Cancelling && !v.Finished))
-		if v.Finished && v.Issue {
-			actions = append(actions, ui.Button("Go to issue", g.action(func() { g.dismissBuild(); g.goToIssue() })))
-		}
+	if v.Log != "" {
+		t := uitheme.Use()
+		log := ggui.Scroll(ggui.Padding(ggui.Text(v.Log).Style(ggui.TextStyle{Font: codeFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.logOffset())
+		body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
+		actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(v.Log) }).Ghost(), ggui.Spacer())
+	}
+	if v.Reveal != "" {
+		actions = append(actions, ui.Button(revealLabel(), func() { g.reveal(v.Reveal) }).Outline())
+	}
+	label := "Cancel build"
+	if v.Finished {
+		label = "Close"
+	}
+	actions = append(actions, ui.Button(label, g.action(g.dismissBuild)).Outline().Disabled(v.Cancelling && !v.Finished))
+	if v.Finished && v.Issue {
+		actions = append(actions, ui.Button("Go to issue", g.action(func() { g.dismissBuild(); g.goToIssue() })))
 	}
 	open := ggui.Bind(func() bool { return m.Modal.Get().Title != "" }, func(b bool) {
 		if !b && g.build != nil {

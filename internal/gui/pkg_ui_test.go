@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"image"
 	"testing"
 
 	"github.com/ironpark/zapp"
@@ -69,22 +68,17 @@ func TestComponentEntryRejectsNestedPaths(t *testing.T) {
 	}
 }
 
-func TestPackageDefaultsAreHintsAndGroupsKeepHitTargets(t *testing.T) {
+func TestPackageDefaultsAreHints(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabPKG
 	g.s.Project.PKG.Components = []zapp.Component{{ID: "app"}}
 	g.rebuild()
-	for i, f := range g.fields {
+	for _, f := range g.fields {
 		if f.Label == "Install location" && (f.Placeholder != "/ (default)" || f.Value != "") {
 			t.Fatal("wrong install default")
 		}
 		if f.Label == "Version" && (f.Placeholder != "1.0 (default)" || f.Value != "") {
 			t.Fatal("wrong version default")
-		}
-		g.form.Reveal(i)
-		r := g.form.FieldBounds(i)
-		if hit, ok := g.form.Hit(r.Min.Add(image.Pt(2, 2))); !ok || hit != i {
-			t.Fatalf("field %s has wrong hit target", f.Label)
 		}
 	}
 	if g.s.Project.PKG.Components[0].InstallLocation != "" || g.s.Project.PKG.Components[0].Version != "" {

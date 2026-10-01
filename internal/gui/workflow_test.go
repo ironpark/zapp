@@ -3,7 +3,6 @@ package gui
 import (
 	"encoding/json"
 	"fmt"
-	"image"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -73,10 +72,7 @@ func TestDependencyListPickerRemoveAndRaw(t *testing.T) {
 	g.s.Project.Dep = &zapp.DepConfig{}
 	g.tab = tabDep
 	g.rebuild()
-	results := make(chan pickResult, 1)
-	results <- pickResult{index: 0, path: filepath.Join(g.s.Dir, "vendor")}
-	g.picking = results
-	g.pollPicker()
+	g.picked(0, filepath.Join(g.s.Dir, "vendor"), nil)
 	if len(g.s.Project.Dep.Libs) != 1 || !g.fields[1].Browse {
 		t.Fatal("picker did not append directory")
 	}
@@ -151,34 +147,6 @@ func TestHiddenAdvancedPathValidationAndIssueReturn(t *testing.T) {
 	g.goToIssue() // Applying a fix must not dereference a cleared issue.
 }
 
-func TestWorkflowLayoutAtMinimumSize(t *testing.T) {
-	for _, tab := range []int{tabProject, tabPKG, tabDep, tabSign, tabNotarize} {
-		for _, help := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%d/%v", tab, help), func(t *testing.T) {
-				g := testEditor(t)
-				g.w = 1080
-				g.h = 720
-				g.tab = tab
-				g.helpOpen = help
-				g.s.Project.Dep = &zapp.DepConfig{}
-				g.s.Project.Sign = &zapp.SignConfig{}
-				g.s.Project.Notarize = &zapp.NotarizeConfig{}
-				if tab == tabPKG {
-					g.s.Project.PKG.Components = []zapp.Component{{ID: "app"}}
-				}
-				g.rebuild()
-				panel := g.settingsPanel().Bounds
-				if panel.Dx() < 400 || !panel.In(image.Rect(0, 0, g.w, g.h)) {
-					t.Fatalf("invalid panel: %v", panel)
-				}
-				if g.componentListVisible() && panel.Overlaps(g.componentPanel().Bounds) {
-					t.Fatal("list overlaps form")
-				}
-			})
-		}
-	}
-}
-
 func TestDefaultComponentContainsAppBundle(t *testing.T) {
 	g := testEditor(t)
 	g.s.Project.App = "build/Demo.app"
@@ -227,15 +195,13 @@ func TestBuildErrorOffersIssueNavigation(t *testing.T) {
 	if g.issue == nil || g.issue.tab != tabDep {
 		t.Fatal("build error did not identify step")
 	}
-	found := false
-	for _, b := range g.buildDialog().Actions {
-		if b.Label == "Go to issue" {
-			found = true
-			b.OnClick()
-			break
-		}
+	m := newDesktopModel(g)
+	if v := m.Modal.Get(); !v.Finished || !v.Issue {
+		t.Fatal("build dialog does not offer Go to issue")
 	}
-	if !found || g.build != nil || g.tab != tabDep {
+	g.dismissBuild()
+	g.goToIssue()
+	if g.build != nil || g.tab != tabDep {
 		t.Fatal("build dialog did not return to settings")
 	}
 }
@@ -248,10 +214,10 @@ func TestRevealComponentScrollsToSelection(t *testing.T) {
 		g.s.Project.PKG.Components[i].ID = fmt.Sprintf("app-%d", i)
 	}
 	g.rebuild()
-	g.componentScroll = 10
+	m := newDesktopModel(g)
 	g.componentIndex = 29
 	g.revealComponent()
-	if g.componentScroll <= 10 {
+	if m.revealComponent != 29 {
 		t.Fatal("newly selected component is not revealed")
 	}
 }

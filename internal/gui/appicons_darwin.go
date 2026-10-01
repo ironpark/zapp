@@ -7,11 +7,21 @@ import (
 	"github.com/ebitengine/purego/objc"
 )
 
+func nsString(value string) objc.ID {
+	return objc.ID(objc.GetClass("NSString")).Send(objc.RegisterName("stringWithUTF8String:"), value)
+}
+func onMainQueue(fn func()) {
+	block := objc.NewBlock(func(_ objc.Block) { fn() })
+	defer block.Release()
+	queue := objc.ID(objc.GetClass("NSOperationQueue")).Send(objc.RegisterName("mainQueue"))
+	queue.Send(objc.RegisterName("addOperationWithBlock:"), block)
+}
+
 // NSWorkspace understands Asset Catalog icons and the system's bundle metadata.
 // Called by a worker; AppKit work is dispatched to the Cocoa main queue.
 func nativeAppIcon(ctx context.Context, path string) []byte {
 	result := make(chan []byte, 1)
-	pickerMain(func() {
+	onMainQueue(func() {
 		if ctx.Err() != nil {
 			result <- nil
 			return
@@ -19,7 +29,7 @@ func nativeAppIcon(ctx context.Context, path string) []byte {
 		pool := objc.ID(objc.GetClass("NSAutoreleasePool")).Send(objc.RegisterName("new"))
 		defer pool.Send(objc.RegisterName("drain"))
 		workspace := objc.ID(objc.GetClass("NSWorkspace")).Send(objc.RegisterName("sharedWorkspace"))
-		icon := workspace.Send(objc.RegisterName("iconForFile:"), pickerString(path))
+		icon := workspace.Send(objc.RegisterName("iconForFile:"), nsString(path))
 		tiff := icon.Send(objc.RegisterName("TIFFRepresentation"))
 		rep := objc.ID(objc.GetClass("NSBitmapImageRep")).Send(objc.RegisterName("imageRepWithData:"), tiff)
 		props := objc.ID(objc.GetClass("NSDictionary")).Send(objc.RegisterName("dictionary"))

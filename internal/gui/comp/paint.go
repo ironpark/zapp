@@ -1,14 +1,13 @@
-// Package comp provides reusable ggfx UI components. It has no project,
-// filesystem-layout or packaging knowledge; applications own value validation
-// and decide when to apply a component's draft or requested action.
+// Package comp holds the editor's input drafts, text and shape painting for the
+// DMG preview, and embedded icons. It has no project, filesystem-layout or
+// packaging knowledge; applications own value validation and decide when to
+// apply a draft.
 package comp
 
 import (
 	"image"
 	"image/color"
 	"sort"
-	"strings"
-	"unicode"
 
 	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggfx/text/v2"
@@ -18,37 +17,15 @@ import (
 	"golang.org/x/image/font/opentype"
 )
 
-type Theme struct {
-	Background, Panel, Text, Muted, Accent, AccentText color.RGBA
-	Border, Hover, Disabled, DisabledText              color.RGBA
-	Input, Selection, Error, Overlay                   color.RGBA
-}
-
-func DarkTheme() Theme {
-	return Theme{
-		Background: color.RGBA{19, 21, 26, 255}, Panel: color.RGBA{28, 31, 38, 255},
-		Text: color.RGBA{237, 239, 244, 255}, Muted: color.RGBA{161, 168, 183, 255},
-		Accent: color.RGBA{139, 165, 255, 255}, AccentText: color.RGBA{20, 27, 52, 255},
-		Border: color.RGBA{53, 58, 70, 255}, Hover: color.RGBA{40, 45, 57, 255},
-		Disabled: color.RGBA{25, 28, 34, 255}, DisabledText: color.RGBA{119, 128, 147, 255},
-		Input: color.RGBA{23, 26, 33, 255}, Selection: color.RGBA{57, 73, 121, 255},
-		Error: color.RGBA{255, 159, 151, 255}, Overlay: color.RGBA{0, 0, 0, 170},
-	}
-}
-
-// Painter owns shared fonts and styling. Create one per UI and Close it after
-// RunGame returns. Drawing and measuring use the same face cache.
+// Painter owns a shared font. Create one per UI and Close it when the window
+// ends. Drawing and measuring use the same face cache.
 type Painter struct {
-	mono      *opentype.Font
-	monoFaces map[int]font.Face
-	Theme     Theme
-	font      *opentype.Font
-	faces     map[int]font.Face
-	goxFaces  map[font.Face]*text.GoXFace
-	icons     map[Icon]*ggfx.Image
+	font     *opentype.Font
+	faces    map[int]font.Face
+	goxFaces map[font.Face]*text.GoXFace
 }
 
-func NewPainter(ttf []byte, theme Theme) (*Painter, error) {
+func NewPainter(ttf []byte) (*Painter, error) {
 	if len(ttf) == 0 {
 		ttf = goregular.TTF
 	}
@@ -56,42 +33,27 @@ func NewPainter(ttf []byte, theme Theme) (*Painter, error) {
 	if err != nil {
 		return nil, err
 	}
-	icons, err := loadIcons()
-	if err != nil {
-		return nil, err
-	}
-	return &Painter{Theme: theme, font: f, faces: make(map[int]font.Face), icons: icons}, nil
+	return &Painter{font: f, faces: make(map[int]font.Face)}, nil
 }
 func (p *Painter) Close() {
-	for _, face := range p.monoFaces {
-		_ = face.Close()
-	}
-	p.monoFaces = nil
-	p.mono = nil
-	for _, icon := range p.icons {
-		icon.Deallocate()
-	}
-	p.icons = nil
 	for _, f := range p.faces {
 		_ = f.Close()
 	}
 	p.faces = nil
 	p.goxFaces = nil
 }
-func (p *Painter) face(size int) font.Face { return cachedFace(p.font, p.faces, size) }
 
-// cachedFace memoizes one face per size so the UI and mono fonts share a single
-// construction path.
-func cachedFace(f *opentype.Font, cache map[int]font.Face, size int) font.Face {
+// face memoizes one face per size.
+func (p *Painter) face(size int) font.Face {
 	size = max(1, size)
-	if face := cache[size]; face != nil {
+	if face := p.faces[size]; face != nil {
 		return face
 	}
-	face, err := opentype.NewFace(f, &opentype.FaceOptions{Size: float64(size), DPI: 72, Hinting: font.HintingFull})
+	face, err := opentype.NewFace(p.font, &opentype.FaceOptions{Size: float64(size), DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
 		panic(err)
 	} // The font and positive size were validated above.
-	cache[size] = face
+	p.faces[size] = face
 	return face
 }
 func (p *Painter) Measure(s string, size int) int { return font.MeasureString(p.face(size), s).Ceil() }
@@ -124,13 +86,6 @@ func (p *Painter) drawText(dst *ggfx.Image, s string, f font.Face, x, y int, c c
 	text.Draw(dst, s, face, op)
 }
 
-// TextY centers the font's cap height in a control, independent of its height.
-// Using a stable reference avoids labels moving when their text has descenders.
-func (p *Painter) TextY(bounds image.Rectangle, size int) int {
-	ink, _ := font.BoundString(p.face(size), "H")
-	return bounds.Min.Y + (bounds.Dy()-ink.Max.Y.Ceil()-ink.Min.Y.Floor())/2 - size
-}
-
 // fitRunes returns the longest prefix length of r that still fits in width with
 // suffix appended. Measured width grows monotonically with the prefix, so a
 // binary search replaces a scan that re-measured the whole prefix per dropped rune.
@@ -152,31 +107,6 @@ func (p *Painter) Fit(s string, width, size int) string {
 	r := []rune(s)
 	return string(r[:p.fitRunes(r, "…", width, size)]) + "…"
 }
-func (p *Painter) Wrapped(dst *ggfx.Image, s string, x, y, width, size int, c color.Color, maxLines int) {
-	for i := 0; i < maxLines && s != ""; i++ {
-		r := []rune(s)
-		n := p.fitRunes(r, "", width, size)
-		if n == 0 {
-			return
-		}
-		// Prefer word boundaries while retaining rune wrapping for long paths
-		// and languages that do not separate words with spaces.
-		if n < len(r) {
-			for j := n; j > 0; j-- {
-				if unicode.IsSpace(r[j-1]) {
-					n = j
-					break
-				}
-			}
-		}
-		line := strings.TrimRightFunc(string(r[:n]), unicode.IsSpace)
-		if i == maxLines-1 && n < len(r) {
-			line = p.Fit(line+"…", width, size)
-		}
-		p.Text(dst, line, x, y+i*(size+5), size, c)
-		s = strings.TrimLeftFunc(string(r[n:]), unicode.IsSpace)
-	}
-}
 func Rect(dst *ggfx.Image, r image.Rectangle, c color.Color) {
 	if !r.Empty() {
 		vector.FillRect(dst, float32(r.Min.X), float32(r.Min.Y), float32(r.Dx()), float32(r.Dy()), c, false)
@@ -188,15 +118,6 @@ func Border(dst *ggfx.Image, r image.Rectangle, c color.Color) {
 	}
 }
 func Box(x, y, w, h int) image.Rectangle { return image.Rect(x, y, x+w, y+h) }
-func Center(bounds image.Rectangle, w, h int) image.Rectangle {
-	return Box(bounds.Min.X+(bounds.Dx()-w)/2, bounds.Min.Y+(bounds.Dy()-h)/2, w, h)
-}
-
-// Shared spacing keeps control interiors and grouped content consistent.
-const (
-	Padding = 16
-	Radius  = 8
-)
 
 // RoundedRect draws a subtly rounded surface with antialiased corners.
 func RoundedRect(dst *ggfx.Image, r image.Rectangle, radius int, c color.Color) {
@@ -215,8 +136,4 @@ func RoundedRect(dst *ggfx.Image, r image.Rectangle, radius int, c color.Color) 
 			vector.FillCircle(dst, float32(x), float32(y), float32(radius), c, true)
 		}
 	}
-}
-func Surface(dst *ggfx.Image, r image.Rectangle, radius int, fill, border color.Color) {
-	RoundedRect(dst, r, radius, border)
-	RoundedRect(dst, r.Inset(1), max(0, radius-1), fill)
 }

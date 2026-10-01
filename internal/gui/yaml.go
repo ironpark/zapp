@@ -38,7 +38,7 @@ func decodeOneYAML(value string, out any, opts ...yaml.DecodeOption) error {
 }
 
 func (g *editor) yamlField() field {
-	return field{Label: "DMG configuration", Value: layoutYAML(g.s.Project.DMG), Multiline: true, Syntax: "yaml", Height: g.yamlHeight(), Hint: "Ctrl/Cmd+Enter: apply · Esc: cancel", set: func(value string) error {
+	return field{Label: "DMG configuration", Value: layoutYAML(g.s.Project.DMG), Multiline: true, Syntax: "yaml", Hint: "Ctrl/Cmd+Enter: apply · Esc: cancel", set: func(value string) error {
 		var document map[string]any
 		if err := decodeOneYAML(value, &document, yaml.Strict()); err != nil {
 			return err
@@ -54,5 +54,3 @@ func (g *editor) yamlField() field {
 		return nil
 	}}
 }
-
-func (g *editor) yamlHeight() int { return max(108, g.contentBottom()-workspaceTop-125) }

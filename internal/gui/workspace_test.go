@@ -2,9 +2,9 @@ package gui
 
 import (
 	"fmt"
-	"image"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/ironpark/zapp"
@@ -12,11 +12,8 @@ import (
 
 func TestPickerResultRelativePathUndoAndCancel(t *testing.T) {
 	g := testEditor(t)
-	results := make(chan pickResult, 1)
-	results <- pickResult{index: 0, path: filepath.Join(filepath.Dir(g.s.Path), "Demo.app")}
-	g.picking = results
-	g.pollPicker()
-	if g.s.Project.App != "Demo.app" || g.picking != nil {
+	g.picked(0, filepath.Join(filepath.Dir(g.s.Path), "Demo.app"), nil)
+	if g.s.Project.App != "Demo.app" {
 		t.Fatal("picker result did not commit a relative path")
 	}
 	g.s.Undo()
@@ -26,9 +23,7 @@ func TestPickerResultRelativePathUndoAndCancel(t *testing.T) {
 	}
 	g.focus(0)
 	g.input.SetText("unfinished")
-	results <- pickResult{index: 0}
-	g.picking = results
-	g.pollPicker()
+	g.picked(0, "", nil)
 	if g.input.Text() != "unfinished" || g.s.Project.App != "" {
 		t.Fatal("cancel lost draft or changed project")
 	}
@@ -58,26 +53,22 @@ func TestInvalidFieldErrorAndValidationNavigation(t *testing.T) {
 		t.Fatal("validation did not navigate to invalid app")
 	}
 }
-func TestItemListInspectorStableAndScrollable(t *testing.T) {
+func TestItemSelectionKeepsSettingsAndEditsInspector(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
-	g.w = 1080
-	g.h = 720
 	g.s.Project.DMG.Contents = map[string]zapp.Content{}
 	for i := 0; i < 12; i++ {
 		x, y := 100+i, 120
 		g.s.Project.DMG.Contents[fmt.Sprintf("file-%02d", i)] = zapp.Content{Pos: &zapp.Position{x, y}}
 	}
 	g.rebuild()
-	g.form.ScrollTo(80)
-	offset := g.form.Offset()
-	title := g.form.FieldBounds(0)
+	before := settingsLabels(g)
 	g.selected = "file-11"
 	g.rebuild()
-	if g.form.Offset() != offset || g.form.FieldBounds(0) != title {
-		t.Fatal("selection shifted layout settings")
+	if !slices.Equal(settingsLabels(g), before) {
+		t.Fatal("selection changed layout settings")
 	}
-	if len(g.inspector.Inputs) != 4 {
+	if len(g.fields)-g.inspectorStart != 4 {
 		t.Fatal("missing inspector fields")
 	}
 	index := g.inspectorStart + 1
@@ -85,9 +76,6 @@ func TestItemListInspectorStableAndScrollable(t *testing.T) {
 	g.input.SetText("222")
 	if !g.commit() || g.s.Project.DMG.Contents[g.selected].Pos[0] != 222 {
 		t.Fatal("inspector edit not applied")
-	}
-	if g.previewArea().Overlaps(g.itemsPanel().Bounds) || g.previewPanel().Bounds.Overlaps(g.inspectorPanel().Bounds) {
-		t.Fatal("preview overlaps inspector")
 	}
 }
 func TestPickerPathValidationDoesNotBlockSavingDraft(t *testing.T) {
@@ -106,23 +94,6 @@ func TestPickerPathValidationDoesNotBlockSavingDraft(t *testing.T) {
 	g.rebuild()
 	if g.validatePaths() || g.tab != tabDMG || g.fields[g.active].Label != "Background image" {
 		t.Fatal("directory accepted as image")
-	}
-}
-
-func TestWorkspaceSizesKeepInspectorUsable(t *testing.T) {
-	for _, size := range []image.Point{{1080, 720}, {1200, 840}, {1600, 1000}} {
-		g := testEditor(t)
-		g.tab = tabDMG
-		g.s.Project.App = "Example.app"
-		g.w, g.h = size.X, size.Y
-		g.selected = "Example.app"
-		g.rebuild()
-		if g.inspector.Limit() != 0 {
-			t.Fatalf("%v: ordinary item fields require scrolling", size)
-		}
-		if !g.previewArea().In(g.previewPanel().Bounds) || g.previewArea().Dx() < 350 {
-			t.Fatalf("%v: unusable preview bounds", size)
-		}
 	}
 }
 

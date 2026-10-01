@@ -20,7 +20,7 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 			modeButtons([]string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
 		ggui.Expanded(canvas),
-		ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan"),
+		designerHint(v),
 	).Gap(12).Align(ggui.AlignStretch))
 	contents := ggui.EachKeyed(m.Items, func(i layoutItem) string { return i.Path }, func(item ggui.EachItem[layoutItem]) ggui.Widget {
 		return ggui.Reactive(func() ggui.Widget {
@@ -46,8 +46,17 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 		if state.Selected == "" {
 			return surface(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))
 		}
-		item, _ := g.selectedContent()
-		return surface(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(func() bool { return item.Link }, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+state.Selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
+		// Read Link from m.Items when the switch paints: toggling it does not
+		// change m.Workspace, so this View would not rebuild with a new value.
+		link := func() bool {
+			for _, item := range m.Items.Get() {
+				if item.Path == state.Selected {
+					return item.Link
+				}
+			}
+			return false
+		}
+		return surface(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+state.Selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
 	})
 	side := ggui.Box(ui.Resizable(m.InspectorSplit, list, details).Vertical().MinSizes(130, 220)).Width(248)
 	right := ggui.Row(ggui.Expanded(preview), side).Gap(12).Align(ggui.AlignStretch)
@@ -75,7 +84,7 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	dst.HitKey(r, c)
 	dst.Describe(r, c)
 	dst.FillRect(r, uitheme.From(ggui.Untrack(ggui.UseEnv)).Bg)
-	if dst == nil || dst.Image == nil || g.ui == nil {
+	if dst.Image == nil || g.ui == nil {
 		return
 	}
 	if g.previewSurface == nil || g.previewSurface.Bounds() != g.previewBounds {
@@ -93,6 +102,15 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	if c.model.DropHover.Get() {
 		dst.StrokeRoundRect(r, 0, 2, uitheme.From(ggui.Untrack(ggui.UseEnv)).Primary)
 	}
+}
+
+// designerHint explains the canvas controls, unless part of the preview
+// could not be drawn; then it says why.
+func designerHint(v workspaceState) ggui.Widget {
+	if v.PreviewError != "" {
+		return ui.Caption(v.PreviewError).Color(uitheme.Use().Destructive)
+	}
+	return ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan")
 }
 func (c *designerCanvas) local(p ggui.Point) ggui.Point {
 	return ggui.Pt(p.X-c.rect.Origin.X, p.Y-c.rect.Origin.Y)
@@ -113,9 +131,9 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 		g.moveDesigner(p)
 	case ggui.PointerUp:
 		g.moveDesigner(p)
-		g.drag = ""
-		g.panning = false
-		if g.dragMoved {
+		moved := g.dragMoved
+		g.drag, g.panning, g.dragMoved = "", false, false
+		if moved {
 			g.rebuild()
 			g.report(nil, "Position updated.")
 		}

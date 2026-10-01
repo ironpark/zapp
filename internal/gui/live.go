@@ -35,7 +35,10 @@ func (g *editor) previewInput() {
 		// Incomplete numbers or YAML keep the last valid preview visible.
 		g.s.Project = previous
 	}
-	g.rebuild()
+	// Only the fields and the preview follow a draft. The health check stats
+	// paths and reads the app bundle, so it waits for the value to be committed.
+	g.rebuildFields()
+	g.refreshDerived()
 	g.liveBase = base
 	g.active, g.input = index, draft
 	g.selected = selected

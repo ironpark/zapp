@@ -49,21 +49,21 @@ func presenceField[T any](label string, live, stash **T, hint string) field {
 
 func (g *editor) uploadsField() field {
 	p := g.s.Project
-	return g.sectionField("Uploads", "upload", 170, len(p.Upload) > 0, p.Upload, "- url: https://example.com/${file.name}",
+	return g.sectionField("Uploads", "upload", len(p.Upload) > 0, p.Upload, "- url: https://example.com/${file.name}",
 		"A list of endpoints, each a url or a github release; blank uploads nothing",
 		func(parsed *zapp.Project) { p.Upload = parsed.Upload })
 }
 
 func (g *editor) appcastField() field {
 	p := g.s.Project
-	return g.sectionField("Sparkle appcast", "appcast", 130, p.Appcast != nil, p.Appcast, "url: https://example.com/${file.name}",
+	return g.sectionField("Sparkle appcast", "appcast", p.Appcast != nil, p.Appcast, "url: https://example.com/${file.name}",
 		"Signed with ZAPP_SPARKLE_KEY from the environment; blank publishes none",
 		func(parsed *zapp.Project) { p.Appcast = parsed.Appcast })
 }
 
 func (g *editor) homebrewField() field {
 	p := g.s.Project
-	return g.sectionField("Homebrew cask", "homebrew", 130, p.Homebrew != nil, p.Homebrew, "homepage: https://example.com\ntap: owner/homebrew-tap",
+	return g.sectionField("Homebrew cask", "homebrew", p.Homebrew != nil, p.Homebrew, "homepage: https://example.com\ntap: owner/homebrew-tap",
 		"Committed to the tap with ZAPP_HOMEBREW_TOKEN or GITHUB_TOKEN; blank writes none",
 		func(parsed *zapp.Project) { p.Homebrew = parsed.Homebrew })
 }
@@ -71,12 +71,12 @@ func (g *editor) homebrewField() field {
 // sectionField edits the project's key section as YAML, checked exactly as
 // a project file's would be; use takes the project parsed from it. Blank
 // means the section is absent.
-func (g *editor) sectionField(label, key string, height int, present bool, current any, placeholder, hint string, use func(*zapp.Project)) field {
+func (g *editor) sectionField(label, key string, present bool, current any, placeholder, hint string, use func(*zapp.Project)) field {
 	value := ""
 	if present {
 		value = marshalYAML(current)
 	}
-	return field{Label: label, Value: value, Multiline: true, Syntax: "yaml", Height: height, Placeholder: placeholder, Hint: hint, set: func(value string) error {
+	return field{Label: label, Value: value, Multiline: true, Syntax: "yaml", Placeholder: placeholder, Hint: hint, set: func(value string) error {
 		parsed := &zapp.Project{}
 		if strings.TrimSpace(value) != "" {
 			var section any

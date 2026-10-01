@@ -15,7 +15,6 @@ func (g *editor) fieldError(err error) {
 		g.issue = &validationIssue{tab: g.tab, label: g.fields[g.active].Label, message: err.Error(), component: g.componentIndex, item: g.selected}
 		g.fields[g.active].Error = err.Error()
 		g.input.Spec.Error = err.Error()
-		g.syncForm()
 		g.revealField(g.active)
 	}
 	g.report(err, "")
@@ -24,7 +23,6 @@ func (g *editor) clearFieldError() {
 	if g.active >= 0 && g.active < len(g.fields) {
 		g.fields[g.active].Error = ""
 		g.input.Spec.Error = ""
-		g.syncForm()
 	}
 }
 func (g *editor) showFieldError(tab int, label string, err error) {

@@ -5,18 +5,8 @@ import (
 	"slices"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
-func (g *editor) componentPanel() comp.Panel {
-	return comp.Panel{Bounds: comp.Box(24, workspaceTop, 200, g.contentBottom()-workspaceTop), Title: fmt.Sprintf("Components · %d", len(g.s.Project.PKG.Components))}
-}
-
-// componentPageSize is the number of component rows that fit above the Add and
-// Remove buttons. Drawing, scrolling and revealing must agree on it.
-func (g *editor) componentPageSize() int {
-	return max(1, (g.componentPanel().Content().Dy()-88)/40)
-}
 func (g *editor) addComponent() {
 	c := g.s.Project.PKG
 	if c.Type == "component" && len(c.Components) > 0 {
@@ -35,7 +25,6 @@ func (g *editor) addComponent() {
 	c.Components = append(c.Components, zapp.Component{ID: id, InstallLocation: "/Applications"})
 	g.componentIndex = len(c.Components) - 1
 	g.revealComponent()
-	g.form.ScrollTo(0)
 	g.rebuild()
 }
 func (g *editor) removeComponent() {
@@ -66,13 +55,5 @@ func (g *editor) removeComponent() {
 func (g *editor) revealComponent() {
 	if g.desktop != nil {
 		g.desktop.revealComponent = g.componentIndex
-		return
-	}
-	visible := g.componentPageSize()
-	if g.componentIndex < g.componentScroll {
-		g.componentScroll = g.componentIndex
-	}
-	if g.componentIndex >= g.componentScroll+visible {
-		g.componentScroll = g.componentIndex - visible + 1
 	}
 }

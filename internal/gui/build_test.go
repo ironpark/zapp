@@ -70,7 +70,7 @@ func TestBuildCancellationAndNoSteps(t *testing.T) {
 	}
 	g.build.done <- buildResult{err: context.Canceled}
 	g.pollBuild()
-	if !g.build.finished || g.buildDialog().Title != "Build cancelled" {
+	if title, _ := g.buildDialog(); !g.build.finished || title != "Build cancelled" {
 		t.Fatal("cancellation did not finish")
 	}
 }

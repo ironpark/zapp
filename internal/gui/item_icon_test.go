@@ -52,7 +52,7 @@ func TestItemIconLivePreviewAndReset(t *testing.T) {
 		t.Fatal("icon change did not undo")
 	}
 	g.toggleItemLink()
-	if len(g.inspector.Inputs) != 3 {
+	if len(g.fields)-g.inspectorStart != 3 {
 		t.Fatal("link shows unsupported icon picker")
 	}
 }

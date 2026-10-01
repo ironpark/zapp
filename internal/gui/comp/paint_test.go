@@ -4,7 +4,7 @@ import "testing"
 
 func testPainter(t *testing.T) *Painter {
 	t.Helper()
-	p, err := NewPainter(nil, DarkTheme())
+	p, err := NewPainter(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

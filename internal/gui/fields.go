@@ -64,7 +64,11 @@ func boolField(label string, value *bool, hint string) field {
 // passed separately from the range the setter accepts.
 func intField(label string, value *int, high, def, stepMin int, hint string) field {
 	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &comp.NumberSpec{Min: stepMin, Max: high, Step: 1, Default: def}, set: func(s string) error {
-		n, err := strconv.Atoi(strings.TrimSpace(s))
+		s = strings.TrimSpace(s)
+		if s == "" {
+			s = "0"
+		}
+		n, err := strconv.Atoi(s)
 		if err != nil || n < 0 || n > high {
 			return fmt.Errorf("%s must be 0–%d", label, high)
 		}
@@ -72,7 +76,8 @@ func intField(label string, value *int, high, def, stepMin int, hint string) fie
 		return nil
 	}}
 	if *value == 0 {
-		f.DisplayValue = strconv.Itoa(def) + " (default)"
+		// Left empty, the field shows the default it stands for.
+		f.Value, f.Placeholder = "", strconv.Itoa(def)+" (default)"
 	}
 	return f
 }
@@ -114,7 +119,6 @@ func (g *editor) rebuild() {
 func (g *editor) rebuildFields() {
 	defer g.invalidate()
 	g.restoreLive()
-	defer g.syncForm()
 	g.projectDirty = g.s.Dirty()
 	g.fields = nil
 	g.active = -1
@@ -285,7 +289,6 @@ func (g *editor) pkgFields() []field {
 	if g.pkgRaw {
 		components := jsonField("Components", &c.Components, "JSON array · Ctrl/Cmd+Enter: apply")
 		components.Group = "COMPONENTS · All payloads"
-		components.Height = 180
 		setComponents := components.set
 		components.set = func(value string) error {
 			if strings.TrimSpace(value) == "" {
@@ -391,7 +394,7 @@ func (g *editor) notarizeFields() []field {
 func (g *editor) depTextFields() []field {
 	c := g.s.Project.Dep
 	return []field{{Label: "Library search paths", Value: strings.Join(c.Libs, "\n"),
-		Multiline: true, Height: 180, Placeholder: "/opt/homebrew/lib", Hint: "One directory per line; blank uses automatic discovery",
+		Multiline: true, Placeholder: "/opt/homebrew/lib", Hint: "One directory per line; blank uses automatic discovery",
 		set: func(value string) error {
 			var paths []string
 			for _, line := range strings.Split(value, "\n") {

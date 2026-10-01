@@ -28,13 +28,7 @@ type previewTransform struct {
 func (t previewTransform) content(x, y float64) (float64, float64) {
 	return (x - t.x) / t.scale, (y - t.y) / t.scale
 }
-func (g *editor) previewArea() image.Rectangle {
-	if g.desktop != nil {
-		return g.previewBounds
-	}
-	panel := g.previewPanel().Bounds
-	return image.Rect(panel.Min.X+16, panel.Min.Y+76, panel.Max.X-16, panel.Max.Y-58)
-}
+func (g *editor) previewArea() image.Rectangle { return g.previewBounds }
 func (g *editor) clampPan() {
 	l := g.s.layout()
 	area := g.previewArea()
@@ -259,15 +253,10 @@ func (g *editor) pruneAssets() {
 }
 
 func (g *editor) drawPreview(dst *ggfx.Image) {
-	if g.desktop == nil {
-		g.previewPanel().Draw(dst, g.ui)
-		comp.Surface(dst, g.previewArea().Inset(-1), comp.Radius, g.ui.Theme.Background, g.ui.Theme.Border)
-	}
 	c := g.s.Project.DMG
 	l := g.s.layout()
 	size, label, items := l.IconSize, l.LabelSize, l.Items
 	t := g.transform()
-	full := dst
 	dst = dst.SubImage(g.previewArea().Intersect(dst.Bounds())).(*ggfx.Image)
 	headerHeight := max(1, int(math.Round(28*t.scale)))
 	header := comp.Box(t.bounds.Min.X, t.bounds.Min.Y-headerHeight, t.bounds.Dx(), headerHeight)
@@ -333,23 +322,4 @@ func (g *editor) drawPreview(dst *ggfx.Image) {
 	comp.Rect(dst, comp.Box(header.Min.X, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
 	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
-	dst = full
-	if g.desktop != nil {
-		return
-	}
-	g.ui.Text(dst, fmt.Sprintf("%d × %d  ·  %.0f%%", l.W, l.H, t.scale*100), g.previewArea().Min.X, g.contentBottom()-42, 13, g.ui.Theme.Muted)
-	if len(items) == 0 {
-		g.ui.Wrapped(canvas, "Drop files or folders here, or set the app path in Project.", int(t.x)+20, int(t.y)+25, t.bounds.Dx()-40, 16, color.RGBA{80, 90, 106, 255}, 3)
-	}
-	message := "Approximate preview · Drop files or folders to add"
-	if g.previewActual {
-		message = "Drag empty space to pan · Fit shows the whole window"
-	}
-	if slices.ContainsFunc(items, func(item layoutItem) bool { return item.Path == g.selected }) {
-		message = "Arrows: move · Shift: 10 px · Delete: remove"
-	}
-	if g.previewError != "" {
-		message = g.previewError
-	}
-	g.ui.Text(dst, g.ui.Fit(message, g.previewArea().Dx(), 12), g.previewArea().Min.X, g.contentBottom()-20, 12, g.ui.Theme.Muted)
 }

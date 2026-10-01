@@ -35,13 +35,20 @@ type desktopModel struct {
 	DropHover                                   *ggui.StateValue[bool]
 	cache                                       map[fieldIdentity]*desktopField
 	scroll                                      map[string]*ggui.StateValue[float64]
-	focus                                       *fieldIdentity
+	// The build log follows new lines until the user scrolls up, and again
+	// once they scroll back to the bottom. logBottom is the last offset the
+	// log was clamped to after following.
+	logFollow bool
+	logBottom float64
+	focus     *fieldIdentity
 }
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
 	Enabled, Full, Raw, Advanced, Actual, DefaultLayout bool
 	Selected                                            string
 	IssueTab                                            int
+	// DMG tab: why part of the preview could not be drawn, if it could not.
+	PreviewError string
 	// Signing tab: keychain identities offered (newline-separated) and the
 	// credential check for the current settings.
 	Identities                          string
@@ -53,10 +60,10 @@ type componentRow struct {
 	Label string
 }
 type modalState struct {
-	Title, Message                     string
-	Log                                string // the build's lines so far
-	Reveal                             string // artifact to show in the file manager
-	Build, Finished, Cancelling, Issue bool
+	Title, Message              string
+	Log                         string // the build's lines so far
+	Reveal                      string // artifact to show in the file manager
+	Finished, Cancelling, Issue bool
 }
 type fieldIdentity struct {
 	tab, component, index int
@@ -104,6 +111,7 @@ func newDesktopModel(g *editor) *desktopModel {
 	m := &desktopModel{
 		editor:          g,
 		revealComponent: -1,
+		logFollow:       true,
 		Assets:          ggui.State(0),
 		Workspace:       ggui.State(workspaceState{}),
 		Fields:          ggui.State([]*desktopField{}).WithEqual(slices.Equal),
@@ -156,6 +164,7 @@ func (m *desktopModel) sync() {
 	switch g.tab {
 	case tabDMG:
 		v.Raw, v.Advanced = g.dmgYAML, g.dmgAdvanced
+		v.PreviewError = g.previewError
 		if g.s.Project.DMG != nil {
 			v.DefaultLayout = g.s.Project.DMG.Contents == nil
 		}
@@ -179,7 +188,7 @@ func (m *desktopModel) sync() {
 	m.Failed.Set(g.failed)
 	m.CanUndo.Set(g.s.CanUndo())
 	m.CanRedo.Set(g.s.CanRedo())
-	m.Busy.Set(g.build != nil || g.picking != nil)
+	m.Busy.Set(g.build != nil)
 	state := "Saved"
 	if !g.s.exists {
 		state = "New project"
@@ -243,18 +252,18 @@ func (m *desktopModel) sync() {
 	}
 	m.Items.Set(items)
 	modal := modalState{}
-	if g.picking != nil {
-		modal = modalState{Title: "Choose a path", Message: "Select a path in the system dialog."}
-	} else if g.build != nil {
-		d := g.buildDialog()
+	if g.build != nil {
 		j := g.build
-		modal = modalState{Title: d.Title, Message: d.Message, Log: j.text(), Build: true, Finished: j.finished, Cancelling: j.cancelling, Issue: g.issue != nil}
+		title, message := g.buildDialog()
+		modal = modalState{Title: title, Message: message, Log: j.text(), Finished: j.finished, Cancelling: j.cancelling, Issue: g.issue != nil}
 		if j.finished && j.err == nil {
 			modal.Reveal = cmp.Or(j.artifacts.DMG, j.artifacts.PKG, j.artifacts.App)
 		}
-		if modal.Log != m.Modal.Get().Log {
+		if modal.Log != m.Modal.Get().Log && m.logFollow {
 			m.offset("build-log").Set(math.MaxFloat64)
 		}
+	} else {
+		m.logFollow = true
 	}
 	m.Modal.Set(modal)
 }
@@ -263,6 +272,21 @@ func (m *desktopModel) offset(key string) *ggui.StateValue[float64] {
 		m.scroll[key] = ggui.State(0.0)
 	}
 	return m.scroll[key]
+}
+
+// logOffset binds the build log's scroll position. Scroll clamps the
+// MaxFloat64 that follows new lines to the real bottom; any other change is
+// the user scrolling, which stops following unless it reaches that bottom.
+func (m *desktopModel) logOffset() ggui.Binding[float64] {
+	offset := m.offset("build-log")
+	return ggui.Bind(offset.Get, func(v float64) {
+		if ggui.Untrack(offset.Get) == math.MaxFloat64 {
+			m.logBottom = v
+		} else {
+			m.logFollow = v >= m.logBottom
+		}
+		offset.Set(v)
+	})
 }
 func (m *desktopModel) fieldBinding(f *desktopField) ggui.Binding[string] {
 	return ggui.Bind(f.Value.Get, func(value string) {

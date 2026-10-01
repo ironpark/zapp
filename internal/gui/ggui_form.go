@@ -108,8 +108,13 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	if f.ID.tab == tabDep && !g.depRaw && f.ID.index < len(g.s.Project.Dep.Libs) {
 		control = ggui.Row(ggui.Expanded(control), iconButton("x", "Remove "+spec.Label, g.action(func() { removeLibrary(g, f.ID.index) }))).Gap(8)
 	}
-	if f.ID.tab == tabDMG && spec.Label == "Item icon" && f.Value.Get() != "" {
-		control = ggui.Column(control, ui.Button("Reset item icon", g.action(func() { binding.Set(""); m.commitField(f) })).Ghost()).Gap(6)
+	if f.ID.tab == tabDMG && spec.Label == "Item icon" {
+		// ggui.If follows the value itself; reading it here would rebuild the
+		// whole form on every keystroke.
+		reset := ggui.If(f.Value.Map(func(v string) bool { return v != "" }), func() ggui.Widget {
+			return ui.Button("Reset item icon", g.action(func() { binding.Set(""); m.commitField(f) })).Ghost()
+		})
+		control = ggui.Column(control, reset).Gap(6)
 	}
 	if spec.Boolean {
 		// The switch carries the label itself; a caption above would repeat it.

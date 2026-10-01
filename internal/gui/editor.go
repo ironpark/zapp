@@ -16,7 +16,7 @@ type editor struct {
 	desktop                               *desktopModel
 	previewSurface                        *ggfx.Image
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
-	componentIndex, componentScroll       int
+	componentIndex                        int
 	signMode, notaryMode                  int
 	signModeSet, notaryModeSet            bool
 	signStash                             zapp.SignConfig
@@ -28,7 +28,6 @@ type editor struct {
 	healthOf                              *zapp.Project // the project health describes
 
 	dmgYAML                                  bool
-	appIconResults                           chan appIconResult
 	appIconPending                           map[string]bool
 	appIconPaths                             map[string]string
 	build                                    *buildJob
@@ -39,10 +38,7 @@ type editor struct {
 	fields                                   []field
 	active                                   int
 	input                                    comp.Input
-	form                                     comp.Form
-	inspector                                comp.Form
-	inspectorStart, itemScroll               int
-	picking                                  <-chan pickResult
+	inspectorStart                           int
 	ui                                       *comp.Painter
 	status                                   string
 	failed, confirmClose, quit, projectDirty bool
@@ -87,36 +83,21 @@ func Run(ctx context.Context, s *Session) error {
 			break
 		}
 	}
-	painter, err := comp.NewPainter(ttf, comp.DarkTheme())
+	painter, err := comp.NewPainter(ttf)
 	if err != nil && ttf != nil {
-		painter, err = comp.NewPainter(nil, comp.DarkTheme())
+		painter, err = comp.NewPainter(nil)
 	}
 	if err != nil {
 		return err
 	}
 	defer painter.Close()
 	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
-	g.rebuild()
 	defer func() {
 		if g.previewSurface != nil {
 			g.previewSurface.Deallocate()
 		}
 	}()
 	return g.runWidgets()
-}
-func (g *editor) Layout(w, h int) (int, int) {
-	g.w = w
-	g.h = h
-	g.form.SetBounds(g.formArea())
-	if g.tab == tabDMG && g.dmgYAML && len(g.form.Inputs) > 0 {
-		g.form.Inputs[0].Height = g.yamlHeight()
-		g.fields[0].Height = g.yamlHeight()
-		if g.active == 0 {
-			g.input.Spec.Height = g.yamlHeight()
-		}
-	}
-	g.inspector.SetBounds(g.inspectorArea())
-	return w, h
 }
 
 // wakeFunc returns the hook that asks the UI thread to apply finished
@@ -241,67 +222,6 @@ func (g *editor) validate() {
 	g.report(err, "Build inputs are valid. No files were built, signed or submitted.")
 }
 
-const footerHeight = 28
-const workspaceTop = 128
-
-func (g *editor) contentBottom() int { return g.h - footerHeight - 16 }
-
-func (g *editor) settingsPanel() comp.Panel {
-	x := 24
-	width := g.w - 48
-	if g.helpOpen {
-		width = min(760, g.w-384)
-	}
-	if g.componentListVisible() {
-		x = 240
-		width = g.w - x - 24
-		if g.helpOpen {
-			width = min(760, g.w-x-360)
-		}
-	}
-	title := g.section().Name + " settings"
-	if g.tab == tabDMG {
-		x = 24
-		width = min(364, max(320, g.w/3-56))
-		title = "Layout settings"
-	}
-	panel := comp.Panel{Bounds: comp.Box(x, workspaceTop, width, g.contentBottom()-workspaceTop), Title: title}
-	if g.tab == tabDMG {
-		panel.TitleInset = 132
-	} else {
-		panel.TitleInset = 80
-		if g.tab == tabDep || g.componentListVisible() || (g.tab == tabPKG && g.pkgRaw) {
-			panel.TitleInset = 220
-		}
-	}
-	return panel
-}
-func (g *editor) formArea() image.Rectangle {
-	area := g.settingsPanel().Content()
-	if g.tab == tabSign || g.tab == tabNotarize {
-		area.Min.Y += 48
-	}
-	if g.tab == tabPKG || (g.tab == tabDep && !g.depRaw) {
-		area.Max.Y -= 44
-	}
-	if g.tab == tabDMG && !g.dmgYAML {
-		area.Max.Y -= 44
-	}
-	return area
-}
-func (g *editor) syncForm() {
-	if g.desktop != nil {
-		return
-	}
-	specs := make([]comp.InputSpec, len(g.fields))
-	for i, f := range g.fields {
-		specs[i] = f.InputSpec
-	}
-	g.form.SetBounds(g.formArea())
-	g.form.SetInputs(specs[:g.inspectorStart])
-	g.inspector.SetBounds(g.inspectorArea())
-	g.inspector.SetInputs(specs[g.inspectorStart:])
-}
 func (g *editor) focus(i int) {
 	if len(g.fields) == 0 {
 		g.active = -1
@@ -310,10 +230,6 @@ func (g *editor) focus(i int) {
 	i = max(0, min(i, len(g.fields)-1))
 	g.active = i
 	g.input = comp.NewInput(g.fields[i].InputSpec)
-	if g.desktop != nil {
-		id := g.fieldIdentity(i)
-		g.desktop.focus = &id
-	}
 	g.revealField(i)
 }
 
@@ -322,7 +238,6 @@ func (g *editor) switchTab(index int) {
 		return
 	}
 	g.tab = index
-	g.form.ScrollTo(0)
 	g.selected = ""
 	g.rebuild()
 }

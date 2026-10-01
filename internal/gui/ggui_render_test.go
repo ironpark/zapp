@@ -71,7 +71,7 @@ func (r *desktopRenderer) render() error {
 		}
 		s.Dir = "~/Projects/Example"
 		s.Project.DMG.Contents = map[string]zapp.Content{"Example.app": {Pos: &zapp.Position{120, 160}}, "/Applications": {Pos: &zapp.Position{380, 160}, Link: true}}
-		painter, err := comp.NewPainter(nil, comp.DarkTheme())
+		painter, err := comp.NewPainter(nil)
 		if err != nil {
 			return err
 		}

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 type buildResult struct {
@@ -104,6 +103,15 @@ func (g *editor) pollBuild() {
 	if j == nil || j.finished {
 		return
 	}
+	// Take the result before draining: the builder sends done after its
+	// last line, so draining afterwards cannot leave final lines behind.
+	var result buildResult
+	finished := false
+	select {
+	case result = <-j.done:
+		finished = true
+	default:
+	}
 	// A burst of log lines shows only its last one in the status bar, so
 	// report once after draining rather than syncing the UI per line.
 	latest := ""
@@ -123,44 +131,43 @@ drain:
 		j.message = latest
 		g.report(nil, latest)
 	}
-	select {
-	case result := <-j.done:
-		j.finished, j.err, j.artifacts = true, result.err, result.artifacts
-		j.cancel()
-		switch {
-		case errors.Is(result.err, context.Canceled):
-			j.message = "Build cancelled."
-		case result.err != nil:
-			j.message = result.err.Error()
-		default:
-			a := result.artifacts
-			paths := []string{}
-			for _, path := range []string{a.Zip, a.DMG, a.PKG, a.Checksums, a.Appcast} {
-				if path != "" {
-					paths = append(paths, path)
-				}
-			}
-			if len(paths) == 0 {
-				paths = append(paths, a.App)
-			}
-			j.message = "Built " + strings.Join(paths, " · ")
-			if len(a.Uploads) > 0 {
-				j.message += fmt.Sprintf(" · uploaded %d", len(a.Uploads))
-			}
-		}
-		g.report(result.err, j.message)
-		if result.err != nil && !errors.Is(result.err, context.Canceled) {
-			g.locateValidationError(result.err)
-		} else {
-			g.issue = nil
-		}
-		// Builds can change app resources; refresh the preview on the next rebuild.
-		g.previewSig = ""
-		g.recheckHealth()
-		if j.closeRequested {
-			g.finishClose()
-		}
+	if !finished {
+		return
+	}
+	j.finished, j.err, j.artifacts = true, result.err, result.artifacts
+	j.cancel()
+	switch {
+	case errors.Is(result.err, context.Canceled):
+		j.message = "Build cancelled."
+	case result.err != nil:
+		j.message = result.err.Error()
 	default:
+		a := result.artifacts
+		paths := []string{}
+		for _, path := range []string{a.Zip, a.DMG, a.PKG, a.Checksums, a.Appcast} {
+			if path != "" {
+				paths = append(paths, path)
+			}
+		}
+		if len(paths) == 0 {
+			paths = append(paths, a.App)
+		}
+		j.message = "Built " + strings.Join(paths, " · ")
+		if len(a.Uploads) > 0 {
+			j.message += fmt.Sprintf(" · uploaded %d", len(a.Uploads))
+		}
+	}
+	g.report(result.err, j.message)
+	if result.err != nil && !errors.Is(result.err, context.Canceled) {
+		g.locateValidationError(result.err)
+	} else {
+		g.issue = nil
+	}
+	// Builds can change app resources; refresh the preview on the next rebuild.
+	g.previewSig = ""
+	g.recheckHealth()
+	if j.closeRequested {
+		g.finishClose()
 	}
 }
 
@@ -185,11 +192,12 @@ func (g *editor) dismissBuild() {
 	g.build.cancel()
 }
 
-func (g *editor) buildDialog() comp.Dialog {
+// buildDialog returns the build modal's title and message.
+func (g *editor) buildDialog() (title, message string) {
 	j := g.build
-	title, action := "Building project", "Cancel build"
+	title = "Building project"
 	if j.finished {
-		title, action = "Build complete", "Close"
+		title = "Build complete"
 		if j.err != nil {
 			title = "Build failed"
 		}
@@ -197,9 +205,5 @@ func (g *editor) buildDialog() comp.Dialog {
 			title = "Build cancelled"
 		}
 	}
-	actions := []comp.Button{{Label: action, Disabled: j.cancelling && !j.finished, OnClick: g.dismissBuild}}
-	if j.finished && j.err != nil && g.issue != nil {
-		actions = append(actions, comp.Button{Label: "Go to issue", Primary: true, OnClick: func() { g.dismissBuild(); g.goToIssue() }})
-	}
-	return comp.Dialog{Visible: true, Bounds: comp.Center(comp.Box(0, 0, g.w, g.h), 600, 220), Title: title, Message: j.message, OnCancel: g.dismissBuild, Actions: actions}
+	return title, j.message
 }

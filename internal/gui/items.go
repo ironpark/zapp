@@ -2,22 +2,9 @@ package gui
 
 import (
 	"fmt"
-	"image"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
-
-func (g *editor) previewPanel() comp.Panel {
-	x := g.settingsPanel().Bounds.Max.X + 16
-	return comp.Panel{Bounds: comp.Box(x, workspaceTop, g.itemsPanel().Bounds.Min.X-16-x, g.contentBottom()-workspaceTop), Title: "DMG preview", TitleInset: 156, Description: "Drop files or folders · Drag to arrange"}
-}
-func (g *editor) itemsPanel() comp.Panel {
-	return comp.Panel{Bounds: comp.Box(g.w-268, workspaceTop, 244, g.inspectorPanel().Bounds.Min.Y-16-workspaceTop), Title: "Contents", TitleInset: 48}
-}
-func (g *editor) inspectorPanel() comp.Panel {
-	return comp.Panel{Bounds: comp.Box(g.w-268, g.contentBottom()-376, 244, 376), Title: "Item details", TitleInset: 96}
-}
 
 func (g *editor) toggleItemLink() {
 	if g.tab != tabDMG || !g.enabled() || g.selected == "" || !g.commit() {
@@ -41,12 +28,6 @@ func (g *editor) toggleItemLink() {
 	}
 }
 
-func (g *editor) inspectorArea() image.Rectangle {
-	area := g.inspectorPanel().Content()
-	area.Max.Y -= 40
-	return area
-}
-
 // Removing contents only changes the DMG layout; source files stay on disk.
 func (g *editor) removeSelected() {
 	if g.tab != tabDMG || !g.enabled() || g.selected == "" || !g.commit() {
@@ -63,53 +44,23 @@ func (g *editor) removeSelected() {
 	g.report(nil, "Removed from DMG. Source file unchanged. Undo restores the item.")
 }
 
-func (g *editor) fieldForm(index int) (*comp.Form, int) {
-	if index >= g.inspectorStart {
-		return &g.inspector, index - g.inspectorStart
-	}
-	return &g.form, index
-}
+// revealField moves ggui focus, and with it the scroll position, to a field.
 func (g *editor) revealField(index int) {
-	if g.desktop != nil {
-		if index >= 0 && index < len(g.fields) {
-			id := g.fieldIdentity(index)
-			g.desktop.focus = &id
-		}
-		return
+	if g.desktop != nil && index >= 0 && index < len(g.fields) {
+		id := g.fieldIdentity(index)
+		g.desktop.focus = &id
 	}
-	form, local := g.fieldForm(index)
-	form.Reveal(local)
-}
-
-const itemRowHeight = 44
-
-func (g *editor) itemListLimit() int {
-	return max(0, len(g.s.layout().Items)*itemRowHeight-g.itemsPanel().Content().Dy())
 }
 func (g *editor) revealItem() {
-	if g.desktop != nil {
-		for i, item := range g.s.layout().Items {
-			if item.Path == g.selected {
-				g.desktop.offset("items").Set(float64(i * 48))
-				break
-			}
-		}
+	if g.desktop == nil {
 		return
 	}
-	area := g.itemsPanel().Content()
 	for i, item := range g.s.layout().Items {
-		if item.Path != g.selected {
-			continue
-		}
-		top := i * itemRowHeight
-		if top < g.itemScroll {
-			g.itemScroll = top
-		}
-		if top+itemRowHeight > g.itemScroll+area.Dy() {
-			g.itemScroll = top + itemRowHeight - area.Dy()
+		if item.Path == g.selected {
+			g.desktop.offset("items").Set(float64(i * 48))
+			return
 		}
 	}
-	g.itemScroll = max(0, min(g.itemScroll, g.itemListLimit()))
 }
 
 // editSelectedContent materializes the contents map, applies f to the selected

@@ -75,7 +75,6 @@ func TestInvalidFieldRetainsDraft(t *testing.T) {
 		}
 		g.focus(i)
 		g.input.SetText("8")
-		g.input.SetCursor(1)
 		if g.commit() {
 			t.Fatal("accepted too-small icon")
 		}
@@ -83,7 +82,6 @@ func TestInvalidFieldRetainsDraft(t *testing.T) {
 			t.Fatal("invalid edit was lost or applied")
 		}
 		g.input.SetText("96")
-		g.input.SetCursor(2)
 		if !g.commit() || g.s.Project.DMG.IconSize != 96 {
 			t.Fatal("could not correct invalid draft")
 		}
@@ -158,6 +156,7 @@ func TestAdvancedChoice(t *testing.T) {
 
 func TestActualPreviewPanPreservesProjectAndCoordinates(t *testing.T) {
 	g := testEditor(t)
+	g.previewBounds = image.Rect(0, 0, 400, 300)
 	g.previewActual = true
 	g.pan = image.Pt(10000, -10000)
 	tr := g.transform()
@@ -176,7 +175,7 @@ func TestActualPreviewPanPreservesProjectAndCoordinates(t *testing.T) {
 	}
 	g.previewActual = false
 	fit := g.transform()
-	if !fit.bounds.In(g.previewArea()) {
+	if fit.bounds.Empty() || !fit.bounds.In(g.previewArea()) {
 		t.Fatal("fit mode must contain the canvas")
 	}
 }

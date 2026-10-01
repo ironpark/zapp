@@ -1,8 +1,11 @@
 package gui
 
 import (
+	"errors"
+	"image"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -58,45 +61,53 @@ func TestPickedPathThroughSymlinkDirectory(t *testing.T) {
 	}
 }
 
+func settingsLabels(g *editor) []string {
+	labels := []string{}
+	for _, f := range g.fields[:g.inspectorStart] {
+		labels = append(labels, f.Label)
+	}
+	return labels
+}
+
 func TestAddFilePickerPreservesSettingsAndSupportsUndo(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
+	g.previewBounds = image.Rect(0, 0, 600, 400)
 	g.rebuild()
-	g.form.ScrollTo(80)
-	beforeOffset := g.form.Offset()
-	beforeTitle := g.form.FieldBounds(0)
+	before := settingsLabels(g)
 	file := filepath.Join(filepath.Dir(g.s.Path), "Readme.txt")
 	if err := os.WriteFile(file, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	results := make(chan pickResult, 1)
-	results <- pickResult{index: addItemPicker}
-	g.picking = results
-	g.pollPicker()
-	if g.s.Project.DMG.Contents != nil || g.form.Offset() != beforeOffset {
+	g.picked(addItemPicker, "", nil)
+	if g.s.Project.DMG.Contents != nil || !slices.Equal(settingsLabels(g), before) {
 		t.Fatal("cancel changed layout")
 	}
-	results <- pickResult{index: addItemPicker, path: file}
-	g.picking = results
-	g.pollPicker()
+	g.picked(addItemPicker, file, nil)
 	if _, ok := g.s.Project.DMG.Contents["Readme.txt"]; !ok {
 		t.Fatal("picked file not added")
 	}
-	if g.form.Offset() != beforeOffset || g.form.FieldBounds(0) != beforeTitle {
-		t.Fatal("add shifted layout settings")
+	if !slices.Equal(settingsLabels(g), before) {
+		t.Fatal("add changed layout settings")
 	}
 	if g.selected != "Readme.txt" {
 		t.Fatal("new file not selected")
 	}
-	results <- pickResult{index: addItemPicker, path: file}
-	g.picking = results
-	g.pollPicker()
+	g.picked(addItemPicker, file, nil)
 	if g.failed {
 		t.Fatal("duplicate should be skipped")
 	}
 	g.s.Undo()
 	if g.s.Project.DMG.Contents != nil {
 		t.Fatal("addition did not undo as one change")
+	}
+}
+
+func TestPickerErrorIsReported(t *testing.T) {
+	g := testEditor(t)
+	g.picked(0, "", errors.New("dialog failed"))
+	if !g.failed || g.status != "dialog failed" || g.s.Project.App != "" {
+		t.Fatal("picker error not reported")
 	}
 }
 

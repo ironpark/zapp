@@ -92,7 +92,9 @@ func (g *editor) useIdentity(name string) {
 // check and removed again.
 func (g *editor) checkSigning() {
 	a := &g.signing
-	if a.result.Checking || !g.commit() || g.s.Project.Sign == nil {
+	// A check still running for settings that have since changed is stale
+	// and hidden, so it must not block a new one.
+	if a.result.Checking && a.checked == g.signCheckInputs() || !g.commit() || g.s.Project.Sign == nil {
 		return
 	}
 	inputs := g.signCheckInputs()
@@ -112,7 +114,11 @@ func (g *editor) checkSigning() {
 	creds := *plan.SignCredentials
 	go func() {
 		ok, message := describeSigning(ctx, creds, inputs.installer)
-		post(func() { a.result = signCheck{Shown: true, OK: ok, Message: message} })
+		post(func() {
+			if a.checked == inputs {
+				a.result = signCheck{Shown: true, OK: ok, Message: message}
+			}
+		})
 	}()
 }
 

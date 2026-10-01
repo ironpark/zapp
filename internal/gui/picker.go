@@ -1,12 +1,10 @@
 package gui
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"image"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -39,12 +37,6 @@ func pickerExtensions(mode pickMode) []string {
 	return nil
 }
 
-type pickResult struct {
-	index int
-	path  string
-	err   error
-}
-
 func pathField(label string, value *string, hint string, mode pickMode) field {
 	f := stringField(label, value, hint)
 	f.Browse = true
@@ -52,7 +44,7 @@ func pathField(label string, value *string, hint string, mode pickMode) field {
 	return f
 }
 func (g *editor) browse(index int) {
-	if g.picking != nil || index < 0 || index >= len(g.fields) || !g.fields[index].Browse {
+	if index < 0 || index >= len(g.fields) || !g.fields[index].Browse {
 		return
 	}
 	// Allow the picker to replace an invalid draft of this same field.
@@ -71,48 +63,38 @@ func (g *editor) browse(index int) {
 const addItemPicker = -1
 
 func (g *editor) addFile() {
-	if g.picking != nil || g.tab != tabDMG || !g.enabled() || !g.commit() {
+	if g.tab != tabDMG || !g.enabled() || !g.commit() {
 		return
 	}
 	g.startPicker(addItemPicker, pickFile, "Add file to DMG", pickerDirectory(g.s.Path, "", pickFile))
 }
 
+// startPicker runs the native dialog, which blocks the UI thread until it
+// closes, so no second picker or edit can start meanwhile.
 func (g *editor) startPicker(index int, mode pickMode, title, initial string) {
-	ctx := g.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	results := make(chan pickResult, 1)
-	g.picking = results
-	if g.desktop != nil && g.desktop.dialogs != nil {
-		dialog := guiruntime.FileDialog{Title: title, Directory: initial}
-		if extensions := pickerExtensions(mode); len(extensions) > 0 {
-			dialog.Filters = []guiruntime.FileFilter{{Name: title, Extensions: extensions}}
-		}
-		var path string
-		var err error
-		switch mode {
-		case pickFolder:
-			path, err = g.desktop.dialogs.PickFolder(dialog)
-		case pickSave:
-			path, err = g.desktop.dialogs.SaveFile(dialog)
-		default:
-			path, err = g.desktop.dialogs.OpenFile(dialog)
-		}
-		if errors.Is(err, guiruntime.ErrCanceled) {
-			path, err = "", nil
-		}
-		results <- pickResult{index, path, err}
-		g.pollPicker()
-		g.invalidate()
+	if g.desktop == nil || g.desktop.dialogs == nil {
+		g.report(fmt.Errorf("file picker is unavailable; enter a path directly"), "")
 		return
 	}
-	wake := g.wakeFunc()
-	go func() {
-		path, err := choosePath(ctx, mode, title, initial)
-		results <- pickResult{index, path, err}
-		wake()
-	}()
+	dialog := guiruntime.FileDialog{Title: title, Directory: initial}
+	if extensions := pickerExtensions(mode); len(extensions) > 0 {
+		dialog.Filters = []guiruntime.FileFilter{{Name: title, Extensions: extensions}}
+	}
+	var path string
+	var err error
+	switch mode {
+	case pickFolder:
+		path, err = g.desktop.dialogs.PickFolder(dialog)
+	case pickSave:
+		path, err = g.desktop.dialogs.SaveFile(dialog)
+	default:
+		path, err = g.desktop.dialogs.OpenFile(dialog)
+	}
+	if errors.Is(err, guiruntime.ErrCanceled) {
+		path, err = "", nil
+	}
+	g.picked(index, path, err)
+	g.invalidate()
 }
 
 // System pickers need a real absolute directory. Empty values and unresolved
@@ -144,40 +126,34 @@ func pickerDirectory(config, value string, mode pickMode) string {
 	}
 }
 
-func (g *editor) pollPicker() {
-	select {
-	case result := <-g.picking:
-		g.picking = nil
-		if result.err != nil {
-			g.report(result.err, "")
-			return
-		}
-		if result.path == "" {
-			return
-		}
-		if result.index == addItemPicker {
-			area := g.previewArea()
-			point := area.Min.Add(image.Pt(area.Dx()/2, area.Dy()/2))
-			path := g.assetPath(pickedPath(g.s.Path, result.path))
-			count, err := g.addDroppedPaths([]string{path}, point)
-			if err != nil {
-				g.report(err, "")
-				return
-			}
-			if count == 0 {
-				g.report(nil, "This file is already in the layout.")
-				return
-			}
-			g.revealItem()
-			g.report(nil, "Added file. Drag its icon to arrange, or edit Item details.")
-			return
-		}
-		path := pickedPath(g.s.Path, result.path)
-		g.focus(result.index)
-		g.input.SetText(path)
-		g.commit()
-	default:
+// picked applies a picker's result: a blank path is a cancellation.
+func (g *editor) picked(index int, path string, err error) {
+	if err != nil {
+		g.report(err, "")
+		return
 	}
+	if path == "" {
+		return
+	}
+	if index == addItemPicker {
+		area := g.previewArea()
+		point := area.Min.Add(image.Pt(area.Dx()/2, area.Dy()/2))
+		count, err := g.addDroppedPaths([]string{g.assetPath(pickedPath(g.s.Path, path))}, point)
+		if err != nil {
+			g.report(err, "")
+			return
+		}
+		if count == 0 {
+			g.report(nil, "This file is already in the layout.")
+			return
+		}
+		g.revealItem()
+		g.report(nil, "Added file. Drag its icon to arrange, or edit Item details.")
+		return
+	}
+	g.focus(index)
+	g.input.SetText(pickedPath(g.s.Path, path))
+	g.commit()
 }
 
 // macOS panels canonicalize directories such as /tmp to /private/tmp.
@@ -194,25 +170,4 @@ func pickedPath(config, selected string) string {
 		return relative
 	}
 	return selected
-}
-
-// runPicker runs a helper process that prints the chosen path. cancelCode is
-// the exit status the helper uses for a dismissed dialog, or -1 when it has no
-// such convention. Arguments and environment carry user values; no path is
-// interpolated into code.
-func runPicker(cmd *exec.Cmd, cancelCode int) (string, error) {
-	output, err := cmd.Output()
-	if err != nil {
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			if exit.ExitCode() == cancelCode {
-				return "", nil
-			}
-			if detail := strings.TrimSpace(string(exit.Stderr)); detail != "" {
-				return "", fmt.Errorf("could not open file picker: %s", detail)
-			}
-		}
-		return "", fmt.Errorf("could not open file picker: %w; enter a path directly", err)
-	}
-	return strings.TrimRight(string(output), "\r\n"), nil
 }

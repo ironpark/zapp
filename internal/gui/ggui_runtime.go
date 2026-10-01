@@ -32,7 +32,7 @@ func (g *editor) runWidgets() error {
 	app.Setup(func() { uitheme.Bind(m.Dark, editorTheme(true), editorTheme(false)) })
 	ready := func(fn func()) func() {
 		return g.action(func() {
-			if g.build == nil && !g.confirmClose && g.picking == nil {
+			if g.build == nil && !g.confirmClose {
 				fn()
 			}
 		})
@@ -70,15 +70,15 @@ func (g *editor) runWidgets() error {
 			app.Close()
 			return
 		}
-		g.pollAppIcons()
 		g.pollBuild()
 		g.pollPosted()
-		if g.picking != nil {
-			g.pollPicker()
-		}
 		m.sync()
 	}
 	g.wake = func() { app.Post(pump) }
+	// Build the fields only now: rebuild starts goroutines (app icons, keychain
+	// identities) that capture g.wake, and a no-op wake would leave their
+	// results waiting for unrelated work. Posts made before app.Run are queued.
+	g.rebuild()
 	app.OnCloseRequest(m.allowClose)
 	stopWake := context.AfterFunc(g.ctx, g.wake)
 	defer stopWake()

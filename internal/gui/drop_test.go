@@ -10,6 +10,7 @@ import (
 func TestDropBatchCoordinatesDuplicatesAndUndo(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
+	g.previewBounds = image.Rect(0, 0, 800, 600)
 	g.rebuild()
 	dir := filepath.Dir(g.s.Path)
 	file := filepath.Join(dir, "Readme.txt")
@@ -44,13 +45,14 @@ func TestDropBatchCoordinatesDuplicatesAndUndo(t *testing.T) {
 	if g.s.Project.DMG.Contents != nil {
 		t.Fatal("one undo did not restore automatic layout")
 	}
-	if n, err := g.addDroppedPaths([]string{file}, image.Pt(0, 0)); n != 0 || err != nil {
+	if n, err := g.addDroppedPaths([]string{file}, image.Pt(900, 700)); n != 0 || err != nil {
 		t.Fatal("drop outside preview accepted")
 	}
 }
 func TestDropRejectsInvalidBatchWithoutPartialChanges(t *testing.T) {
 	g := testEditor(t)
 	g.tab = tabDMG
+	g.previewBounds = image.Rect(0, 0, 800, 600)
 	g.rebuild()
 	dir := t.TempDir()
 	first := filepath.Join(dir, "a", "same.txt")
