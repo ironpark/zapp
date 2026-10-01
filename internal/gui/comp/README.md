@@ -11,7 +11,6 @@ and `../ggui_designer.go` for the presentation layer.
 | `Input` | The draft text of the focused field, separate from its committed `Spec.Value` |
 | `Painter` | The DMG preview's font: text drawing, measurement and `Fit` truncation |
 | `Box` / `Rect` / `Border` / `RoundedRect` | Shape painting for the DMG preview |
-| `IconFiles` / `Icon` | Embedded SVG sources for icons ggui draws (`IconUndo`, `IconRedo`) |
 
 `NewInput(spec)` starts a draft; `SetText`, `StepNumber` and `Clone` change or
 copy it without touching `spec.Value`, and `Dirty` reports whether it differs.

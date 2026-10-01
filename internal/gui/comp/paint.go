@@ -1,5 +1,5 @@
-// Package comp holds the editor's input drafts, text and shape painting for the
-// DMG preview, and embedded icons. It has no project, filesystem-layout or
+// Package comp holds the editor's input drafts and the text and shape painting
+// for the DMG preview. It has no project, filesystem-layout or
 // packaging knowledge; applications own value validation and decide when to
 // apply a draft.
 package comp

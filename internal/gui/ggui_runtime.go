@@ -37,10 +37,7 @@ func (g *editor) runWidgets() error {
 			}
 		})
 	}
-	// "cmd" is ggui's platform command modifier: Meta on macOS, Ctrl elsewhere.
-	app.Shortcut("cmd+s", ready(func() { g.save() }))
-	app.Shortcut("cmd+b", ready(g.startBuild))
-	app.Shortcut("cmd+shift+v", ready(g.validate))
+	// Save, Build and Validate are their toolbar buttons' shortcuts.
 	app.OnDrop(func(e ggui.DropEvent) { ready(func() { g.dropFiles(e.Paths()) })() })
 	app.OnKey(func(e ggui.KeyEvent) bool {
 		if e.Kind == ggui.KeyPress && e.Mods.Cmd() && e.Key == ggui.KeyZ && g.active < 0 {
@@ -49,10 +46,9 @@ func (g *editor) runWidgets() error {
 		}
 		return false
 	})
+	// "cmd" is ggui's platform command modifier: Meta on macOS, Ctrl elsewhere.
 	for i := range sections {
-		// ggui names number keys after their Ebitengine key name, so the chord
-		// for the "1" key is "digit1"; a bare "1" is not a key it knows.
-		app.Shortcut(fmt.Sprintf("cmd+digit%d", i+1), ready(func() { m.selectTab(i) }))
+		app.Shortcut(fmt.Sprintf("cmd+%d", i+1), ready(func() { m.selectTab(i) }))
 	}
 	var runErr error
 	// pump applies whatever background work has finished and acts on quit or

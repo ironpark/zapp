@@ -6,8 +6,8 @@ require (
 	github.com/ebitengine/purego v0.11.1
 	github.com/fatih/color v1.19.0
 	github.com/goccy/go-yaml v1.19.2
-	github.com/ironpark/ggfx v0.0.0-20260930135744-495b0e17ceab
-	github.com/ironpark/ggui v0.0.0-20260930195403-867ec14a6178
+	github.com/ironpark/ggfx v0.0.0-20261001022904-86e443928a9e
+	github.com/ironpark/ggui v0.0.0-20261001031656-8cebaa6f1a50
 	github.com/urfave/cli/v3 v3.13.0
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0

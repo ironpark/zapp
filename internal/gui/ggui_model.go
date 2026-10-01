@@ -3,7 +3,6 @@ package gui
 import (
 	"cmp"
 	"fmt"
-	"math"
 	"reflect"
 	"slices"
 
@@ -35,12 +34,9 @@ type desktopModel struct {
 	DropHover                                   *ggui.StateValue[bool]
 	cache                                       map[fieldIdentity]*desktopField
 	scroll                                      map[string]*ggui.StateValue[float64]
-	// The build log follows new lines until the user scrolls up, and again
-	// once they scroll back to the bottom. logBottom is the last offset the
-	// log was clamped to after following.
-	logFollow bool
-	logBottom float64
-	focus     *fieldIdentity
+	// focus holds each field's FocusRef by identity, so a field can be
+	// focused before sync builds it, as revealField does after a tab switch.
+	focus map[fieldIdentity]*ggui.FocusRef
 }
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
@@ -73,6 +69,7 @@ type desktopField struct {
 	ID           fieldIdentity
 	Spec         comp.InputSpec
 	Value, Error *ggui.StateValue[string]
+	focus        *ggui.FocusRef // focuses the field's input
 }
 
 func (g *editor) fieldIdentity(i int) fieldIdentity {
@@ -111,7 +108,6 @@ func newDesktopModel(g *editor) *desktopModel {
 	m := &desktopModel{
 		editor:          g,
 		revealComponent: -1,
-		logFollow:       true,
 		Assets:          ggui.State(0),
 		Workspace:       ggui.State(workspaceState{}),
 		Fields:          ggui.State([]*desktopField{}).WithEqual(slices.Equal),
@@ -137,6 +133,7 @@ func newDesktopModel(g *editor) *desktopModel {
 		DropHover:       ggui.State(false),
 		cache:           map[fieldIdentity]*desktopField{},
 		scroll:          map[string]*ggui.StateValue[float64]{},
+		focus:           map[fieldIdentity]*ggui.FocusRef{},
 	}
 	g.desktop = m
 	m.sync()
@@ -217,7 +214,7 @@ func (m *desktopModel) sync() {
 		spec.Error = ""
 		current := m.cache[id]
 		if current == nil || !reflect.DeepEqual(current.Spec, spec) {
-			current = &desktopField{ID: id, Spec: spec, Value: ggui.State(f.Value), Error: ggui.State(f.Error)}
+			current = &desktopField{ID: id, Spec: spec, Value: ggui.State(f.Value), Error: ggui.State(f.Error), focus: m.fieldFocus(id)}
 		}
 		value := f.Value
 		if g.active == i {
@@ -233,6 +230,11 @@ func (m *desktopModel) sync() {
 		}
 	}
 	m.cache = next
+	for id := range m.focus {
+		if next[id] == nil {
+			delete(m.focus, id)
+		}
+	}
 	m.Fields.Set(fields)
 	m.Inspector.Set(inspector)
 	components := []componentRow{}
@@ -259,13 +261,16 @@ func (m *desktopModel) sync() {
 		if j.finished && j.err == nil {
 			modal.Reveal = cmp.Or(j.artifacts.DMG, j.artifacts.PKG, j.artifacts.App)
 		}
-		if modal.Log != m.Modal.Get().Log && m.logFollow {
-			m.offset("build-log").Set(math.MaxFloat64)
-		}
-	} else {
-		m.logFollow = true
 	}
 	m.Modal.Set(modal)
+}
+
+// fieldFocus is the FocusRef of the field with identity id.
+func (m *desktopModel) fieldFocus(id fieldIdentity) *ggui.FocusRef {
+	if m.focus[id] == nil {
+		m.focus[id] = &ggui.FocusRef{}
+	}
+	return m.focus[id]
 }
 func (m *desktopModel) offset(key string) *ggui.StateValue[float64] {
 	if m.scroll[key] == nil {
@@ -274,20 +279,6 @@ func (m *desktopModel) offset(key string) *ggui.StateValue[float64] {
 	return m.scroll[key]
 }
 
-// logOffset binds the build log's scroll position. Scroll clamps the
-// MaxFloat64 that follows new lines to the real bottom; any other change is
-// the user scrolling, which stops following unless it reaches that bottom.
-func (m *desktopModel) logOffset() ggui.Binding[float64] {
-	offset := m.offset("build-log")
-	return ggui.Bind(offset.Get, func(v float64) {
-		if ggui.Untrack(offset.Get) == math.MaxFloat64 {
-			m.logBottom = v
-		} else {
-			m.logFollow = v >= m.logBottom
-		}
-		offset.Set(v)
-	})
-}
 func (m *desktopModel) fieldBinding(f *desktopField) ggui.Binding[string] {
 	return ggui.Bind(f.Value.Get, func(value string) {
 		g := m.editor
@@ -311,8 +302,7 @@ func (m *desktopModel) commitField(f *desktopField) {
 	g := m.editor
 	if g.matchesField(f.ID) && g.active == f.ID.index {
 		if !g.commit() {
-			id := f.ID
-			m.focus = &id
+			f.focus.Focus()
 		}
 	}
 	m.sync()

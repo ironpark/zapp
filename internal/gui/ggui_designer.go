@@ -42,21 +42,21 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 		})
 	}).Gap(3).Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
 	list := surface(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
-	details := ggui.View(m.Workspace, func(state workspaceState) ggui.Widget {
-		if state.Selected == "" {
+	details := ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
+		if selected == "" {
 			return surface(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))
 		}
 		// Read Link from m.Items when the switch paints: toggling it does not
 		// change m.Workspace, so this View would not rebuild with a new value.
 		link := func() bool {
 			for _, item := range m.Items.Get() {
-				if item.Path == state.Selected {
+				if item.Path == selected {
 					return item.Link
 				}
 			}
 			return false
 		}
-		return surface(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+state.Selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
+		return surface(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
 	})
 	side := ggui.Box(ui.Resizable(m.InspectorSplit, list, details).Vertical().MinSizes(130, 220)).Width(248)
 	right := ggui.Row(ggui.Expanded(preview), side).Gap(12).Align(ggui.AlignStretch)
@@ -69,9 +69,11 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 type designerCanvas struct {
 	model *desktopModel
 	rect  ggui.Rect
+	theme uitheme.Theme // from Layout, for Paint
 }
 
-func (c *designerCanvas) Layout(l ggui.Constraints, _ ggui.Env) ggui.Size {
+func (c *designerCanvas) Layout(l ggui.Constraints, env ggui.Env) ggui.Size {
+	c.theme = uitheme.From(env)
 	return l.Constrain(ggui.Sz(l.MaxW, l.MaxH))
 }
 func (c *designerCanvas) HitID() any                     { return "dmg-canvas" }
@@ -83,7 +85,7 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	dst.HitPointer(r, c)
 	dst.HitKey(r, c)
 	dst.Describe(r, c)
-	dst.FillRect(r, uitheme.From(ggui.Untrack(ggui.UseEnv)).Bg)
+	dst.FillRect(r, c.theme.Bg)
 	if dst.Image == nil || g.ui == nil {
 		return
 	}
@@ -100,7 +102,7 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	op.Filter = ggfx.FilterLinear
 	dst.Clip(r).Image.DrawImage(g.previewSurface, op)
 	if c.model.DropHover.Get() {
-		dst.StrokeRoundRect(r, 0, 2, uitheme.From(ggui.Untrack(ggui.UseEnv)).Primary)
+		dst.StrokeRoundRect(r, 0, 2, c.theme.Primary)
 	}
 }
 

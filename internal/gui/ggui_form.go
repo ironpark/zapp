@@ -91,13 +91,7 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 			}
 			return false
 		})
-		control = ggui.FromFuncs(input.Layout, func(c *ggui.Canvas, r ggui.Rect) {
-			c.Paint(input, r)
-			if m.focus != nil && *m.focus == f.ID {
-				c.RequestFocus(input.Input())
-				m.focus = nil
-			}
-		})
+		control = f.focus.Attach(input)
 	}
 	if spec.Number != nil {
 		control = ggui.Row(ggui.Expanded(control), ggui.Column(iconButton("chevron-up", spec.Label+" +", func() { m.stepField(f, 1, false, true) }), iconButton("chevron-down", spec.Label+" −", func() { m.stepField(f, -1, false, true) }))).Gap(6)

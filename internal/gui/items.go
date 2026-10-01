@@ -47,8 +47,7 @@ func (g *editor) removeSelected() {
 // revealField moves ggui focus, and with it the scroll position, to a field.
 func (g *editor) revealField(index int) {
 	if g.desktop != nil && index >= 0 && index < len(g.fields) {
-		id := g.fieldIdentity(index)
-		g.desktop.focus = &id
+		g.desktop.fieldFocus(g.fieldIdentity(index)).Focus()
 	}
 }
 func (g *editor) revealItem() {

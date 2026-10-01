@@ -6,14 +6,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	"github.com/ironpark/ggui/ui/icons"
 	"github.com/ironpark/ggui/ui/icons/lucide"
 	uitheme "github.com/ironpark/ggui/ui/theme"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 func desktopView(m *desktopModel) ggui.Widget {
@@ -24,11 +22,15 @@ func desktopView(m *desktopModel) ggui.Widget {
 			ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9),
 			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap()).Gap(3)),
 			ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
-			ui.Tooltip(ghostIcon(icons.New(undoIcon()), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo · "+shortcut("cmd+z")),
-			ui.Tooltip(ghostIcon(icons.New(redoIcon()), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo · "+shortcut("cmd+shift+z")),
+			// Undo and Redo leave their keys to a focused text field, which has
+			// its own history, so the runtime's OnKey handles them, not Shortcut.
+			ui.Tooltip(ghostIcon(lucide.Icon("undo-2"), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo").Shortcut("cmd+z"),
+			ui.Tooltip(ghostIcon(lucide.Icon("redo-2"), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo").Shortcut("cmd+shift+z"),
 			healthBadge(m),
-			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Outline().BindDisabled(m.Busy), "Save · "+shortcut("cmd+s")),
-			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).BindDisabled(m.Busy), "Build · "+shortcut("cmd+b")),
+			// A button's shortcut works while it is enabled and no dialog is
+			// open over it, which is when the button itself would.
+			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Shortcut("cmd+s").Outline().BindDisabled(m.Busy), "Save"),
+			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).Shortcut("cmd+b").BindDisabled(m.Busy), "Build"),
 			ggui.View(m.Dark, func(dark bool) ggui.Widget {
 				icon, label := "sun", "Light appearance"
 				if !dark {
@@ -44,16 +46,13 @@ func desktopView(m *desktopModel) ggui.Widget {
 			}
 			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap(), v.message)), ggui.If(m.Workspace.Map(func(v workspaceState) bool { return v.IssueTab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
 		})
-		page := ggui.View(m.Workspace, func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
-		body := ggui.Column(toolbar, ui.Divider(), stepTabs(m), ui.Divider(), ggui.Expanded(page), ui.Divider(), footer).Align(ggui.AlignStretch)
+		// Selecting a DMG item rebuilds only the item details, which follow
+		// Selected themselves, not the whole workspace.
+		page := ggui.ViewOf(m.Workspace, func(v workspaceState) workspaceState { v.Selected = ""; return v }, func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
+		body := ggui.Column(toolbar, ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), footer).Align(ggui.AlignStretch)
 		return ggui.Column(ggui.Expanded(body), closeDialogView(m), ggui.View(m.Modal, func(v modalState) ggui.Widget { return buildDialogView(m, v) })).Align(ggui.AlignStretch)
 	})
 }
-
-// shortcut spells a command chord the way the platform's menus do.
-// shortcut labels a chord the way the platform writes it, e.g. ⇧⌘Z on macOS
-// and Ctrl+Shift+Z elsewhere.
-func shortcut(chord string) string { return ggui.MustChord(chord).Label() }
 
 // readyColor marks a project that passes its checks. The theme has no
 // success color of its own, so one is picked to suit its background.
@@ -72,12 +71,12 @@ func healthBadge(m *desktopModel) ggui.Widget {
 	return ggui.View(m.Health.Map(func(h projectHealth) int { return h.Count }), func(count int) ggui.Widget {
 		t := uitheme.Use()
 		icon, col := statusIcon(t, count == 0)
-		label, tip := "Ready", "Build inputs look complete · Validate "+shortcut("cmd+shift+v")
+		label, tip := "Ready", "Build inputs look complete"
 		if count > 0 {
-			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue · "+shortcut("cmd+shift+v")
+			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue"
 		}
 		content := ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Text(label).Color(col)).Gap(6).Align(ggui.AlignCenter)
-		return ui.Tooltip(ui.ButtonOf(content, g.action(g.validate)).Name("Validate").Ghost().BindDisabled(m.Busy), tip)
+		return ui.Tooltip(ui.ButtonOf(content, g.action(g.validate)).Name("Validate").Shortcut("cmd+shift+v").Ghost().BindDisabled(m.Busy), tip)
 	})
 }
 
@@ -96,51 +95,38 @@ func plural(n int) string {
 	return "s"
 }
 
-// stepTabs is the tab strip. Unlike a plain tab bar it shows each step's
-// state: a disabled step is dimmed and a step with a problem carries a dot,
-// whose tooltip names the problem.
+// stepTabs is the tab strip. Each tab shows its step's state: a disabled
+// step is dimmed and a step with a problem carries a dot, and its tooltip
+// names the problem. The pages are below it, in the workspace, so the
+// tabs' own are empty.
 func stepTabs(m *desktopModel) ggui.Widget {
+	selected := ggui.Bind(m.Tab.Get, m.selectTab)
 	return ggui.Reactive(func() ggui.Widget {
 		t := uitheme.Use()
-		current, health, enabled := m.Tab.Get(), m.Health.Get(), m.Enabled.Get()
-		tabs := []ggui.Widget{}
+		health, enabled := m.Health.Get(), m.Enabled.Get()
+		pages := []ui.TabPage{}
 		for i, s := range sections {
-			col := t.MutedFg
-			if i == current {
-				col = t.Fg
-			}
-			if !enabled[i] {
-				col = fade(t.MutedFg, .55)
-			}
-			label := []ggui.Widget{ggui.Text(s.Name).Color(col).NoWrap()}
-			if health.Issues[i] != "" {
-				label = append(label, ggui.Box().Size(6, 6).Radius(3).Fill(t.Destructive))
-			}
-			var tab ggui.Widget = ui.ButtonOf(ggui.Row(label...).Gap(6).Align(ggui.AlignCenter), func() { m.selectTab(i) }).Name(s.Name).Ghost().Pad(7, 10)
-			if i == current {
-				tab = underline(tab, t.Primary)
+			page := ui.Tab(s.Name, ggui.Box())
+			if issue := health.Issues[i]; issue != "" || !enabled[i] {
+				label := ggui.Text(s.Name).NoWrap()
+				if !enabled[i] {
+					label.Color(fade(t.MutedFg, .55))
+				}
+				head := []ggui.Widget{label}
+				if issue != "" {
+					head = append(head, ggui.Box().Size(6, 6).Radius(3).Fill(t.Destructive))
+				}
+				page = page.Header(ggui.Row(head...).Gap(6).Align(ggui.AlignCenter))
 			}
 			switch {
 			case health.Issues[i] != "":
-				tab = ui.Tooltip(tab, health.Issues[i])
+				page = page.Tooltip(health.Issues[i])
 			case !enabled[i]:
-				tab = ui.Tooltip(tab, s.Name+" is off")
+				page = page.Tooltip(s.Name + " is off")
 			}
-			tabs = append(tabs, tab)
+			pages = append(pages, page)
 		}
-		return ggui.Padding(ggui.Row(tabs...).Gap(2), 0, 6)
-	})
-}
-
-// underline draws a 2 px bar of col beneath child, the width of child.
-func underline(child ggui.Widget, col color.Color) ggui.Widget {
-	const thickness = 2
-	return ggui.FromFuncs(func(c ggui.Constraints, env ggui.Env) ggui.Size {
-		size := child.Layout(c, env)
-		return ggui.Sz(size.W, size.H+thickness)
-	}, func(dst *ggui.Canvas, r ggui.Rect) {
-		dst.Paint(child, ggui.Rct(r.Origin, ggui.Sz(r.Size.W, r.Size.H-thickness)))
-		dst.FillRoundRect(ggui.Rct(ggui.Pt(r.Origin.X, r.Origin.Y+r.Size.H-thickness), ggui.Sz(r.Size.W, thickness)), 0, col)
+		return ui.Tabs(selected, pages...).Line()
 	})
 }
 
@@ -252,7 +238,7 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 		content = ggui.Column(content, identitySuggestions(m, v)).Gap(20).Align(ggui.AlignStretch)
 	}
 	if v.Tab != tabDMG && !v.Raw {
-		content = maxWidth(content, formMaxWidth)
+		content = ggui.Box(content).MaxWidth(formMaxWidth)
 	}
 	key := fmt.Sprintf("form:%d:%v:%d", v.Tab, v.Raw, v.Component)
 	children = append(children, ggui.Expanded(ggui.Scroll(ggui.Padding(content, 0, scrollGutter, 0, 0)).Key(key).BindOffset(m.offset(key))))
@@ -269,21 +255,6 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 // formMaxWidth keeps single forms readable in a wide window: labels, inputs
 // and their Browse buttons stay within one glance.
 const formMaxWidth = 760
-
-// maxWidth lays child out no wider than w, aligned to the start.
-func maxWidth(child ggui.Widget, w float64) ggui.Widget {
-	var width float64
-	return ggui.FromFuncs(func(c ggui.Constraints, env ggui.Env) ggui.Size {
-		inner := c
-		inner.MaxW = min(c.MaxW, w)
-		inner.MinW = min(c.MinW, inner.MaxW)
-		size := child.Layout(inner, env)
-		width = size.W
-		return c.Constrain(size)
-	}, func(dst *ggui.Canvas, r ggui.Rect) {
-		dst.Paint(child, ggui.Rct(r.Origin, ggui.Sz(min(r.Size.W, width), r.Size.H)))
-	})
-}
 
 // checkResult shows what the Signing tab's Check found.
 func checkResult(v workspaceState) ggui.Widget {
@@ -456,7 +427,9 @@ func buildDialogView(m *desktopModel, v modalState) ggui.Widget {
 	body := []ggui.Widget{ggui.Text(v.Message)}
 	if v.Log != "" {
 		t := uitheme.Use()
-		log := ggui.Scroll(ggui.Padding(ggui.Text(v.Log).Style(ggui.TextStyle{Font: codeFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.logOffset())
+		// The log follows new lines until the user scrolls up, and again once
+		// they scroll back to the end.
+		log := ggui.Scroll(ggui.Padding(ggui.Text(v.Log).Style(ggui.TextStyle{Font: codeFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
 		body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
 		actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(v.Log) }).Ghost(), ggui.Spacer())
 	}
@@ -493,19 +466,6 @@ func removeLibrary(g *editor, i int) {
 // scrollGutter keeps scrolled content clear of the overlay scrollbar drawn
 // along the right edge.
 const scrollGutter = 12
-
-var (
-	undoIcon = sync.OnceValue(func() *icons.SVG { return compIcon(comp.IconUndo) })
-	redoIcon = sync.OnceValue(func() *icons.SVG { return compIcon(comp.IconRedo) })
-)
-
-func compIcon(name comp.Icon) *icons.SVG {
-	icon, err := icons.Load(comp.IconFiles(), name.File())
-	if err != nil {
-		panic(err)
-	}
-	return icon
-}
 
 // Keep icon creation close to its named control so accessibility has a textual
 // action even when the visual label is only an icon.
