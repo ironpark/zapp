@@ -10,7 +10,7 @@ import (
 func (g *editor) addComponent() {
 	c := g.s.Project.PKG
 	if c.Type == "component" && len(c.Components) > 0 {
-		g.showFieldError(tabPKG, "Package type", fmt.Errorf("choose product to include multiple components"))
+		g.showIssue(at(tabPKG, labelPackageType), fmt.Errorf("choose product to include multiple components"))
 		return
 	}
 	id := ""

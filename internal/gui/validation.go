@@ -10,9 +10,52 @@ import (
 	"strings"
 )
 
+// issueLocation is where a problem is fixed: a tab, the field on it when
+// known, and the PKG component (or -1) and the DMG item (or "") the field
+// belongs to.
+type issueLocation struct {
+	tab       int
+	label     string
+	component int
+	item      string
+}
+
+// at is the field labelled label on tab, of no component or item.
+func at(tab int, label string) issueLocation {
+	return issueLocation{tab: tab, label: label, component: -1}
+}
+
+// describe names the field for a summary, with the component it is in.
+func (l issueLocation) describe() string {
+	if l.component >= 0 {
+		return fmt.Sprintf("Component %d %s", l.component+1, strings.ToLower(l.label))
+	}
+	return l.label
+}
+
+// fieldLocation is where field i of the page is.
+func (g *editor) fieldLocation(i int) issueLocation {
+	loc := at(g.tab, g.fields[i].Label)
+	if g.tab == tabPKG && g.componentListVisible() {
+		loc.component = g.componentIndex
+	}
+	if i >= g.inspectorStart {
+		loc.item = g.selected
+	}
+	return loc
+}
+
+// fieldIndex is the index of the page's field labelled label, or -1.
+func (g *editor) fieldIndex(label string) int {
+	if label == "" {
+		return -1
+	}
+	return slices.IndexFunc(g.fields, func(f field) bool { return f.Label == label })
+}
+
 func (g *editor) fieldError(err error) {
 	if g.active >= 0 && g.active < len(g.fields) {
-		g.issue = &validationIssue{tab: g.tab, label: g.fields[g.active].Label, message: err.Error(), component: g.componentIndex, item: g.selected}
+		g.issue = &validationIssue{g.fieldLocation(g.active), err.Error()}
 		g.fields[g.active].Error = err.Error()
 		g.revealField(g.active)
 	}
@@ -25,65 +68,47 @@ func (g *editor) clearFieldError() {
 	}
 }
 
-func (g *editor) showFieldError(tab int, label string, err error) {
-	g.tab = tab
-	if tab == tabDep {
-		g.depRaw = false
+// showIssue moves the user to where err is fixed: its tab, opened so that
+// the field shows, and the field, which shows err.
+func (g *editor) showIssue(loc issueLocation, err error) {
+	g.tab = loc.tab
+	if loc.component >= 0 {
+		g.componentIndex, g.pkgRaw = loc.component, false
 	}
-	if tab == tabPKG {
+	switch loc.tab {
+	case tabDMG:
+		g.dmgYAML = false
+	case tabPKG:
 		g.pkgAdvanced = true
-		var index int
-		var kind string
-		if _, e := fmt.Sscanf(label, "Component %d %s", &index, &kind); e == nil {
-			g.componentIndex = index - 1
-			g.pkgRaw = false
-			if kind == "root" {
-				label = "Root directory"
-			} else if kind == "scripts" {
-				label = "Scripts directory"
-			}
-		}
-		if label == "Components" {
+		if loc.label == labelComponents {
 			g.pkgRaw = true
 		}
-	}
-	if tab == tabSign {
-		switch label {
-		case "Signing identity":
-			g.signMode = signKeychain
-		case "PKCS#12 certificate", "Password file":
-			g.signMode = signP12
-		case "PEM certificate":
-			g.signMode = signPEM
+	case tabDep:
+		g.depRaw = false
+	case tabSign:
+		if method, ok := methodOwning(signMethodFields, loc.label); ok {
+			g.signMode = method
 		}
 		g.signModeSet = true
-	}
-	if tab == tabNotarize {
-		switch label {
-		case "Keychain profile":
-			g.notaryMode = notaryProfile
-		case "Apple ID", "Team ID", "App-specific password":
-			g.notaryMode = notaryAppleID
-		case "API key file":
-			g.notaryMode = notaryAPIKey
+	case tabNotarize:
+		if method, ok := methodOwning(notaryMethodFields, loc.label); ok {
+			g.notaryMode = method
 		}
 		g.notaryModeSet = true
 	}
-	g.issue = &validationIssue{tab: tab, label: label, message: err.Error(), component: g.componentIndex, item: g.selected}
-	if tab == tabDMG {
-		g.dmgYAML = false
-	}
-	if tab != tabDMG || (label != "Name" && label != "X" && label != "Y" && label != "Item icon") {
+	switch {
+	case loc.item != "":
+		g.selected = loc.item
+	case loc.tab != tabDMG || !isItemField(loc.label):
 		g.selected = ""
 	}
 	g.dmgAdvanced = true
+	g.issue = &validationIssue{loc, err.Error()}
 	g.rebuild()
-	for i, f := range g.fields {
-		if f.Label == label {
-			g.focus(i)
-			g.fieldError(err)
-			return
-		}
+	if i := g.fieldIndex(loc.label); i >= 0 {
+		g.focus(i)
+		g.fieldError(err)
+		return
 	}
 	g.report(err, "")
 }
@@ -100,42 +125,56 @@ func (g *editor) withFormView(build func() []field) []field {
 	return build()
 }
 
-// pathFields returns the fields a section declares for validation. The DMG tab
-// substitutes the whole form for a YAML editor field when dmgYAML is set, so
-// validation always asks for the underlying form fields instead.
-func (g *editor) pathFields(tab int, section section) []field {
+// checkedField is a field validation checks, with the PKG component it
+// belongs to, or -1.
+type checkedField struct {
+	field
+	component int
+}
+
+// pathFields returns the fields a section declares for validation, as if
+// every collapsed or raw view were expanded: the DMG tab's YAML editor
+// stands for the form fields validation asks for instead.
+func (g *editor) pathFields(tab int, section section) []checkedField {
+	of := func(fields []field) []checkedField {
+		out := make([]checkedField, len(fields))
+		for i, f := range fields {
+			out[i] = checkedField{f, -1}
+		}
+		return out
+	}
 	switch tab {
 	case tabDMG:
-		return g.withFormView(g.dmgFormFields)
+		return of(g.withFormView(g.dmgFormFields))
 	case tabSign:
-		return g.signAllFields()
+		return of(g.signAllFields())
 	case tabNotarize:
-		return g.notaryAllFields()
+		return of(g.notaryAllFields())
 	case tabDep:
-		return g.withFormView(g.depFields)
+		return of(g.withFormView(g.depFields))
 	case tabDistribution:
-		return g.archiveFields()
+		return of(g.archiveFields())
 	case tabPKG:
 		c := g.s.Project.PKG
 		if !c.HasFullForm() {
-			return g.withFormView(g.pkgFields)
+			return of(g.withFormView(g.pkgFields))
 		}
-		var fields []field
+		var fields []checkedField
 		for i := range c.Components {
 			item := &c.Components[i]
-			fields = append(fields, pathField(fmt.Sprintf("Component %d root", i+1), &item.Root, "", pickFolder), pathField(fmt.Sprintf("Component %d scripts", i+1), &item.Scripts, "", pickFolder))
+			fields = append(fields,
+				checkedField{pathField(labelRootDirectory, &item.Root, "", pickFolder), i},
+				checkedField{pathField(labelScriptsDirectory, &item.Scripts, "", pickFolder), i})
 		}
 		return fields
 	}
-	return section.fields(g)
+	return of(section.fields(g))
 }
 
-// pathProblem is a path setting that points at nothing usable. item names the
-// DMG content whose custom icon is missing; otherwise label names the field.
+// pathProblem is a path setting that points at nothing usable.
 type pathProblem struct {
-	tab         int
-	label, item string
-	err         error
+	issueLocation
+	err error
 }
 
 // pathProblems lists, without moving the user, every enabled path setting
@@ -149,7 +188,9 @@ func (g *editor) pathProblems(first bool) []pathProblem {
 				continue
 			}
 			if _, err := os.Stat(g.assetPath(item.Icon)); err != nil {
-				problems = append(problems, pathProblem{tab: tabDMG, label: "Item icon", item: path, err: err})
+				loc := at(tabDMG, labelItemIcon)
+				loc.item = path
+				problems = append(problems, pathProblem{loc, err})
 				if first {
 					return problems
 				}
@@ -161,8 +202,10 @@ func (g *editor) pathProblems(first bool) []pathProblem {
 			continue
 		}
 		for _, f := range g.pathFields(tab, section) {
-			if err := g.checkPath(f); err != nil {
-				problems = append(problems, pathProblem{tab: tab, label: f.Label, err: err})
+			if err := g.checkPath(f.field); err != nil {
+				loc := at(tab, f.Label)
+				loc.component = f.component
+				problems = append(problems, pathProblem{loc, err})
 				if first {
 					return problems
 				}
@@ -210,37 +253,14 @@ func (g *editor) validatePaths() bool {
 	if len(problems) == 0 {
 		return true
 	}
-	p := problems[0]
-	if p.item == "" {
-		g.showFieldError(p.tab, p.label, p.err)
-		return false
-	}
-	g.tab = tabDMG
-	g.selected = p.item
-	g.rebuild()
-	if len(g.fields)-g.inspectorStart > itemIconFieldIndex {
-		g.focus(g.inspectorStart + itemIconFieldIndex)
-		g.fieldError(p.err)
-	} else {
-		g.report(p.err, "")
-	}
+	g.showIssue(problems[0].issueLocation, problems[0].err)
 	return false
-}
-
-// issueLocation is where a Resolve error is fixed: a tab, the field on it
-// when known, and the PKG component to open, or -1.
-type issueLocation struct {
-	tab       int
-	label     string
-	component int
 }
 
 // locateIssue finds, without moving the user, where err is fixed. It reports
 // false for an error no tab owns.
 func (g *editor) locateIssue(err error) (issueLocation, bool) {
-	at := func(tab int, label string) (issueLocation, bool) {
-		return issueLocation{tab: tab, label: label, component: -1}, true
-	}
+	found := func(tab int, label string) (issueLocation, bool) { return at(tab, label), true }
 	var pathError *os.PathError
 	if errors.As(err, &pathError) {
 		for tab, section := range sections {
@@ -249,29 +269,34 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 			}
 			for _, f := range g.pathFields(tab, section) {
 				if f.picker != "" && f.Value != "" && filepath.Clean(g.assetPath(f.Value)) == filepath.Clean(pathError.Path) {
-					return at(tab, f.Label)
+					loc := at(tab, f.Label)
+					loc.component = f.component
+					return loc, true
 				}
 			}
 		}
 		if g.s.Project.DMG != nil {
 			for _, item := range g.s.layout().Items {
 				if !item.Link && filepath.Clean(g.assetPath(item.Path)) == filepath.Clean(pathError.Path) {
-					return at(tabDMG, "Contents (JSON)")
+					// A missing source has no field: select its item.
+					loc := at(tabDMG, "")
+					loc.item = item.Path
+					return loc, true
 				}
 			}
 		}
 	}
 	message := err.Error()
 	if strings.HasPrefix(message, "app ") || strings.Contains(message, "requires app") || strings.Contains(message, "provide --app") {
-		return at(tabProject, "App bundle")
+		return found(tabProject, labelAppBundle)
 	}
 	switch {
 	case strings.HasPrefix(message, "dep:") && g.s.Project.Dep != nil:
-		return at(tabDep, "")
+		return found(tabDep, "")
 	case (strings.HasPrefix(message, "pkg") || strings.Contains(message, "component") || strings.HasPrefix(message, "choice ")) && g.s.Project.PKG != nil:
-		loc, _ := at(tabPKG, "Package type")
+		loc := at(tabPKG, labelPackageType)
 		if strings.Contains(message, "component id") {
-			loc.label = "Component ID"
+			loc.label = labelComponentID
 			seen := map[string]bool{}
 			for i, c := range g.s.Project.PKG.Components {
 				if c.ID == "" || seen[c.ID] {
@@ -282,13 +307,13 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 			}
 		}
 		if strings.Contains(message, "full form requires components") {
-			loc.label = "Components"
+			loc.label = labelComponents
 		}
 		if strings.Contains(message, "root must") || strings.Contains(message, "root is") {
 			if !g.s.Project.PKG.HasFullForm() {
-				return at(tabProject, "App bundle")
+				return found(tabProject, labelAppBundle)
 			}
-			loc.label = "Root directory"
+			loc.label = labelRootDirectory
 			for i, c := range g.s.Project.PKG.Components {
 				if c.Root == "" || strings.Contains(message, g.assetPath(c.Root)) {
 					loc.component = i
@@ -297,27 +322,27 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 			}
 		}
 		if strings.Contains(message, "distribution") || strings.HasPrefix(message, "choice ") {
-			loc.label = "Distribution"
+			loc.label = labelDistribution
 		}
 		return loc, true
 	case strings.HasPrefix(message, "sign:") && g.s.Project.Sign != nil:
-		return at(tabSign, "")
+		return found(tabSign, "")
 	case strings.HasPrefix(message, "notarize timeout") && g.s.Project.Notarize != nil:
-		return at(tabNotarize, "Timeout")
+		return found(tabNotarize, labelNotaryTimeout)
 	case strings.HasPrefix(message, "notarize:") && g.s.Project.Notarize != nil:
-		return at(tabNotarize, "")
+		return found(tabNotarize, "")
 	case strings.HasPrefix(message, "upload"):
-		return at(tabDistribution, "Uploads")
+		return found(tabDistribution, labelUploads)
 	case strings.HasPrefix(message, "appcast"):
-		return at(tabDistribution, "Sparkle appcast")
+		return found(tabDistribution, labelAppcast)
 	case strings.HasPrefix(message, "homebrew"):
-		return at(tabDistribution, "Homebrew cask")
+		return found(tabDistribution, labelHomebrew)
 	case strings.HasPrefix(message, "zip"):
-		return at(tabDistribution, "ZIP output")
+		return found(tabDistribution, labelZIPOutput)
 	case strings.HasPrefix(message, "checksums"):
-		return at(tabDistribution, "Checksums output")
+		return found(tabDistribution, labelChecksumsOutput)
 	case strings.HasPrefix(message, "dmg") && g.s.Project.DMG != nil:
-		return at(tabDMG, "")
+		return found(tabDMG, "")
 	}
 	return issueLocation{}, false
 }
@@ -326,11 +351,8 @@ func (g *editor) locateIssue(err error) (issueLocation, bool) {
 func (g *editor) locateValidationError(err error) {
 	loc, ok := g.locateIssue(err)
 	if !ok {
-		g.issue = &validationIssue{tab: g.tab, message: err.Error()}
+		g.issue = &validationIssue{at(g.tab, ""), err.Error()}
 		return
 	}
-	if loc.component >= 0 {
-		g.componentIndex, g.pkgRaw = loc.component, false
-	}
-	g.showFieldError(loc.tab, loc.label, err)
+	g.showIssue(loc, err)
 }

@@ -58,8 +58,18 @@ func (g *editor) transform() previewTransform {
 }
 
 // assetCachePrefix marks decoded-by-path entries in the asset map, keeping them
-// distinct from the logical "background" / "item:<path>" keys the preview draws.
+// distinct from the keys the preview draws by.
 const assetCachePrefix = "file:"
+
+// The keys the preview draws its images by.
+const (
+	backgroundAsset = "background"
+	aliasBadgeAsset = "badge:alias"
+	itemAssetPrefix = "item:"
+)
+
+// itemAsset is the key of the icon the preview draws for the item at path.
+func itemAsset(path string) string { return itemAssetPrefix + path }
 
 // previewImageExts are the icon sources the preview can decode directly.
 var previewImageExts = []string{".png", ".jpg", ".jpeg", ".icns"}
@@ -201,12 +211,12 @@ func (g *editor) refreshPreview() {
 	} else {
 		g.previewError = "Draft preview: " + err.Error()
 	}
-	g.assets["background"] = nil
-	if err := g.loadAsset("background", bg); err != nil {
+	g.assets[backgroundAsset] = nil
+	if err := g.loadAsset(backgroundAsset, bg); err != nil {
 		g.previewError = "Background: " + err.Error()
 	}
 	for i, item := range items {
-		key := "item:" + item.Path
+		key := itemAsset(item.Path)
 		g.assets[key] = nil
 		path := paths[i]
 		if item.Icon != "" && !item.Link {
@@ -223,14 +233,14 @@ func (g *editor) refreshPreview() {
 		}
 	}
 	if slices.ContainsFunc(items, func(item layoutItem) bool { return item.Link }) {
-		g.assets["badge:alias"] = g.defaultFileIcon("alias")
+		g.assets[aliasBadgeAsset] = g.defaultFileIcon("alias")
 	}
 	g.pruneAssets()
 }
 
 // previewAsset reports whether the DMG preview owns an asset key.
 func previewAsset(key string) bool {
-	return key == "background" || key == "badge:alias" || strings.HasPrefix(key, "item:")
+	return key == backgroundAsset || key == aliasBadgeAsset || strings.HasPrefix(key, itemAssetPrefix)
 }
 
 // pruneAssets releases cached textures that no live preview key references.
@@ -297,7 +307,7 @@ func (g *editor) drawPreview(dst *ggui.Canvas, origin ggui.Point) {
 	if g.previewActual {
 		canvas.HitCursor(rect(t.bounds), ggui.CursorShapeMove) // drag empty space to pan
 	}
-	if bg := g.assets["background"]; bg != nil {
+	if bg := g.assets[backgroundAsset]; bg != nil {
 		b := bg.Bounds()
 		canvas.DrawImage(bg, ggui.Rct(at(t.x, t.y), ggui.Sz(float64(b.Dx())*t.scale, float64(b.Dy())*t.scale)), ggui.ImageOptions{Fit: ggui.FitFill})
 	}
@@ -312,9 +322,9 @@ func (g *editor) drawPreview(dst *ggui.Canvas, origin ggui.Point) {
 			canvas.FillRect(halo, color.NRGBA{77, 153, 241, 55})
 			canvas.StrokeRoundRect(halo, 0, 1, color.RGBA{53, 132, 226, 255})
 		}
-		canvas.DrawImage(g.assets["item:"+item.Path], r, ggui.ImageOptions{})
+		canvas.DrawImage(g.assets[itemAsset(item.Path)], r, ggui.ImageOptions{})
 		if item.Link {
-			canvas.DrawImage(g.assets["badge:alias"], r, ggui.ImageOptions{})
+			canvas.DrawImage(g.assets[aliasBadgeAsset], r, ggui.ImageOptions{})
 		}
 		fs := max(8, math.Round(float64(label)*t.scale))
 		name := canvas.FitText(item.title(), nil, fs, max(side*1.7, 60))

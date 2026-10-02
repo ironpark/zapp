@@ -20,11 +20,11 @@ func (g *editor) archiveFields() []field {
 	p, stash := g.s.Project, &g.disabled
 	fields := []field{presenceField("Archive as ZIP", &p.Zip, &stash.Zip, "The notarized, stapled app, ready to download")}
 	if p.Zip != nil {
-		fields = append(fields, pathField("ZIP output", &p.Zip.Out, "Blank uses <output>/<app name>.zip", pickSave))
+		fields = append(fields, pathField(labelZIPOutput, &p.Zip.Out, "Blank uses <output>/<app name>.zip", pickSave))
 	}
 	fields = append(fields, presenceField("Checksums", &p.Checksums, &stash.Checksums, "SHA256SUMS for the ZIP, DMG and PKG"))
 	if p.Checksums != nil {
-		fields = append(fields, pathField("Checksums output", &p.Checksums.Out, "Blank uses <output>/SHA256SUMS", pickSave))
+		fields = append(fields, pathField(labelChecksumsOutput, &p.Checksums.Out, "Blank uses <output>/SHA256SUMS", pickSave))
 	}
 	return append(fields, boolField("Verify before publishing", &p.Verify, "Stop unless the app and every artifact are signed, stapled and accepted"))
 }
@@ -49,21 +49,21 @@ func presenceField[T any](label string, live, stash **T, hint string) field {
 
 func (g *editor) uploadsField() field {
 	p := g.s.Project
-	return g.sectionField("Uploads", "upload", len(p.Upload) > 0, p.Upload, "- url: https://example.com/${file.name}",
+	return g.sectionField(labelUploads, "upload", len(p.Upload) > 0, p.Upload, "- url: https://example.com/${file.name}",
 		"A list of endpoints, each a url or a github release; blank uploads nothing",
 		func(parsed *zapp.Project) { p.Upload = parsed.Upload })
 }
 
 func (g *editor) appcastField() field {
 	p := g.s.Project
-	return g.sectionField("Sparkle appcast", "appcast", p.Appcast != nil, p.Appcast, "url: https://example.com/${file.name}",
+	return g.sectionField(labelAppcast, "appcast", p.Appcast != nil, p.Appcast, "url: https://example.com/${file.name}",
 		"Signed with ZAPP_SPARKLE_KEY from the environment; blank publishes none",
 		func(parsed *zapp.Project) { p.Appcast = parsed.Appcast })
 }
 
 func (g *editor) homebrewField() field {
 	p := g.s.Project
-	return g.sectionField("Homebrew cask", "homebrew", p.Homebrew != nil, p.Homebrew, "homepage: https://example.com\ntap: owner/homebrew-tap",
+	return g.sectionField(labelHomebrew, "homebrew", p.Homebrew != nil, p.Homebrew, "homepage: https://example.com\ntap: owner/homebrew-tap",
 		"Committed to the tap with ZAPP_HOMEBREW_TOKEN or GITHUB_TOKEN; blank writes none",
 		func(parsed *zapp.Project) { p.Homebrew = parsed.Homebrew })
 }

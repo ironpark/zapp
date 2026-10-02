@@ -25,7 +25,7 @@ func TestItemIconLivePreviewAndReset(t *testing.T) {
 	}
 	g.input.SetText(icon)
 	g.previewInput()
-	if g.assets["item:notes.txt"] == nil || g.derivedSignature() == original {
+	if g.assets[itemAsset("notes.txt")] == nil || g.derivedSignature() == original {
 		t.Fatal("custom icon not previewed")
 	}
 	if !g.commit() {
@@ -38,7 +38,7 @@ func TestItemIconLivePreviewAndReset(t *testing.T) {
 	if g.s.Project.DMG.Contents[g.selected].Link {
 		t.Fatal("custom icon allowed on link")
 	}
-	g.focus(g.inspectorStart + itemIconFieldIndex)
+	g.focus(g.fieldIndex(labelItemIcon))
 	g.input.SetText("")
 	if !g.commit() || g.s.Project.DMG.Contents[g.selected].Icon != "" {
 		t.Fatal("reset failed")

@@ -73,7 +73,7 @@ func (g *editor) checkHealth() projectHealth {
 	}
 	problems := g.pathProblems(false)
 	for _, problem := range problems {
-		add(problem.tab, problem.label+": "+problem.err.Error())
+		add(problem.tab, problem.describe()+": "+problem.err.Error())
 	}
 	plan, err := p.Resolve()
 	if err != nil {

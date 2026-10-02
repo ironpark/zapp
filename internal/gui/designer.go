@@ -48,7 +48,7 @@ func contentsList(m *desktopModel) ggui.Widget {
 			if row.Link {
 				kind = "Link"
 			}
-			icon := ggui.Image(g.assets["item:"+row.Path]).Size(28, 28)
+			icon := ggui.Image(g.assets[itemAsset(row.Path)]).Size(28, 28)
 			text := ggui.Column(ggui.Text(row.title()).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3)
 			return ggui.Row(icon, ggui.Expanded(text)).Gap(8).Align(ggui.AlignCenter)
 		})

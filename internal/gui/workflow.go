@@ -1,15 +1,14 @@
 package gui
 
 import (
-	"fmt"
+	"errors"
 	"runtime"
+	"slices"
 )
 
 type validationIssue struct {
-	tab            int
-	label, message string
-	component      int
-	item           string
+	issueLocation
+	message string
 }
 
 // issueOn reports whether the outstanding validation issue belongs to tab.
@@ -49,6 +48,13 @@ const (
 
 var signMethodLabels = []string{"Keychain", "PKCS#12", "PEM"}
 
+// signMethodFields lists the fields each signing method owns, by label.
+var signMethodFields = [][]string{
+	signKeychain: {labelSigningIdentity},
+	signP12:      {labelP12Certificate, labelPasswordFile},
+	signPEM:      {labelPEMCertificate},
+}
+
 // The Notarization tab's methods, in the order its switch shows them.
 const (
 	notaryProfile = iota
@@ -57,6 +63,33 @@ const (
 )
 
 var notaryMethodLabels = []string{"Profile", "Apple ID", "API key"}
+
+// notaryMethodFields lists the fields each notarization method owns, by
+// label.
+var notaryMethodFields = [][]string{
+	notaryProfile: {labelKeychainProfile},
+	notaryAppleID: {labelAppleID, labelTeamID, labelAppPassword},
+	notaryAPIKey:  {labelAPIKeyFile},
+}
+
+// methodOwning returns the method whose fields include label.
+func methodOwning(methods [][]string, label string) (int, bool) {
+	for method, labels := range methods {
+		if slices.Contains(labels, label) {
+			return method, true
+		}
+	}
+	return 0, false
+}
+
+// methodFields keeps, of all, the fields method owns and those no method
+// does.
+func methodFields(all []field, methods [][]string, method int) []field {
+	return slices.DeleteFunc(all, func(f field) bool {
+		owner, owned := methodOwning(methods, f.Label)
+		return owned && owner != method
+	})
+}
 
 func (g *editor) signMethod() int {
 	c := g.s.Project.Sign
@@ -153,7 +186,5 @@ func (g *editor) goToIssue() {
 	if !g.commit() {
 		return
 	}
-	g.componentIndex = issue.component
-	g.selected = issue.item
-	g.showFieldError(issue.tab, issue.label, fmt.Errorf("%s", issue.message))
+	g.showIssue(issue.issueLocation, errors.New(issue.message))
 }

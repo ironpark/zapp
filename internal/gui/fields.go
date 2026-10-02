@@ -46,8 +46,8 @@ var contentAxes = []struct {
 	of    func(zapp.Content) int
 	apply func(n, x, y int) (int, int)
 }{
-	{"X", func(c zapp.Content) int { return positionCoord(c.Pos, 0) }, func(n, _, y int) (int, int) { return n, y }},
-	{"Y", func(c zapp.Content) int { return positionCoord(c.Pos, 1) }, func(n, x, _ int) (int, int) { return x, n }},
+	{labelItemX, func(c zapp.Content) int { return positionCoord(c.Pos, 0) }, func(n, _, y int) (int, int) { return n, y }},
+	{labelItemY, func(c zapp.Content) int { return positionCoord(c.Pos, 1) }, func(n, x, _ int) (int, int) { return x, n }},
 }
 
 func boolField(label string, value *bool, hint string) field {
@@ -154,7 +154,7 @@ func (g *editor) projectFields() []field {
 	outDir := pathField("Output directory", &p.Out, "Directory used by DMG, PKG, ZIP and checksums", pickFolder)
 	outDir.mayNotExist = true
 	return []field{
-		pathField("App bundle", &p.App, "Path to MyApp.app; relative to the configuration", pickApp),
+		pathField(labelAppBundle, &p.App, "Path to MyApp.app; relative to the configuration", pickApp),
 		outDir,
 	}
 }
@@ -212,14 +212,9 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 	return i.content(), true
 }
 
-// itemIconFieldIndex is the position of the "Item icon" field within
-// selectedItemFields, after Name, X and Y. Callers that focus or decorate that
-// field use this instead of a bare literal.
-const itemIconFieldIndex = 3
-
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
 	key := g.selected
-	fields := []field{{Label: "Name", Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
+	fields := []field{{Label: labelItemName, Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
 		g.editSelectedContent(func(c *zapp.Content) { c.Name = v })
 		return nil
 	}}}
@@ -238,7 +233,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 			return nil
 		}})
 	}
-	icon := pathField("Item icon", &item.Icon, "Blank uses the original icon", pickItemIcon)
+	icon := pathField(labelItemIcon, &item.Icon, "Blank uses the original icon", pickItemIcon)
 	icon.set = func(value string) error {
 		g.editSelectedContent(func(c *zapp.Content) { c.Icon = value })
 		return nil
@@ -256,7 +251,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 // keeps the labels in step with fieldPlaceholders and the validation lookups.
 func payloadDetailFields(scripts, minOS *string) []field {
 	return []field{
-		pathField("Scripts directory", scripts, "Installer scripts", pickFolder),
+		pathField(labelScriptsDirectory, scripts, "Installer scripts", pickFolder),
 		stringField("Minimum macOS", minOS, "For example 10.13"),
 	}
 }
@@ -264,7 +259,7 @@ func payloadDetailFields(scripts, minOS *string) []field {
 func (g *editor) pkgFields() []field {
 	c := g.s.Project.PKG
 	fields := []field{
-		choiceField("Package type", &c.Type, "", "product", "component"),
+		choiceField(labelPackageType, &c.Type, "", "product", "component"),
 		pathField("Output file", &c.Out, "Blank uses the project output directory", pickSave),
 	}
 	fields[0].Group = "PACKAGE · Shared settings"
@@ -288,7 +283,7 @@ func (g *editor) pkgFields() []field {
 		return fields
 	}
 	if g.pkgRaw {
-		components := jsonField("Components", &c.Components, "JSON array · Ctrl/Cmd+Enter: apply")
+		components := jsonField(labelComponents, &c.Components, "JSON array · Ctrl/Cmd+Enter: apply")
 		components.Group = "COMPONENTS · All payloads"
 		setComponents := components.set
 		components.set = func(value string) error {
@@ -314,9 +309,9 @@ func (g *editor) pkgFields() []field {
 		install.Placeholder = "/ (default)"
 		install.SameRow = true
 		fields = append(fields,
-			stringField("Component ID", &component.ID, "Unique package identifier"),
+			stringField(labelComponentID, &component.ID, "Unique package identifier"),
 			version,
-			pathField("Root directory", &component.Root, "Directory containing the payload", pickFolder),
+			pathField(labelRootDirectory, &component.Root, "Directory containing the payload", pickFolder),
 			componentEntryField(&component.Entry),
 			install)
 		fields[2].Group = fmt.Sprintf("COMPONENT %d · Selected payload", g.componentIndex+1)
@@ -325,7 +320,7 @@ func (g *editor) pkgFields() []field {
 		}
 	}
 	if g.pkgAdvanced {
-		distribution := jsonField("Distribution", &c.Distribution, "Applies to the whole installer · JSON")
+		distribution := jsonField(labelDistribution, &c.Distribution, "Applies to the whole installer · JSON")
 		distribution.Group = "INSTALLER · Shared presentation"
 		fields = append(fields, distribution)
 	}
@@ -379,30 +374,11 @@ func (g *editor) depFields() []field {
 }
 
 func (g *editor) signFields() []field {
-	fields := g.signAllFields()
-	entitlements := fields[4]
-	switch g.signMethod() {
-	case signP12:
-		return []field{fields[1], fields[3], entitlements}
-	case signPEM:
-		return []field{fields[2], entitlements}
-	default:
-		return []field{fields[0], entitlements}
-	}
+	return methodFields(g.signAllFields(), signMethodFields, g.signMethod())
 }
 
 func (g *editor) notarizeFields() []field {
-	fields := g.notaryAllFields()
-	switch g.notaryMethod() {
-	case notaryAppleID:
-		password := stringField("App-specific password", &g.s.Project.Notarize.Password, "Session only · never saved to the project")
-		password.Secret = true
-		return append([]field{fields[1], fields[2], password}, fields[4:]...)
-	case notaryAPIKey:
-		return append([]field{fields[3]}, fields[4:]...)
-	default:
-		return append([]field{fields[0]}, fields[4:]...)
-	}
+	return methodFields(g.notaryAllFields(), notaryMethodFields, g.notaryMethod())
 }
 
 func (g *editor) depTextFields() []field {
@@ -424,37 +400,40 @@ func (g *editor) depTextFields() []field {
 func (g *editor) signAllFields() []field {
 	c := g.s.Project.Sign
 	return []field{
-		stringField("Signing identity", &c.Identity, "macOS Keychain certificate name or ${env:ZAPP_IDENTITY}"),
-		pathField("PKCS#12 certificate", &c.P12File, ".p12 certificate and key; macOS imports it into a temporary keychain", pickFile),
-		pathField("PEM certificate", &c.PEMFile, "PEM certificate and key; macOS imports it into a temporary keychain", pickFile),
-		pathField("Password file", &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
+		stringField(labelSigningIdentity, &c.Identity, "macOS Keychain certificate name or ${env:ZAPP_IDENTITY}"),
+		pathField(labelP12Certificate, &c.P12File, ".p12 certificate and key; macOS imports it into a temporary keychain", pickFile),
+		pathField(labelPEMCertificate, &c.PEMFile, "PEM certificate and key; macOS imports it into a temporary keychain", pickFile),
+		pathField(labelPasswordFile, &c.P12PasswordFile, "File path only; passwords are not stored in this UI", pickFile),
 		pathField("Entitlements", &c.Entitlements, "Plist to sign the app with; empty keeps the app's own entitlements", pickFile),
 	}
 }
 
 func (g *editor) notaryAllFields() []field {
 	c := g.s.Project.Notarize
+	password := stringField(labelAppPassword, &c.Password, "Session only · never saved to the project")
+	password.Secret = true
 	return []field{
-		stringField("Keychain profile", &c.Profile, "macOS: saved notarytool credentials (recommended)"),
-		stringField("Apple ID", &c.AppleID, "macOS: requires Team ID and a runtime password"),
-		stringField("Team ID", &c.TeamID, "Developer team identifier"),
-		pathField("API key file", &c.APIKeyFile, "App Store Connect API key JSON, as rcodesign encode-app-store-connect-api-key writes it", pickFile),
+		stringField(labelKeychainProfile, &c.Profile, "macOS: saved notarytool credentials (recommended)"),
+		stringField(labelAppleID, &c.AppleID, "macOS: requires Team ID and a runtime password"),
+		stringField(labelTeamID, &c.TeamID, "Developer team identifier"),
+		password,
+		pathField(labelAPIKeyFile, &c.APIKeyFile, "App Store Connect API key JSON, as rcodesign encode-app-store-connect-api-key writes it", pickFile),
 		boolField("Staple", &c.Staple, "Attach the notarization ticket after approval"),
-		stringField("Timeout", &c.Timeout, "How long to wait for Apple's verdict, such as 30m or 2h; blank waits "+zapp.DefaultNotarizeTimeout),
+		stringField(labelNotaryTimeout, &c.Timeout, "How long to wait for Apple's verdict, such as 30m or 2h; blank waits "+zapp.DefaultNotarizeTimeout),
 	}
 }
 
 // fieldPlaceholders holds the greyed-out example shown in an empty input.
 var fieldPlaceholders = map[string]string{
-	"App bundle": "MyApp.app", "Output directory": "dist",
+	labelAppBundle: "MyApp.app", "Output directory": "dist",
 	"Title": "App name", "Background image": "background.png",
 	"Disk icon": "volume.icns", "Output file": "Automatic output path",
 	"Identifier": "com.example.myapp", "Version": "1.0.0",
-	"Install location": "/Applications", "Scripts directory": "scripts",
-	"Minimum macOS": "10.13", "Signing identity": "Developer ID Application: …",
-	"PKCS#12 certificate": "certificate.p12", "PEM certificate": "certificate.pem",
-	"Password file": "password.txt", "Keychain profile": "notary-profile",
-	"Apple ID": "name@example.com", "Team ID": "ABCDEFGHIJ", "API key file": "api-key.json",
+	"Install location": "/Applications", labelScriptsDirectory: "scripts",
+	"Minimum macOS": "10.13", labelSigningIdentity: "Developer ID Application: …",
+	labelP12Certificate: "certificate.p12", labelPEMCertificate: "certificate.pem",
+	labelPasswordFile: "password.txt", labelKeychainProfile: "notary-profile",
+	labelAppleID: "name@example.com", labelTeamID: "ABCDEFGHIJ", labelAPIKeyFile: "api-key.json",
 }
 
 func positionCoord(pos *zapp.Position, axis int) int {
