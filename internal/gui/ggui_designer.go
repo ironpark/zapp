@@ -5,7 +5,6 @@ import (
 	"image"
 	"math"
 
-	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
@@ -14,10 +13,10 @@ import (
 func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
 	canvas := &designerCanvas{model: m}
-	preview := surface(ggui.Column(
+	preview := ui.Card(ggui.Column(
 		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(),
 			ui.Button("Reset layout", g.action(g.guard(func() { g.s.checkpoint(); g.s.Project.DMG.Contents = nil; g.selected = ""; g.rebuild() }))).Ghost().Pad(5, 10).Disabled(v.DefaultLayout),
-			modeButtons([]string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
+			modeButtons("Preview zoom", []string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
 		ggui.Expanded(canvas),
 		designerHint(v),
@@ -33,18 +32,20 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 				kind = "Link"
 			}
 			icon := ggui.Image(g.assets["item:"+row.Path]).Size(28, 28)
-			body := ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(label).NoWrap(), ui.Caption(kind)).Gap(3))).Gap(8)
+			body := ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(label).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3))).Gap(8)
 			b := ui.ButtonOf(body, g.action(g.guard(func() { g.selected = row.Path; g.rebuild() }))).Name("Item " + label).Pad(6)
 			if selected == row.Path {
-				return b.Secondary()
+				b.Secondary()
+			} else {
+				b.Ghost()
 			}
-			return b.Ghost()
+			return m.items.Row(row.Path, b)
 		})
 	}).Gap(3).Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
-	list := surface(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
+	list := ui.Card(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(m.items.Scroll(contents, m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
 	details := ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
 		if selected == "" {
-			return surface(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))
+			return ui.Card(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))
 		}
 		// Read Link from m.Items when the switch paints: toggling it does not
 		// change m.Workspace, so this View would not rebuild with a new value.
@@ -56,7 +57,7 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 			}
 			return false
 		}
-		return surface(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
+		return ui.Card(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
 	})
 	side := ggui.Box(ui.Resizable(m.InspectorSplit, list, details).Vertical().MinSizes(130, 220)).Width(248)
 	right := ggui.Row(ggui.Expanded(preview), side).Gap(12).Align(ggui.AlignStretch)
@@ -86,21 +87,7 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	dst.HitKey(r, c)
 	dst.Describe(r, c)
 	dst.FillRect(r, c.theme.Bg)
-	if dst.Image == nil || g.ui == nil {
-		return
-	}
-	if g.previewSurface == nil || g.previewSurface.Bounds() != g.previewBounds {
-		if g.previewSurface != nil {
-			g.previewSurface.Deallocate()
-		}
-		g.previewSurface = ggfx.NewImage(g.previewBounds.Dx(), g.previewBounds.Dy())
-	}
-	g.previewSurface.Clear()
-	g.drawPreview(g.previewSurface)
-	op := &ggfx.DrawImageOptions{}
-	op.GeoM = dst.Geo(r.Origin)
-	op.Filter = ggfx.FilterLinear
-	dst.Clip(r).Image.DrawImage(g.previewSurface, op)
+	g.drawPreview(dst, r.Origin)
 	if c.model.DropHover.Get() {
 		dst.StrokeRoundRect(r, 0, 2, c.theme.Primary)
 	}

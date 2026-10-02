@@ -20,7 +20,7 @@ func desktopView(m *desktopModel) ggui.Widget {
 		g := m.editor
 		toolbar := ggui.Padding(ggui.Row(
 			ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9),
-			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap()).Gap(3)),
+			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap().Ellipsis(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap().Ellipsis()).Gap(3)),
 			ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
 			// Undo and Redo leave their keys to a focused text field, which has
 			// its own history, so the runtime's OnKey handles them, not Shortcut.
@@ -44,13 +44,13 @@ func desktopView(m *desktopModel) ggui.Widget {
 			if v.failed {
 				color = t.Destructive
 			}
-			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap(), v.message)), ggui.If(m.Workspace.Map(func(v workspaceState) bool { return v.IssueTab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
+			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)), ggui.If(m.Workspace.Map(func(v workspaceState) bool { return v.IssueTab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
 		})
 		// Selecting a DMG item rebuilds only the item details, which follow
 		// Selected themselves, not the whole workspace.
 		page := ggui.ViewOf(m.Workspace, func(v workspaceState) workspaceState { v.Selected = ""; return v }, func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
 		body := ggui.Column(toolbar, ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), footer).Align(ggui.AlignStretch)
-		return ggui.Column(ggui.Expanded(body), closeDialogView(m), ggui.View(m.Modal, func(v modalState) ggui.Widget { return buildDialogView(m, v) })).Align(ggui.AlignStretch)
+		return ggui.Column(ggui.Expanded(body), closeDialogView(m), ggui.ViewOf(m.Modal, buildShape, func(v buildDialogShape) ggui.Widget { return buildDialogView(m, v) })).Align(ggui.AlignStretch)
 	})
 }
 
@@ -150,11 +150,9 @@ func workspaceView(m *desktopModel, v workspaceState) ggui.Widget {
 	}
 	actions := []ggui.Widget{ggui.Column(ui.Title(sections[v.Tab].Name), ui.Caption(sections[v.Tab].Description)).Gap(4), ggui.Spacer()}
 	if v.Tab == tabPKG && v.Enabled {
-		actions = append(actions, modeButtons([]string{"Single app", "Components"}, boolIndex(v.Full), func(i int) {
-			if (i == 1) != v.Full {
-				g.guard(g.switchPackageForm)()
-				m.sync()
-			}
+		actions = append(actions, modeButtons("Package form", []string{"Single app", "Components"}, boolIndex(v.Full), func(int) {
+			g.guard(g.switchPackageForm)()
+			m.sync()
 		}))
 	}
 	if v.Tab != tabDMG && v.Enabled {
@@ -185,22 +183,17 @@ func boolIndex(b bool) int {
 	}
 	return 0
 }
-func modeButtons(labels []string, index int, selectMode func(int)) ggui.Widget {
-	out := []ggui.Widget{}
-	for i, label := range labels {
-		button := ui.Button(label, func() { selectMode(i) }).Pad(5, 10)
-		if i == index {
-			button.Secondary()
-		} else {
-			button.Ghost()
-		}
-		out = append(out, button)
+
+// modeButtons picks one of labels, the one at index now; selectMode gets a
+// different choice and may refuse it. A choice taken comes back as a new
+// index when the view rebuilds, and one refused leaves index where it was.
+func modeButtons(name string, labels []string, index int, selectMode func(int)) ggui.Widget {
+	options := make([]int, len(labels))
+	for i := range options {
+		options[i] = i
 	}
-	return ggui.Row(out...).Gap(2)
-}
-func surface(content ggui.Widget) ggui.Widget {
-	t := uitheme.Use()
-	return ggui.Box(content).Fill(t.Card).Border(1, t.Border).Radius(t.RadiusLg).Pad(16)
+	choice := ggui.Bind(func() int { return index }, selectMode)
+	return ui.ToggleGroup(choice).Options(options).Format(func(i int) string { return labels[i] }).Name(name)
 }
 func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	title := "Settings"
@@ -216,19 +209,19 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 		if v.Tab == tabDep {
 			labels = []string{"List", "Text"}
 		}
-		header = append(header, modeButtons(labels, boolIndex(v.Raw), func(i int) { m.source(i == 1) }))
+		header = append(header, modeButtons("Edit as", labels, boolIndex(v.Raw), func(i int) { m.source(i == 1) }))
 	}
 	children := []ggui.Widget{ggui.Row(header...).Gap(8)}
 	g := m.editor
 	if v.Tab == tabSign {
-		children = append(children, ggui.Row(modeButtons([]string{"Keychain", "PKCS#12", "PEM"}, v.SignMethod, g.actionSelect(g.selectSignMethod)),
+		children = append(children, ggui.Row(modeButtons("Signing method", []string{"Keychain", "PKCS#12", "PEM"}, v.SignMethod, g.actionSelect(g.selectSignMethod)),
 			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().Disabled(v.Check.Checking), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter))
 		if v.Check.Shown {
 			children = append(children, checkResult(v))
 		}
 	}
 	if v.Tab == tabNotarize {
-		children = append(children, modeButtons([]string{"Profile", "Apple ID", "API key"}, v.NotaryMethod, g.actionSelect(g.selectNotaryMethod)))
+		children = append(children, modeButtons("Notarization method", []string{"Profile", "Apple ID", "API key"}, v.NotaryMethod, g.actionSelect(g.selectNotaryMethod)))
 	}
 	var content ggui.Widget = formView(m, m.Fields)
 	switch {
@@ -249,7 +242,7 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 		}
 		children = append(children, ui.Divider(), ui.Button(label, m.advanced).Ghost())
 	}
-	return surface(ggui.Column(children...).Gap(12).Align(ggui.AlignStretch))
+	return ui.Card(ggui.Column(children...).Gap(12).Align(ggui.AlignStretch))
 }
 
 // formMaxWidth keeps single forms readable in a wide window: labels, inputs
@@ -277,7 +270,7 @@ func identitySuggestions(m *desktopModel, v workspaceState) ggui.Widget {
 		children = append(children, ui.Caption("No valid signing identities were found. Import your Developer ID certificate, then refresh, or use the PKCS#12 or PEM method."))
 	} else {
 		for _, name := range strings.Split(v.Identities, "\n") {
-			children = append(children, ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(name).NoWrap())), g.action(func() { g.useIdentity(name) })).Name("Use "+name).Outline())
+			children = append(children, ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(name).NoWrap().Ellipsis())), g.action(func() { g.useIdentity(name) })).Name("Use "+name).Outline())
 		}
 		children = append(children, ui.Caption("Leave the identity blank to pick the first matching Developer ID automatically."))
 	}
@@ -314,7 +307,7 @@ func appCard(m *desktopModel) ggui.Widget {
 			}
 			caption = ui.Caption(strings.Join(details, " · "))
 		}
-		return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(title).Size(16).NoWrap(), caption).Gap(4))).Gap(14).Align(ggui.AlignCenter)
+		return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(title).Size(16).NoWrap().Ellipsis(), caption).Gap(4))).Gap(14).Align(ggui.AlignCenter)
 	})
 }
 
@@ -335,7 +328,7 @@ func buildSteps(m *desktopModel) ggui.Widget {
 			case health.Issues[tab] != "":
 				detail, detailCol = health.Issues[tab], t.Destructive
 			}
-			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap()).Gap(3)), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).Gap(12).Align(ggui.AlignCenter)
+			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap().Ellipsis()).Gap(3)), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).Gap(12).Align(ggui.AlignCenter)
 			rows = append(rows, ui.ButtonOf(row, func() { m.selectTab(tab) }).Name("Open "+sections[tab].Name).Ghost().Pad(8, 6))
 		}
 		return ggui.Column(rows...).Gap(4).Align(ggui.AlignStretch)
@@ -381,23 +374,17 @@ func componentSidebar(m *desktopModel, v workspaceState) ggui.Widget {
 		return ggui.Reactive(func() ggui.Widget {
 			c := row.Value.Get()
 			state := m.Workspace.Get()
-			b := ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(c.Label).NoWrap())), func() { m.selectComponent(c.Index) }).Name("Component "+c.Label).Pad(8, 10)
+			b := ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(c.Label).NoWrap().Ellipsis())), func() { m.selectComponent(c.Index) }).Name("Component "+c.Label).Pad(8, 10)
 			if c.Index == state.Component && !state.Raw {
 				b.Secondary()
 			} else {
 				b.Ghost()
 			}
-			return ggui.FromFuncs(b.Layout, func(dst *ggui.Canvas, r ggui.Rect) {
-				dst.Paint(b, r)
-				if m.revealComponent == c.Index {
-					dst.RequestFocus(b)
-					m.revealComponent = -1
-				}
-			})
+			return m.componentFocus(c.Index).Attach(b)
 		})
 	}).Gap(4).Align(ggui.AlignStretch)
-	content := ggui.Column(ggui.TextOf(m.Components.Map(func(c []componentRow) string { return fmt.Sprintf("Components · %d", len(c)) })), ui.Caption("Installer payloads"), ggui.Expanded(ggui.Scroll(rows)), ui.Button("Add component", g.action(g.guard(g.addComponent))).Outline(), ui.Button("Remove", g.action(g.guard(g.removeComponent))).Ghost().BindDisabled(ggui.Derived(func() bool { return m.Workspace.Get().Raw || len(m.Components.Get()) == 0 }))).Gap(10).Align(ggui.AlignStretch)
-	return ggui.Box(surface(content)).Width(210)
+	content := ggui.Column(ggui.TextOf(m.Components.Map(func(c []componentRow) string { return fmt.Sprintf("Components · %d", len(c)) })), ui.Caption("Installer payloads"), ggui.Expanded(ggui.Scroll(rows).BindOffset(m.offset("components"))), ui.Button("Add component", g.action(g.guard(g.addComponent))).Outline(), ui.Button("Remove", g.action(g.guard(g.removeComponent))).Ghost().BindDisabled(ggui.Derived(func() bool { return m.Workspace.Get().Raw || len(m.Components.Get()) == 0 }))).Gap(10).Align(ggui.AlignStretch)
+	return ggui.Box(ui.Card(content)).Width(210)
 }
 func helpView(tab int) ggui.Widget {
 	t := uitheme.Use()
@@ -405,7 +392,7 @@ func helpView(tab int) ggui.Widget {
 	for _, h := range stepHelp[tab] {
 		children = append(children, ggui.Column(ggui.Text(h[0]).Size(12).Color(t.Primary), ggui.Text(h[1]).Size(13)).Gap(6).Align(ggui.AlignStretch))
 	}
-	return ggui.Box(surface(ggui.Scroll(ggui.Padding(ggui.Column(children...).Gap(20).Align(ggui.AlignStretch), 0, scrollGutter, 0, 0)))).Width(280)
+	return ggui.Box(ui.Card(ggui.Scroll(ggui.Padding(ggui.Column(children...).Gap(20).Align(ggui.AlignStretch), 0, scrollGutter, 0, 0)))).Width(280)
 }
 func closeDialogView(m *desktopModel) ggui.Widget {
 	g := m.editor
@@ -418,20 +405,34 @@ func closeDialogView(m *desktopModel) ggui.Widget {
 		}
 	}))).Gap(8).Justify(ggui.JustifyEnd)).Gap(20)).Title("Save changes before closing?").Width(580)
 }
-func buildDialogView(m *desktopModel, v modalState) ggui.Widget {
+
+// buildDialogShape is what the build dialog is built from: its log and
+// message change with every line, so they are bound as text instead and
+// only whether there is a log rebuilds it.
+type buildDialogShape struct {
+	modalState
+	hasLog bool
+}
+
+func buildShape(v modalState) buildDialogShape {
+	shape := buildDialogShape{v, v.Log != ""}
+	shape.Log, shape.Message = "", ""
+	return shape
+}
+func buildDialogView(m *desktopModel, v buildDialogShape) ggui.Widget {
 	if v.Title == "" {
 		return ggui.Box()
 	}
 	g := m.editor
 	actions := []ggui.Widget{}
-	body := []ggui.Widget{ggui.Text(v.Message)}
-	if v.Log != "" {
+	body := []ggui.Widget{ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Message }))}
+	if v.hasLog {
 		t := uitheme.Use()
 		// The log follows new lines until the user scrolls up, and again once
 		// they scroll back to the end.
-		log := ggui.Scroll(ggui.Padding(ggui.Text(v.Log).Style(ggui.TextStyle{Font: codeFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
+		log := ggui.Scroll(ggui.Padding(ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Log })).Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
 		body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
-		actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(v.Log) }).Ghost(), ggui.Spacer())
+		actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(ggui.Untrack(m.Modal.Get).Log) }).Ghost(), ggui.Spacer())
 	}
 	if v.Reveal != "" {
 		actions = append(actions, ui.Button(revealLabel(), func() { g.reveal(v.Reveal) }).Outline())

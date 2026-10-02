@@ -23,6 +23,7 @@ func editorTheme(dark bool) uitheme.Theme {
 	t.Radius, t.RadiusSm, t.RadiusLg = 4, 0, 6
 	t.Text.Size, t.Caption.Size, t.Title.Size = 13, 12, 19
 	t.ButtonPad, t.FieldPad = ggui.Insets(6, 10), ggui.Insets(6, 10)
+	t.CardPad = ggui.Insets(16)
 	return t
 }
 func (g *editor) runWidgets() error {

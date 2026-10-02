@@ -8,14 +8,13 @@ import (
 	"strings"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 	"github.com/ironpark/zapp/pkg/dmg"
 	"github.com/ironpark/zapp/pkg/udif"
 )
 
 // field binds reusable input presentation to a project-specific setter.
 type field struct {
-	comp.InputSpec
+	InputSpec
 	set    func(string) error
 	picker pickMode
 	// pickerTitle overrides the dialog title for fields whose label reads badly
@@ -63,7 +62,7 @@ func boolField(label string, value *bool, hint string) field {
 // intField accepts 0 as "use def", so the stepper's own minimum (stepMin) is
 // passed separately from the range the setter accepts.
 func intField(label string, value *int, high, def, stepMin int, hint string) field {
-	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &comp.NumberSpec{Min: stepMin, Max: high, Step: 1, Default: def}, set: func(s string) error {
+	f := field{Label: label, Value: strconv.Itoa(*value), Hint: hint, Number: &NumberSpec{Min: stepMin, Max: high, Step: 1, Default: def}, set: func(s string) error {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			s = "0"
@@ -225,7 +224,7 @@ func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []fiel
 	// Both coordinates go through Session.move, so a typed value is clamped to
 	// the window exactly like a dragged one.
 	for _, axis := range contentAxes {
-		fields = append(fields, field{Label: axis.name, Value: strconv.Itoa(axis.of(item)), Hint: "Icon center (px)", Number: &comp.NumberSpec{Min: 0, Max: int(dmg.MaxCoordinate), Step: 1}, set: func(v string) error {
+		fields = append(fields, field{Label: axis.name, Value: strconv.Itoa(axis.of(item)), Hint: "Icon center (px)", Number: &NumberSpec{Min: 0, Max: int(dmg.MaxCoordinate), Step: 1}, set: func(v string) error {
 			n, err := strconv.Atoi(v)
 			if err != nil || n < 0 || uint64(n) > dmg.MaxCoordinate {
 				return fmt.Errorf("coordinate must be a nonnegative 32-bit integer")
@@ -349,7 +348,7 @@ func (g *editor) depFields() []field {
 			label = fmt.Sprintf("Directory %d", i+1)
 			hint = "Relative to the project directory"
 		}
-		f := field{InputSpec: comp.InputSpec{Label: label, Value: value, Hint: hint, Placeholder: "Choose a directory", Browse: true}, picker: pickFolder, pickerTitle: "Choose library directory"}
+		f := field{InputSpec: InputSpec{Label: label, Value: value, Hint: hint, Placeholder: "Choose a directory", Browse: true}, picker: pickFolder, pickerTitle: "Choose library directory"}
 		f.set = func(value string) error {
 			value = strings.TrimSpace(value)
 			if i == len(c.Libs) {

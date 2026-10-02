@@ -3,6 +3,7 @@ package gui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ironpark/ggui"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -214,10 +215,15 @@ func TestRevealComponentScrollsToSelection(t *testing.T) {
 		g.s.Project.PKG.Components[i].ID = fmt.Sprintf("app-%d", i)
 	}
 	g.rebuild()
-	m := newDesktopModel(g)
+	p := widgetProbe(t, g)
 	g.componentIndex = 29
 	g.revealComponent()
-	if m.revealComponent != 29 {
+	for range 4 {
+		p.Frame()
+	}
+	// FocusRef.Focused stays false after a focus that scrolled, until the
+	// next input; the scroll is what shows the row was reached.
+	if ggui.Untrack(g.desktop.offset("components").Get) <= 0 {
 		t.Fatal("newly selected component is not revealed")
 	}
 }

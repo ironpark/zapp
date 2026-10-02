@@ -14,9 +14,8 @@ import (
 	"strings"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/vector"
+	"github.com/ironpark/ggui"
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 	"github.com/ironpark/zapp/pkg/icns"
 )
 
@@ -53,7 +52,7 @@ func (g *editor) transform() previewTransform {
 		x += g.pan.X
 		y += g.pan.Y
 	}
-	return previewTransform{float64(x), float64(y), scale, comp.Box(x, y, width, height)}
+	return previewTransform{float64(x), float64(y), scale, image.Rect(x, y, x+width, y+height)}
 }
 
 // assetCachePrefix marks decoded-by-path entries in the asset map, keeping them
@@ -252,23 +251,30 @@ func (g *editor) pruneAssets() {
 	})
 }
 
-func (g *editor) drawPreview(dst *ggfx.Image) {
+// drawPreview draws the Finder window the DMG opens as, with the preview
+// area's top-left corner at origin. It draws in logical pixels on ggui's
+// Canvas, so text and icons stay sharp at any display scale.
+func (g *editor) drawPreview(dst *ggui.Canvas, origin ggui.Point) {
 	c := g.s.Project.DMG
 	l := g.s.layout()
 	size, label, items := l.IconSize, l.LabelSize, l.Items
 	t := g.transform()
-	dst = dst.SubImage(g.previewArea().Intersect(dst.Bounds())).(*ggfx.Image)
+	at := func(x, y float64) ggui.Point { return origin.Add(ggui.Pt(x, y)) }
+	rect := func(r image.Rectangle) ggui.Rect {
+		return ggui.Rct(at(float64(r.Min.X), float64(r.Min.Y)), ggui.Sz(r.Dx(), r.Dy()))
+	}
+	dst = dst.Clip(rect(g.previewArea()))
 	headerHeight := max(1, int(math.Round(28*t.scale)))
-	header := comp.Box(t.bounds.Min.X, t.bounds.Min.Y-headerHeight, t.bounds.Dx(), headerHeight)
+	header := image.Rect(t.bounds.Min.X, t.bounds.Min.Y-headerHeight, t.bounds.Max.X, t.bounds.Min.Y)
 	chrome := color.RGBA{232, 231, 229, 255}
 	outline := color.RGBA{172, 172, 172, 255}
 	radius := max(2, int(math.Round(6*t.scale)))
-	comp.RoundedRect(dst, header, radius, chrome)
-	comp.Rect(dst, comp.Box(header.Min.X, header.Max.Y-radius, header.Dx(), radius), chrome)
+	dst.FillRoundRect(rect(header), float64(radius), chrome)
+	dst.FillRect(rect(image.Rect(header.Min.X, header.Max.Y-radius, header.Max.X, header.Max.Y)), chrome)
 	for i, c := range []color.RGBA{{255, 95, 87, 255}, {254, 188, 46, 255}, {40, 200, 64, 255}} {
-		cx, cy := float32(t.x+(14+float64(i)*20)*t.scale), float32(header.Min.Y)+float32(headerHeight)/2
-		vector.FillCircle(dst, cx, cy, float32(6*t.scale), color.RGBA{150, 150, 150, 255}, true)
-		vector.FillCircle(dst, cx, cy, float32(5.5*t.scale), c, true)
+		center := at(t.x+(14+float64(i)*20)*t.scale, float64(header.Min.Y)+float64(headerHeight)/2)
+		dst.FillCircle(center, 6*t.scale, color.RGBA{150, 150, 150, 255})
+		dst.FillCircle(center, 5.5*t.scale, c)
 	}
 	title := c.Title
 	if title == "" {
@@ -277,49 +283,48 @@ func (g *editor) drawPreview(dst *ggfx.Image) {
 	if title == "." || title == "" {
 		title = "DMG preview"
 	}
-	fsTitle := max(8, int(math.Round(13*t.scale)))
-	title = g.ui.Fit(title, header.Dx()-int(150*t.scale), fsTitle)
-	g.ui.Text(dst, title, header.Min.X+(header.Dx()-g.ui.Measure(title, fsTitle))/2, header.Min.Y+(headerHeight-fsTitle)/2-2, fsTitle, color.RGBA{65, 65, 65, 255})
-	comp.Rect(dst, t.bounds, color.RGBA{246, 247, 249, 255})
+	fsTitle := max(8, math.Round(13*t.scale))
+	title = dst.FitText(title, nil, fsTitle, float64(header.Dx())-150*t.scale)
+	titleX := float64(header.Min.X) + (float64(header.Dx())-dst.TextWidth(title, nil, fsTitle))/2
+	dst.DrawText(title, nil, fsTitle, at(titleX, float64(header.Min.Y)+(float64(headerHeight)-fsTitle)/2-2), color.RGBA{65, 65, 65, 255})
+	dst.FillRect(rect(t.bounds), color.RGBA{246, 247, 249, 255})
 	if t.bounds.Empty() {
 		return
 	}
-	canvas := dst.SubImage(t.bounds.Intersect(dst.Bounds())).(*ggfx.Image)
+	canvas := dst.Clip(rect(t.bounds))
 	if bg := g.assets["background"]; bg != nil {
-		op := &ggfx.DrawImageOptions{}
-		op.GeoM.Scale(t.scale, t.scale)
-		op.GeoM.Translate(t.x, t.y)
-		op.Filter = ggfx.FilterLinear
-		canvas.DrawImage(bg, op)
+		b := bg.Bounds()
+		canvas.DrawImage(bg, ggui.Rct(at(t.x, t.y), ggui.Sz(float64(b.Dx())*t.scale, float64(b.Dy())*t.scale)), ggui.ImageOptions{Fit: ggui.FitFill})
 	}
 	for _, item := range items {
 		x := t.x + float64(item.X)*t.scale
 		y := t.y + float64(item.Y)*t.scale
 		side := float64(size) * t.scale
-		r := comp.Box(int(x-side/2), int(y-side/2), int(side), int(side))
+		r := ggui.Rct(at(x-side/2, y-side/2), ggui.Sz(side, side))
 		if item.Path == g.selected {
-			comp.Rect(canvas, r.Inset(-5), color.RGBA{77, 153, 241, 55})
-			comp.Border(canvas, r.Inset(-5), color.RGBA{53, 132, 226, 255})
+			halo := ggui.Rct(r.Origin.Sub(ggui.Pt(5, 5)), ggui.Sz(side+10, side+10))
+			canvas.FillRect(halo, color.NRGBA{77, 153, 241, 55})
+			canvas.StrokeRoundRect(halo, 0, 1, color.RGBA{53, 132, 226, 255})
 		}
-		drawFileIcon(canvas, g.assets["item:"+item.Path], r)
+		canvas.DrawImage(g.assets["item:"+item.Path], r, ggui.ImageOptions{})
 		if item.Link {
-			drawFileIcon(canvas, g.assets["badge:alias"], r)
+			canvas.DrawImage(g.assets["badge:alias"], r, ggui.ImageOptions{})
 		}
-		fs := max(8, int(math.Round(float64(label)*t.scale)))
-		name := g.ui.Fit(item.title(), max(int(side*1.7), 60), fs)
-		width := g.ui.Measure(name, fs)
-		lx, ly := int(x)-width/2, int(y+side/2)+3
+		fs := max(8, math.Round(float64(label)*t.scale))
+		name := canvas.FitText(item.title(), nil, fs, max(side*1.7, 60))
+		width := canvas.TextWidth(name, nil, fs)
+		lx, ly := x-width/2, y+side/2+3
 		if item.Path == g.selected {
-			comp.Rect(canvas, comp.Box(lx-3, ly, width+6, fs+5), color.RGBA{46, 117, 212, 255})
-			g.ui.Text(canvas, name, lx, ly, fs, color.White)
+			canvas.FillRect(ggui.Rct(at(lx-3, ly), ggui.Sz(width+6, fs+5)), color.RGBA{46, 117, 212, 255})
+			canvas.DrawText(name, nil, fs, at(lx, ly), color.White)
 		} else {
-			g.ui.Text(canvas, name, lx+1, ly+1, fs, color.White)
-			g.ui.Text(canvas, name, lx, ly, fs, color.RGBA{35, 38, 44, 255})
+			canvas.DrawText(name, nil, fs, at(lx+1, ly+1), color.White)
+			canvas.DrawText(name, nil, fs, at(lx, ly), color.RGBA{35, 38, 44, 255})
 		}
 	}
 	// One shared outer edge prevents the title bar and image from differing by a pixel.
-	comp.Rect(dst, comp.Box(header.Min.X, header.Max.Y-1, header.Dx(), 1), outline)
-	comp.Rect(dst, comp.Box(header.Min.X, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
-	comp.Rect(dst, comp.Box(header.Max.X-1, header.Min.Y+radius, 1, t.bounds.Max.Y-header.Min.Y-radius), outline)
-	comp.Rect(dst, comp.Box(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Dx(), 1), outline)
+	dst.FillRect(rect(image.Rect(header.Min.X, header.Max.Y-1, header.Max.X, header.Max.Y)), outline)
+	dst.FillRect(rect(image.Rect(header.Min.X, header.Min.Y+radius, header.Min.X+1, t.bounds.Max.Y)), outline)
+	dst.FillRect(rect(image.Rect(header.Max.X-1, header.Min.Y+radius, header.Max.X, t.bounds.Max.Y)), outline)
+	dst.FillRect(rect(image.Rect(t.bounds.Min.X, t.bounds.Max.Y-1, t.bounds.Max.X, t.bounds.Max.Y)), outline)
 }

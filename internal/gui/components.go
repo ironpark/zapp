@@ -54,6 +54,6 @@ func (g *editor) removeComponent() {
 
 func (g *editor) revealComponent() {
 	if g.desktop != nil {
-		g.desktop.revealComponent = g.componentIndex
+		g.desktop.componentFocus(g.componentIndex).Focus()
 	}
 }

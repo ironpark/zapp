@@ -1,4 +1,4 @@
-package comp
+package gui
 
 import (
 	"strconv"
@@ -6,6 +6,8 @@ import (
 	"unicode"
 )
 
+// InputSpec is how a field presents: its label, hint, placeholder, error,
+// choices, grouping, syntax and number stepping.
 type InputSpec struct {
 	// Group starts a titled section above this row.
 	Group              string
@@ -51,8 +53,10 @@ func (i *Input) StepNumber(direction int, large bool) {
 	i.SetText(strconv.Itoa(max(n.Min, min(n.Max, value+direction*step))))
 }
 
-// Input owns a draft, not the application's committed value; the application
-// may reject it and keep the draft for repair.
+// Input is the draft text of the focused field, kept apart from its
+// committed Spec.Value. SetText, StepNumber and Clone change or copy it
+// without touching the value; commit applies it as a validated project
+// transaction and, when that fails, keeps the draft for repair.
 type Input struct {
 	Spec   InputSpec
 	buffer []rune

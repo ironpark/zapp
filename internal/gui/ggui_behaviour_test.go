@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ironpark/ggui"
+	"github.com/ironpark/zapp"
 )
 
 // Save is the Save button's shortcut: it saves while the button could be
@@ -115,4 +116,26 @@ func fieldIndex(t *testing.T, g *editor, label string) int {
 	}
 	t.Fatalf("no field %q", label)
 	return -1
+}
+
+// Selecting an item scrolls the contents list to its row, which is painted
+// out of view until then.
+func TestRevealItemScrollsTheContentsList(t *testing.T) {
+	g := testEditor(t)
+	g.tab = tabDMG
+	g.s.Project.DMG.Contents = map[string]zapp.Content{}
+	for i := range 40 {
+		g.s.Project.DMG.Contents[fmt.Sprintf("item-%02d.txt", i)] = zapp.Content{Pos: &zapp.Position{20 + i, 20}}
+	}
+	g.rebuild()
+	p := widgetProbe(t, g)
+	last := g.s.layout().Items[len(g.s.layout().Items)-1].Path
+	g.selected = last
+	g.revealItem()
+	for range 4 {
+		p.Frame()
+	}
+	if ggui.Untrack(g.desktop.offset("items").Get) <= 0 {
+		t.Fatal("the contents list did not scroll to the selected item")
+	}
 }

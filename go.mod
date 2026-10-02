@@ -6,10 +6,9 @@ require (
 	github.com/ebitengine/purego v0.11.1
 	github.com/fatih/color v1.19.0
 	github.com/goccy/go-yaml v1.19.2
-	github.com/ironpark/ggfx v0.0.0-20261001022904-86e443928a9e
-	github.com/ironpark/ggui v0.0.0-20261001031656-8cebaa6f1a50
+	github.com/ironpark/ggfx v0.0.0-20261001055153-6909aef12aef
+	github.com/ironpark/ggui v0.0.0-20261002070250-f2b32da342bd
 	github.com/urfave/cli/v3 v3.13.0
-	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 	software.sslmate.com/src/go-pkcs12 v0.7.3
 )
@@ -20,10 +19,9 @@ require (
 	github.com/gogpu/naga v0.19.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
-	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )

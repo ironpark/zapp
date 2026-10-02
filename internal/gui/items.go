@@ -54,11 +54,9 @@ func (g *editor) revealItem() {
 	if g.desktop == nil {
 		return
 	}
-	for i, item := range g.s.layout().Items {
-		if item.Path == g.selected {
-			g.desktop.offset("items").Set(float64(i * 48))
-			return
-		}
+	// The canvas keeps focus: its arrow keys move the item.
+	if g.selected != "" {
+		g.desktop.items.Reveal(g.selected)
 	}
 }
 

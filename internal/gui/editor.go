@@ -3,18 +3,15 @@ package gui
 import (
 	"context"
 	"image"
-	"os"
 
 	"github.com/ironpark/ggfx"
 
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 type editor struct {
 	previewBounds                         image.Rectangle
 	desktop                               *desktopModel
-	previewSurface                        *ggfx.Image
 	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
 	componentIndex                        int
 	signMode, notaryMode                  int
@@ -37,9 +34,8 @@ type editor struct {
 	w, h, tab                                int
 	fields                                   []field
 	active                                   int
-	input                                    comp.Input
+	input                                    Input
 	inspectorStart                           int
-	ui                                       *comp.Painter
 	status                                   string
 	failed, confirmClose, quit, projectDirty bool
 	// wake schedules the UI thread to apply finished background work and act
@@ -62,41 +58,10 @@ type editor struct {
 	pan, panStart, panOrigin image.Point
 }
 
-// systemFontPaths are probed in order for a Unicode-capable UI font. Absent
-// paths simply fail to open, so the list stays cross-platform.
-var systemFontPaths = []string{
-	"/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-	"C:/Windows/Fonts/malgun.ttf",
-	"/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-}
-
 func Run(ctx context.Context, s *Session) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	// Prefer a local Unicode font when available, with the bundled font as
-	// fallback. Only the chosen candidate is read and parsed; Arial Unicode
-	// alone is ~20 MB, so parsing every candidate would be wasteful.
-	var ttf []byte
-	for _, name := range systemFontPaths {
-		if data, e := os.ReadFile(name); e == nil {
-			ttf = data
-			break
-		}
-	}
-	painter, err := comp.NewPainter(ttf)
-	if err != nil && ttf != nil {
-		painter, err = comp.NewPainter(nil)
-	}
-	if err != nil {
-		return err
-	}
-	defer painter.Close()
-	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, ui: painter, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
-	defer func() {
-		if g.previewSurface != nil {
-			g.previewSurface.Deallocate()
-		}
-	}()
+	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
 	return g.runWidgets()
 }
 
@@ -229,7 +194,7 @@ func (g *editor) focus(i int) {
 	}
 	i = max(0, min(i, len(g.fields)-1))
 	g.active = i
-	g.input = comp.NewInput(g.fields[i].InputSpec)
+	g.input = NewInput(g.fields[i].InputSpec)
 	g.revealField(i)
 }
 

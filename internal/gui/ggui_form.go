@@ -2,21 +2,11 @@ package gui
 
 import (
 	"strconv"
-	"sync"
 
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
-	"golang.org/x/image/font/gofont/gomono"
 )
-
-var codeFont = sync.OnceValue(func() *ggui.Font {
-	f, err := ggui.LoadFont(gomono.TTF)
-	if err != nil {
-		panic(err)
-	}
-	return f
-})
 
 func formView(m *desktopModel, source ggui.Readable[[]*desktopField]) ggui.Widget {
 	return ggui.View(source, func(fields []*desktopField) ggui.Widget {
@@ -72,7 +62,7 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 		if spec.Multiline {
 			input.Multiline().Lines(6)
 			if spec.Syntax != "" {
-				input.Lines(12).Style(ggui.TextStyle{Font: codeFont(), Size: 13})
+				input.Lines(12).Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 13})
 			}
 		}
 		input.OnKey(func(e ggui.KeyEvent) bool {

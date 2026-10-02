@@ -8,14 +8,12 @@ import (
 
 	"github.com/ironpark/ggui"
 	guiruntime "github.com/ironpark/ggui/runtime"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 // desktopModel separates reactive presentation state from project transactions.
 // Values/errors update individual controls; structural changes rebuild only the
 // workspace. No frame counter or absolute form geometry drives the widget tree.
 type desktopModel struct {
-	revealComponent                             int
 	Assets                                      *ggui.StateValue[int]
 	editor                                      *editor
 	dialogs                                     guiruntime.FilePicker
@@ -36,7 +34,9 @@ type desktopModel struct {
 	scroll                                      map[string]*ggui.StateValue[float64]
 	// focus holds each field's FocusRef by identity, so a field can be
 	// focused before sync builds it, as revealField does after a tab switch.
-	focus map[fieldIdentity]*ggui.FocusRef
+	focus      map[fieldIdentity]*ggui.FocusRef
+	components map[int]*ggui.FocusRef // each component row's, by index
+	items      *listReveal            // the DMG contents list
 }
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
@@ -67,7 +67,7 @@ type fieldIdentity struct {
 }
 type desktopField struct {
 	ID           fieldIdentity
-	Spec         comp.InputSpec
+	Spec         InputSpec
 	Value, Error *ggui.StateValue[string]
 	focus        *ggui.FocusRef // focuses the field's input
 }
@@ -106,34 +106,35 @@ func (m *desktopModel) allowClose() bool {
 
 func newDesktopModel(g *editor) *desktopModel {
 	m := &desktopModel{
-		editor:          g,
-		revealComponent: -1,
-		Assets:          ggui.State(0),
-		Workspace:       ggui.State(workspaceState{}),
-		Fields:          ggui.State([]*desktopField{}).WithEqual(slices.Equal),
-		Inspector:       ggui.State([]*desktopField{}).WithEqual(slices.Equal),
-		Components:      ggui.State([]componentRow{}).WithEqual(slices.Equal),
-		Items:           ggui.State([]layoutItem{}).WithEqual(slices.Equal),
-		Status:          ggui.State(""),
-		SaveState:       ggui.State(""),
-		Title:           ggui.State(""),
-		Health:          ggui.State(projectHealth{}),
-		Enabled:         ggui.State([tabCount]bool{}),
-		Failed:          ggui.State(false),
-		CanUndo:         ggui.State(false),
-		CanRedo:         ggui.State(false),
-		Busy:            ggui.State(false),
-		Help:            ggui.State(g.helpOpen),
-		Close:           ggui.State(false),
-		Tab:             ggui.State(g.tab),
-		Modal:           ggui.State(modalState{}),
-		Dark:            ggui.State(true),
-		Split:           ggui.State(0.3),
-		InspectorSplit:  ggui.State(0.7),
-		DropHover:       ggui.State(false),
-		cache:           map[fieldIdentity]*desktopField{},
-		scroll:          map[string]*ggui.StateValue[float64]{},
-		focus:           map[fieldIdentity]*ggui.FocusRef{},
+		editor:         g,
+		Assets:         ggui.State(0),
+		Workspace:      ggui.State(workspaceState{}),
+		Fields:         ggui.State([]*desktopField{}).WithEqual(slices.Equal),
+		Inspector:      ggui.State([]*desktopField{}).WithEqual(slices.Equal),
+		Components:     ggui.State([]componentRow{}).WithEqual(slices.Equal),
+		Items:          ggui.State([]layoutItem{}).WithEqual(slices.Equal),
+		Status:         ggui.State(""),
+		SaveState:      ggui.State(""),
+		Title:          ggui.State(""),
+		Health:         ggui.State(projectHealth{}),
+		Enabled:        ggui.State([tabCount]bool{}),
+		Failed:         ggui.State(false),
+		CanUndo:        ggui.State(false),
+		CanRedo:        ggui.State(false),
+		Busy:           ggui.State(false),
+		Help:           ggui.State(g.helpOpen),
+		Close:          ggui.State(false),
+		Tab:            ggui.State(g.tab),
+		Modal:          ggui.State(modalState{}),
+		Dark:           ggui.State(true),
+		Split:          ggui.State(0.3),
+		InspectorSplit: ggui.State(0.7),
+		DropHover:      ggui.State(false),
+		cache:          map[fieldIdentity]*desktopField{},
+		scroll:         map[string]*ggui.StateValue[float64]{},
+		focus:          map[fieldIdentity]*ggui.FocusRef{},
+		components:     map[int]*ggui.FocusRef{},
+		items:          newListReveal(),
 	}
 	g.desktop = m
 	m.sync()
@@ -263,6 +264,15 @@ func (m *desktopModel) sync() {
 		}
 	}
 	m.Modal.Set(modal)
+}
+
+// componentFocus is the FocusRef of the component row at index i.
+// Focusing a row scrolled out of view scrolls it in.
+func (m *desktopModel) componentFocus(i int) *ggui.FocusRef {
+	if m.components[i] == nil {
+		m.components[i] = &ggui.FocusRef{}
+	}
+	return m.components[i]
 }
 
 // fieldFocus is the FocusRef of the field with identity id.

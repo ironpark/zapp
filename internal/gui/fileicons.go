@@ -3,7 +3,6 @@ package gui
 import (
 	"bytes"
 	"embed"
-	"image"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -89,16 +88,4 @@ func (g *editor) defaultFileIcon(name string) *ggfx.Image {
 	texture := ggfx.NewImageFromImage(img)
 	g.assets[key] = texture
 	return texture
-}
-
-func drawFileIcon(dst *ggfx.Image, icon *ggfx.Image, bounds image.Rectangle) {
-	if icon == nil || bounds.Empty() {
-		return
-	}
-	ratio := min(float64(bounds.Dx())/float64(icon.Bounds().Dx()), float64(bounds.Dy())/float64(icon.Bounds().Dy()))
-	op := &ggfx.DrawImageOptions{}
-	op.GeoM.Scale(ratio, ratio)
-	op.GeoM.Translate(float64(bounds.Min.X)+(float64(bounds.Dx())-float64(icon.Bounds().Dx())*ratio)/2, float64(bounds.Min.Y)+(float64(bounds.Dy())-float64(icon.Bounds().Dy())*ratio)/2)
-	op.Filter = ggfx.FilterLinear
-	dst.DrawImage(icon, op)
 }

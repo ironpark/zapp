@@ -12,7 +12,6 @@ import (
 	"github.com/ironpark/ggui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
 	"github.com/ironpark/zapp"
-	"github.com/ironpark/zapp/internal/gui/comp"
 )
 
 // Opt-in GPU snapshots follow ggui's example render harness. The normal test
@@ -71,11 +70,7 @@ func (r *desktopRenderer) render() error {
 		}
 		s.Dir = "~/Projects/Example"
 		s.Project.DMG.Contents = map[string]zapp.Content{"Example.app": {Pos: &zapp.Position{120, 160}}, "/Applications": {Pos: &zapp.Position{380, 160}, Link: true}}
-		painter, err := comp.NewPainter(nil)
-		if err != nil {
-			return err
-		}
-		g := &editor{ctx: context.Background(), s: s, w: width, h: 760, active: -1, ui: painter, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
+		g := &editor{ctx: context.Background(), s: s, w: width, h: 760, active: -1, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
 		g.rebuild()
 		m := newDesktopModel(g)
 		p := ggui.ProbeBuilder(func() ggui.Widget { return ggui.Provide(ggui.ReducedMotionKey, true, desktopView(m)) }, ggui.Sz(width, 760))
@@ -140,10 +135,6 @@ func (r *desktopRenderer) render() error {
 			}
 		}
 		p.Close()
-		painter.Close()
-		if g.previewSurface != nil {
-			g.previewSurface.Deallocate()
-		}
 	}
 	return nil
 }

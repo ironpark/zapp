@@ -7,8 +7,8 @@ import (
 	"github.com/ironpark/zapp"
 )
 
-// These declarations bind reusable controls to editor actions. Guards live
-// here, so comp does not need to know how a project commits or validates edits.
+// guard runs action only once the field being edited commits, so an invalid
+// draft is never left behind by navigating away from it.
 func (g *editor) guard(action func()) func() {
 	return func() {
 		if g.commit() {
