@@ -132,7 +132,6 @@ func (g *editor) goToIssue() {
 		return
 	}
 	g.componentIndex = issue.component
-	g.revealComponent()
 	g.selected = issue.item
 	g.showFieldError(issue.tab, issue.label, fmt.Errorf("%s", issue.message))
 }

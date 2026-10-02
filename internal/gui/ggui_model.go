@@ -30,24 +30,27 @@ type desktopModel struct {
 	Dark                                        *ggui.StateValue[bool]
 	Split, InspectorSplit                       *ggui.StateValue[float64]
 	DropHover                                   *ggui.StateValue[bool]
-	cache                                       map[fieldIdentity]*desktopField
-	scroll                                      map[string]*ggui.StateValue[float64]
+	// Kept apart from Workspace, so that they change without rebuilding
+	// the page: the tab with an issue, why part of the DMG preview could not
+	// be drawn, and the Signing tab's keychain identities and check.
+	IssueTab     *ggui.StateValue[int]
+	PreviewError *ggui.StateValue[string]
+	Signing      *ggui.StateValue[signingState]
+	cache        map[fieldIdentity]*desktopField
+	scroll       map[string]*ggui.StateValue[float64]
 	// focus holds each field's FocusRef by identity, so a field can be
 	// focused before sync builds it, as revealField does after a tab switch.
-	focus      map[fieldIdentity]*ggui.FocusRef
-	components map[int]*ggui.FocusRef // each component row's, by index
-	// revealItem is the contents row to scroll into view at its next paint.
-	revealItem string
+	focus map[fieldIdentity]*ggui.FocusRef
 }
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
 	Enabled, Full, Raw, Advanced, Actual, DefaultLayout bool
 	Selected                                            string
-	IssueTab                                            int
-	// DMG tab: why part of the preview could not be drawn, if it could not.
-	PreviewError string
-	// Signing tab: keychain identities offered (newline-separated) and the
-	// credential check for the current settings.
+}
+
+// signingState is the Signing tab's keychain identities offered
+// (newline-separated) and the credential check for the current settings.
+type signingState struct {
 	Identities                          string
 	IdentitiesListed, IdentitiesListing bool
 	Check                               signCheck
@@ -131,10 +134,12 @@ func newDesktopModel(g *editor) *desktopModel {
 		Split:          ggui.State(0.3),
 		InspectorSplit: ggui.State(0.7),
 		DropHover:      ggui.State(false),
+		IssueTab:       ggui.State(-1),
+		PreviewError:   ggui.State(""),
+		Signing:        ggui.State(signingState{}),
 		cache:          map[fieldIdentity]*desktopField{},
 		scroll:         map[string]*ggui.StateValue[float64]{},
 		focus:          map[fieldIdentity]*ggui.FocusRef{},
-		components:     map[int]*ggui.FocusRef{},
 	}
 	g.desktop = m
 	m.sync()
@@ -155,14 +160,15 @@ func (g *editor) action(fn func()) func() {
 }
 func (m *desktopModel) sync() {
 	g := m.editor
-	v := workspaceState{Tab: g.tab, Component: g.componentIndex, Enabled: g.enabled(), Selected: g.selected, Actual: g.previewActual, IssueTab: -1}
+	v := workspaceState{Tab: g.tab, Component: g.componentIndex, Enabled: g.enabled(), Selected: g.selected, Actual: g.previewActual}
+	issueTab, previewError, signing := -1, "", signingState{}
 	if g.issue != nil {
-		v.IssueTab = g.issue.tab
+		issueTab = g.issue.tab
 	}
 	switch g.tab {
 	case tabDMG:
 		v.Raw, v.Advanced = g.dmgYAML, g.dmgAdvanced
-		v.PreviewError = g.previewError
+		previewError = g.previewError
 		if g.s.Project.DMG != nil {
 			v.DefaultLayout = g.s.Project.DMG.Contents == nil
 		}
@@ -173,12 +179,14 @@ func (m *desktopModel) sync() {
 		v.Raw = g.depRaw
 	case tabSign:
 		v.SignMethod = g.signMethod()
-		v.Identities, v.IdentitiesListed, v.IdentitiesListing = g.signing.identities, g.signing.listed, g.signing.listing
-		v.Check = g.signingCheck()
+		signing = signingState{g.signing.identities, g.signing.listed, g.signing.listing, g.signingCheck()}
 	case tabNotarize:
 		v.NotaryMethod = g.notaryMethod()
 	}
 	m.Workspace.Set(v)
+	m.IssueTab.Set(issueTab)
+	m.PreviewError.Set(previewError)
+	m.Signing.Set(signing)
 	m.Tab.Set(g.tab)
 	m.Help.Set(g.helpOpen)
 	m.Close.Set(g.confirmClose)
@@ -264,15 +272,6 @@ func (m *desktopModel) sync() {
 		}
 	}
 	m.Modal.Set(modal)
-}
-
-// componentFocus is the FocusRef of the component row at index i.
-// Focusing a row scrolled out of view scrolls it in.
-func (m *desktopModel) componentFocus(i int) *ggui.FocusRef {
-	if m.components[i] == nil {
-		m.components[i] = &ggui.FocusRef{}
-	}
-	return m.components[i]
 }
 
 // fieldFocus is the FocusRef of the field with identity id.

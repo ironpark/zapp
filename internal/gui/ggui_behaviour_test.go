@@ -131,11 +131,33 @@ func TestRevealItemScrollsTheContentsList(t *testing.T) {
 	p := widgetProbe(t, g)
 	last := g.s.layout().Items[len(g.s.layout().Items)-1].Path
 	g.selected = last
-	g.revealItem()
+	g.invalidate()
 	for range 4 {
 		p.Frame()
 	}
 	if ggui.Untrack(g.desktop.offset("items").Get) <= 0 {
 		t.Fatal("the contents list did not scroll to the selected item")
+	}
+}
+
+// The contents list is a list box: a click selects the item, which it
+// then reports as the selected option.
+func TestContentsListSelectsTheClickedItem(t *testing.T) {
+	g := testEditor(t)
+	g.tab = tabDMG
+	g.s.Project.DMG.Contents = map[string]zapp.Content{
+		"a.txt": {Pos: &zapp.Position{20, 20}},
+		"b.txt": {Pos: &zapp.Position{120, 20}},
+	}
+	g.rebuild()
+	p := widgetProbe(t, g)
+	p.Tap("Item b.txt")
+	p.Frame()
+	if g.selected != "b.txt" {
+		t.Fatalf("selected %q after clicking b.txt", g.selected)
+	}
+	n, ok := p.Semantics().Find(ggui.RoleOption, "Item b.txt")
+	if !ok || !n.Selected {
+		t.Fatalf("b.txt's option = %+v, %v; want it selected", n, ok)
 	}
 }

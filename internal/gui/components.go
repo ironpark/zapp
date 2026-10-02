@@ -24,7 +24,6 @@ func (g *editor) addComponent() {
 	g.pkgRaw = false
 	c.Components = append(c.Components, zapp.Component{ID: id, InstallLocation: "/Applications"})
 	g.componentIndex = len(c.Components) - 1
-	g.revealComponent()
 	g.rebuild()
 }
 func (g *editor) removeComponent() {
@@ -48,12 +47,5 @@ func (g *editor) removeComponent() {
 		c.Components = []zapp.Component{}
 	}
 	g.componentIndex = max(0, g.componentIndex-1)
-	g.revealComponent()
 	g.rebuild()
-}
-
-func (g *editor) revealComponent() {
-	if g.desktop != nil {
-		g.desktop.componentFocus(g.componentIndex).Focus()
-	}
 }

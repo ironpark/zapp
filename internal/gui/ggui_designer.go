@@ -19,35 +19,26 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 			modeButtons("Preview zoom", []string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
 		ggui.Expanded(canvas),
-		designerHint(v),
+		ggui.View(m.PreviewError, designerHint),
 	).Gap(12).Align(ggui.AlignStretch))
-	contents := ggui.EachKeyed(m.Items, func(i layoutItem) string { return i.Path }, func(item ggui.EachItem[layoutItem]) ggui.Widget {
+	// The canvas, which the arrow keys move items on, keeps the focus when it
+	// selects an item; the list scrolls to the item by itself.
+	selected := ggui.Bind(func() string { return m.Workspace.Get().Selected }, func(path string) {
+		g.action(g.guard(func() { g.selected = path; g.rebuild() }))()
+	})
+	contents := ui.ListBox(m.Items, func(i layoutItem) string { return i.Path }, func(item ggui.Readable[layoutItem]) ggui.Widget {
 		return ggui.Reactive(func() ggui.Widget {
 			m.Assets.Get()
-			row := item.Value.Get()
-			selected := m.Workspace.Get().Selected
-			label := row.title()
+			row := item.Get()
 			kind := g.itemKinds[row.Path]
 			if row.Link {
 				kind = "Link"
 			}
 			icon := ggui.Image(g.assets["item:"+row.Path]).Size(28, 28)
-			body := ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(label).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3))).Gap(8)
-			b := ui.ButtonOf(body, g.action(g.guard(func() { g.selected = row.Path; g.rebuild() }))).Name("Item " + label).Pad(6)
-			if selected == row.Path {
-				b.Secondary()
-			} else {
-				b.Ghost()
-			}
-			return ggui.FromFuncs(b.Layout, func(dst *ggui.Canvas, r ggui.Rect) {
-				if m.revealItem == row.Path {
-					m.revealItem = ""
-					dst.RequestReveal(r)
-				}
-				dst.Paint(b, r)
-			})
+			return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(row.title()).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3))).Gap(8).Align(ggui.AlignCenter)
 		})
-	}).Gap(3).Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
+	}).RowName(func(i layoutItem) string { return "Item " + i.title() }).Name("DMG contents").BindSelected(selected).
+		Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
 	list := ui.Card(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
 	details := ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
 		if selected == "" {
@@ -94,16 +85,21 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 	dst.Describe(r, c)
 	dst.FillRect(r, c.theme.Bg)
 	g.drawPreview(dst, r.Origin)
-	if c.model.DropHover.Get() {
+	// Outlined while it has the focus, so the arrow keys are seen to move
+	// the selected item, and while files are dragged over it.
+	switch {
+	case c.model.DropHover.Get():
 		dst.StrokeRoundRect(r, 0, 2, c.theme.Primary)
+	case dst.FocusWithin(r):
+		dst.StrokeRoundRect(r, 0, 2, c.theme.Ring)
 	}
 }
 
 // designerHint explains the canvas controls, unless part of the preview
 // could not be drawn; then it says why.
-func designerHint(v workspaceState) ggui.Widget {
-	if v.PreviewError != "" {
-		return ui.Caption(v.PreviewError).Color(uitheme.Use().Destructive)
+func designerHint(previewError string) ggui.Widget {
+	if previewError != "" {
+		return ui.Caption(previewError).Color(uitheme.Use().Destructive)
 	}
 	return ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan")
 }

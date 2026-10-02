@@ -50,15 +50,6 @@ func (g *editor) revealField(index int) {
 		g.desktop.fieldFocus(g.fieldIdentity(index)).Focus()
 	}
 }
-func (g *editor) revealItem() {
-	if g.desktop == nil {
-		return
-	}
-	// The canvas keeps focus: its arrow keys move the item.
-	if g.selected != "" {
-		g.desktop.revealItem = g.selected
-	}
-}
 
 // editSelectedContent materializes the contents map, applies f to the selected
 // entry and writes it back, so every mutation of a selected item follows one

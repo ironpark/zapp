@@ -44,7 +44,7 @@ func desktopView(m *desktopModel) ggui.Widget {
 			if v.failed {
 				color = t.Destructive
 			}
-			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)), ggui.If(m.Workspace.Map(func(v workspaceState) bool { return v.IssueTab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
+			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)), ggui.If(m.IssueTab.Map(func(tab int) bool { return tab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
 		})
 		// Selecting a DMG item rebuilds only the item details, which follow
 		// Selected themselves, not the whole workspace.
@@ -192,8 +192,7 @@ func modeButtons(name string, labels []string, index int, selectMode func(int)) 
 	for i := range options {
 		options[i] = i
 	}
-	choice := ggui.Bind(func() int { return index }, selectMode)
-	return ui.ToggleGroup(choice).Options(options).Format(func(i int) string { return labels[i] }).Name(name)
+	return ui.ToggleGroup(ggui.Controlled(index, selectMode)).Options(options).Format(func(i int) string { return labels[i] }).Name(name)
 }
 func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	title := "Settings"
@@ -214,11 +213,10 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	children := []ggui.Widget{ggui.Row(header...).Gap(8)}
 	g := m.editor
 	if v.Tab == tabSign {
+		check := m.Signing.Map(func(s signingState) signCheck { return s.Check })
 		children = append(children, ggui.Row(modeButtons("Signing method", []string{"Keychain", "PKCS#12", "PEM"}, v.SignMethod, g.actionSelect(g.selectSignMethod)),
-			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().Disabled(v.Check.Checking), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter))
-		if v.Check.Shown {
-			children = append(children, checkResult(v))
-		}
+			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().BindDisabled(check.Map(func(c signCheck) bool { return c.Checking })), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter),
+			ggui.If(check.Map(func(c signCheck) bool { return c.Shown }), func() ggui.Widget { return ggui.View(check, checkResult) }))
 	}
 	if v.Tab == tabNotarize {
 		children = append(children, modeButtons("Notarization method", []string{"Profile", "Apple ID", "API key"}, v.NotaryMethod, g.actionSelect(g.selectNotaryMethod)))
@@ -227,8 +225,11 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	switch {
 	case v.Tab == tabProject:
 		content = ggui.Column(appCard(m), content, buildSteps(m)).Gap(28).Align(ggui.AlignStretch)
-	case v.Tab == tabSign && v.SignMethod == 0 && v.IdentitiesListed:
-		content = ggui.Column(content, identitySuggestions(m, v)).Gap(20).Align(ggui.AlignStretch)
+	case v.Tab == tabSign && v.SignMethod == 0:
+		listed := m.Signing.Map(func(s signingState) bool { return s.IdentitiesListed })
+		content = ggui.Column(content, ggui.If(listed, func() ggui.Widget {
+			return ggui.View(m.Signing, func(s signingState) ggui.Widget { return identitySuggestions(m, s) })
+		})).Gap(20).Align(ggui.AlignStretch)
 	}
 	if v.Tab != tabDMG && !v.Raw {
 		content = ggui.Box(content).MaxWidth(formMaxWidth)
@@ -250,18 +251,18 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 const formMaxWidth = 760
 
 // checkResult shows what the Signing tab's Check found.
-func checkResult(v workspaceState) ggui.Widget {
+func checkResult(c signCheck) ggui.Widget {
 	t := uitheme.Use()
-	if v.Check.Checking {
+	if c.Checking {
 		return ui.Caption("Checking the certificate…")
 	}
-	icon, col := statusIcon(t, v.Check.OK)
-	return ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Expanded(ggui.Text(v.Check.Message).Size(12).Color(col))).Gap(6).Align(ggui.AlignStart)
+	icon, col := statusIcon(t, c.OK)
+	return ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Expanded(ggui.Text(c.Message).Size(12).Color(col))).Gap(6).Align(ggui.AlignStart)
 }
 
 // identitySuggestions offers the keychain's signing identities to fill the
 // Keychain method's identity with one click.
-func identitySuggestions(m *desktopModel, v workspaceState) ggui.Widget {
+func identitySuggestions(m *desktopModel, v signingState) ggui.Widget {
 	g := m.editor
 	refresh := ui.Tooltip(ui.Button("Refresh", g.action(g.refreshIdentities)).Ghost().Pad(2, 8).Disabled(v.IdentitiesListing),
 		"Look up the keychain again, as after importing a certificate")
@@ -370,19 +371,16 @@ func (g *editor) displayPath(path string) string {
 func (g *editor) actionSelect(fn func(int)) func(int) { return func(i int) { fn(i); g.invalidate() } }
 func componentSidebar(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
-	rows := ggui.EachKeyed(m.Components, func(c componentRow) int { return c.Index }, func(row ggui.EachItem[componentRow]) ggui.Widget {
-		return ggui.Reactive(func() ggui.Widget {
-			c := row.Value.Get()
-			state := m.Workspace.Get()
-			b := ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(c.Label).NoWrap().Ellipsis())), func() { m.selectComponent(c.Index) }).Name("Component "+c.Label).Pad(8, 10)
-			if c.Index == state.Component && !state.Raw {
-				b.Secondary()
-			} else {
-				b.Ghost()
-			}
-			return m.componentFocus(c.Index).Attach(b)
-		})
-	}).Gap(4).Align(ggui.AlignStretch)
+	// No row is selected while the components are edited as JSON.
+	selected := ggui.Bind(func() int {
+		if s := m.Workspace.Get(); !s.Raw {
+			return s.Component
+		}
+		return -1
+	}, m.selectComponent)
+	rows := ui.ListBox(m.Components, func(c componentRow) int { return c.Index }, func(c ggui.Readable[componentRow]) ggui.Widget {
+		return ggui.TextOf(ggui.Map(c, func(c componentRow) string { return c.Label })).NoWrap().Ellipsis()
+	}).RowName(func(c componentRow) string { return "Component " + c.Label }).Name("Components").BindSelected(selected)
 	content := ggui.Column(ggui.TextOf(m.Components.Map(func(c []componentRow) string { return fmt.Sprintf("Components · %d", len(c)) })), ui.Caption("Installer payloads"), ggui.Expanded(ggui.Scroll(rows).BindOffset(m.offset("components"))), ui.Button("Add component", g.action(g.guard(g.addComponent))).Outline(), ui.Button("Remove", g.action(g.guard(g.removeComponent))).Ghost().BindDisabled(ggui.Derived(func() bool { return m.Workspace.Get().Raw || len(m.Components.Get()) == 0 }))).Gap(10).Align(ggui.AlignStretch)
 	return ggui.Box(ui.Card(content)).Width(210)
 }

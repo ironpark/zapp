@@ -217,12 +217,10 @@ func TestRevealComponentScrollsToSelection(t *testing.T) {
 	g.rebuild()
 	p := widgetProbe(t, g)
 	g.componentIndex = 29
-	g.revealComponent()
+	g.invalidate()
 	for range 4 {
 		p.Frame()
 	}
-	// FocusRef.Focused stays false after a focus that scrolled, until the
-	// next input; the scroll is what shows the row was reached.
 	if ggui.Untrack(g.desktop.offset("components").Get) <= 0 {
 		t.Fatal("newly selected component is not revealed")
 	}

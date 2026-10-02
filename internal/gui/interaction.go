@@ -48,7 +48,6 @@ func (g *editor) selectPreviewItem(point image.Point) {
 		}
 	}
 	g.rebuild()
-	g.revealItem()
 }
 
 // startPan begins a space-drag pan, which is only offered at actual size.

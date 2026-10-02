@@ -147,7 +147,6 @@ func (g *editor) picked(index int, path string, err error) {
 			g.report(nil, "This file is already in the layout.")
 			return
 		}
-		g.revealItem()
 		g.report(nil, "Added file. Drag its icon to arrange, or edit Item details.")
 		return
 	}

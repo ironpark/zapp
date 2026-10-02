@@ -292,6 +292,9 @@ func (g *editor) drawPreview(dst *ggui.Canvas, origin ggui.Point) {
 		return
 	}
 	canvas := dst.Clip(rect(t.bounds))
+	if g.previewActual {
+		canvas.HitCursor(rect(t.bounds), ggui.CursorShapeMove) // drag empty space to pan
+	}
 	if bg := g.assets["background"]; bg != nil {
 		b := bg.Bounds()
 		canvas.DrawImage(bg, ggui.Rct(at(t.x, t.y), ggui.Sz(float64(b.Dx())*t.scale, float64(b.Dy())*t.scale)), ggui.ImageOptions{Fit: ggui.FitFill})
@@ -301,6 +304,7 @@ func (g *editor) drawPreview(dst *ggui.Canvas, origin ggui.Point) {
 		y := t.y + float64(item.Y)*t.scale
 		side := float64(size) * t.scale
 		r := ggui.Rct(at(x-side/2, y-side/2), ggui.Sz(side, side))
+		canvas.HitCursor(r, ggui.CursorShapeMove)
 		if item.Path == g.selected {
 			halo := ggui.Rct(r.Origin.Sub(ggui.Pt(5, 5)), ggui.Sz(side+10, side+10))
 			canvas.FillRect(halo, color.NRGBA{77, 153, 241, 55})
