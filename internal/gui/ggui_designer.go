@@ -39,10 +39,16 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 			} else {
 				b.Ghost()
 			}
-			return m.items.Row(row.Path, b)
+			return ggui.FromFuncs(b.Layout, func(dst *ggui.Canvas, r ggui.Rect) {
+				if m.revealItem == row.Path {
+					m.revealItem = ""
+					dst.RequestReveal(r)
+				}
+				dst.Paint(b, r)
+			})
 		})
 	}).Gap(3).Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
-	list := ui.Card(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(m.items.Scroll(contents, m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
+	list := ui.Card(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
 	details := ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
 		if selected == "" {
 			return ui.Card(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))

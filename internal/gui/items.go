@@ -56,7 +56,7 @@ func (g *editor) revealItem() {
 	}
 	// The canvas keeps focus: its arrow keys move the item.
 	if g.selected != "" {
-		g.desktop.items.Reveal(g.selected)
+		g.desktop.revealItem = g.selected
 	}
 }
 

@@ -36,7 +36,8 @@ type desktopModel struct {
 	// focused before sync builds it, as revealField does after a tab switch.
 	focus      map[fieldIdentity]*ggui.FocusRef
 	components map[int]*ggui.FocusRef // each component row's, by index
-	items      *listReveal            // the DMG contents list
+	// revealItem is the contents row to scroll into view at its next paint.
+	revealItem string
 }
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
@@ -134,7 +135,6 @@ func newDesktopModel(g *editor) *desktopModel {
 		scroll:         map[string]*ggui.StateValue[float64]{},
 		focus:          map[fieldIdentity]*ggui.FocusRef{},
 		components:     map[int]*ggui.FocusRef{},
-		items:          newListReveal(),
 	}
 	g.desktop = m
 	m.sync()
