@@ -12,9 +12,6 @@ const (
 	labelRootDirectory    = "Root directory"
 	labelScriptsDirectory = "Scripts directory"
 	labelDistribution     = "Distribution"
-	labelItemName         = "Name"
-	labelItemX            = "X"
-	labelItemY            = "Y"
 	labelItemIcon         = "Item icon"
 
 	labelSigningIdentity = "Signing identity"
@@ -35,13 +32,3 @@ const (
 	labelAppcast         = "Sparkle appcast"
 	labelHomebrew        = "Homebrew cask"
 )
-
-// isItemField reports whether label names one of the selected DMG item's
-// fields.
-func isItemField(label string) bool {
-	switch label {
-	case labelItemName, labelItemX, labelItemY, labelItemIcon:
-		return true
-	}
-	return false
-}

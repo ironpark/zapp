@@ -15,10 +15,10 @@ func TestItemIconLivePreviewAndReset(t *testing.T) {
 	g.selected = "notes.txt"
 	g.rebuild()
 	original := g.derivedSignature()
-	if g.fields[g.inspectorStart+3].picker != pickItemIcon || !slices.Contains(pickerExtensions(pickItemIcon), "jpg") || !slices.Contains(pickerExtensions(pickItemIcon), "jpeg") {
+	if g.fields[g.fieldIndex(labelItemIcon)].picker != pickItemIcon || !slices.Contains(pickerExtensions(pickItemIcon), "jpg") || !slices.Contains(pickerExtensions(pickItemIcon), "jpeg") {
 		t.Fatal("missing JPEG picker filter")
 	}
-	g.focus(g.inspectorStart + 3)
+	g.focus(g.fieldIndex(labelItemIcon))
 	icon, err := filepath.Abs("assets/fileicons/folder.png")
 	if err != nil {
 		t.Fatal(err)

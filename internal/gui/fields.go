@@ -46,8 +46,8 @@ var contentAxes = []struct {
 	of    func(zapp.Content) int
 	apply func(n, x, y int) (int, int)
 }{
-	{labelItemX, func(c zapp.Content) int { return positionCoord(c.Pos, 0) }, func(n, _, y int) (int, int) { return n, y }},
-	{labelItemY, func(c zapp.Content) int { return positionCoord(c.Pos, 1) }, func(n, x, _ int) (int, int) { return x, n }},
+	{"X", func(c zapp.Content) int { return positionCoord(c.Pos, 0) }, func(n, _, y int) (int, int) { return n, y }},
+	{"Y", func(c zapp.Content) int { return positionCoord(c.Pos, 1) }, func(n, x, _ int) (int, int) { return x, n }},
 }
 
 func boolField(label string, value *bool, hint string) field {
@@ -214,7 +214,7 @@ func (g *editor) selectedContent() (zapp.Content, bool) {
 
 func (g *editor) selectedItemFields(c *zapp.DMGConfig, item zapp.Content) []field {
 	key := g.selected
-	fields := []field{{Label: labelItemName, Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
+	fields := []field{{Label: "Name", Value: item.Name, Hint: "Blank uses the source filename", Placeholder: "Source filename", set: func(v string) error {
 		g.editSelectedContent(func(c *zapp.Content) { c.Name = v })
 		return nil
 	}}}
