@@ -115,7 +115,7 @@ func (r *desktopRenderer) render() error {
 			case "close":
 				g.confirmClose = true
 			}
-			m.sync()
+			m.editor.invalidate()
 			p.Frame()
 			img := ggfx.NewImage(width, 760)
 			img.Fill(ggui.Untrack(uitheme.Use).Bg)

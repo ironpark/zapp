@@ -4,10 +4,13 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/ironpark/ggui"
 )
 
-// InputSpec is how a field presents: its label, hint, placeholder, error,
-// choices, grouping, syntax and number stepping.
+// InputSpec is how a field presents: its label, hint, placeholder,
+// choices, grouping, syntax and number stepping. The error a field shows is
+// its state's; see fieldState.
 type InputSpec struct {
 	// Group starts a titled section above this row.
 	Group              string
@@ -17,7 +20,6 @@ type InputSpec struct {
 	Label, Value, Hint string
 	Placeholder        string
 	Number             *NumberSpec
-	Error              string
 	Browse             bool
 	// DisplayValue replaces Value only while unfocused (e.g. "640 (default)").
 	DisplayValue string
@@ -53,23 +55,32 @@ func (i *Input) StepNumber(direction int, large bool) {
 	i.SetText(strconv.Itoa(max(n.Min, min(n.Max, value+direction*step))))
 }
 
-// Input is the draft text of the focused field, kept apart from its
-// committed Spec.Value. SetText, StepNumber and Clone change or copy it
-// without touching the value; commit applies it as a validated project
-// transaction and, when that fails, keeps the draft for repair.
+// Input is the draft of the field being edited: the text its input shows,
+// against the committed Spec.Value. It holds no text of its own; SetText
+// writes the field's text, which the input is bound to, so what the user
+// typed and what the editor commits are one value. Commit applies it as a
+// validated project transaction and, when that fails, keeps the draft for
+// repair.
 type Input struct {
-	Spec   InputSpec
-	buffer []rune
+	Spec InputSpec // the field as it was when editing began
+	text *ggui.StateValue[string]
 }
 
+// NewInput is a draft of spec with a text of its own, starting at the
+// committed value.
 func NewInput(spec InputSpec) Input {
-	return Input{Spec: spec, buffer: []rune(spec.Value)}
+	return Input{Spec: spec, text: ggui.State(spec.Value)}
 }
 
-func (i Input) Text() string      { return string(i.buffer) }
+func (i Input) Text() string {
+	if i.text == nil {
+		return ""
+	}
+	return i.text.Get()
+}
+
 func (i Input) Dirty() bool       { return i.Text() != i.Spec.Value }
-func (i Input) Clone() Input      { i.buffer = append([]rune(nil), i.buffer...); return i }
-func (i *Input) SetText(s string) { i.buffer = []rune(i.clean(s)) }
+func (i *Input) SetText(s string) { i.text.Set(i.clean(s)) }
 
 // clean keeps newlines only in multiline inputs, turns tabs into spaces and
 // drops other control characters.

@@ -24,14 +24,14 @@ func workspaceView(m *desktopModel, v workspaceState) ggui.Widget {
 	if v.Tab == tabPKG && v.Enabled {
 		actions = append(actions, modeButtons("Package form", []string{"Single app", "Components"}, boolIndex(v.Full), func(int) {
 			g.guard(g.switchPackageForm)()
-			m.sync()
+			g.invalidate()
 		}))
 	}
 	if v.Tab != tabDMG && v.Enabled {
-		actions = append(actions, ui.Button("Help", func() { g.helpOpen = !g.helpOpen; m.sync() }).Ghost())
+		actions = append(actions, ui.Button("Help", func() { g.helpOpen = !g.helpOpen; g.invalidate() }).Ghost())
 	}
 	if sections[v.Tab].Optional() {
-		enabled := ggui.Controlled(v.Enabled, func(bool) { g.guard(g.toggle)(); m.sync() })
+		enabled := ggui.Controlled(v.Enabled, func(bool) { g.guard(g.toggle)(); g.invalidate() })
 		actions = append(actions, ui.Switch(enabled, status).Name("Enable "+sections[v.Tab].Name))
 	}
 	header := ggui.Row(actions...).Gap(12).Align(ggui.AlignCenter)

@@ -45,7 +45,7 @@ func TestInvalidYAMLRetainsDraftAndMode(t *testing.T) {
 		g.focus(0)
 		g.input.SetText(draft)
 		g.setRaw(false)
-		if !g.dmgYAML || g.input.Text() != draft || g.fields[g.active].Error == "" {
+		if !g.dmgYAML || g.input.Text() != draft || g.fields[g.active].shownError() == "" {
 			t.Fatalf("invalid draft not retained: %q", draft)
 		}
 		if g.s.CanUndo() {

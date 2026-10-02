@@ -8,8 +8,8 @@ import (
 	uitheme "github.com/ironpark/ggui/ui/theme"
 )
 
-func formView(m *desktopModel, source ggui.Readable[[]*desktopField]) ggui.Widget {
-	return ggui.View(source, func(fields []*desktopField) ggui.Widget {
+func formView(m *desktopModel, source ggui.Readable[[]*fieldState]) ggui.Widget {
+	return ggui.View(source, func(fields []*fieldState) ggui.Widget {
 		children := []ggui.Widget{}
 		for i := 0; i < len(fields); {
 			first := fields[i]
@@ -38,13 +38,13 @@ func formView(m *desktopModel, source ggui.Readable[[]*desktopField]) ggui.Widge
 	})
 }
 
-func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
+func fieldView(m *desktopModel, f *fieldState) ggui.Widget {
 	g, spec := m.editor, f.Spec
 	binding := m.fieldBinding(f)
 	var control ggui.Widget
 	switch {
 	case spec.Boolean:
-		on := ggui.Bind(func() bool { return f.Value.Get() == "true" }, func(v bool) {
+		on := ggui.Bind(func() bool { return f.Text.Get() == "true" }, func(v bool) {
 			binding.Set(strconv.FormatBool(v))
 			m.commitField(f)
 		})
@@ -72,8 +72,7 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 		}
 		input.OnKey(func(e ggui.KeyEvent) bool {
 			if e.Key == ggui.KeyEscape {
-				g.rebuild()
-				m.sync()
+				g.rebuild() // drops the draft
 				return true
 			}
 			if spec.Number != nil && (e.Key == ggui.KeyArrowUp || e.Key == ggui.KeyArrowDown) {
@@ -103,7 +102,7 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	if f.ID.tab == tabDMG && spec.Label == labelItemIcon {
 		// ggui.If follows the value itself; reading it here would rebuild the
 		// whole form on every keystroke.
-		reset := ggui.If(f.Value.Map(func(v string) bool { return v != "" }), func() ggui.Widget {
+		reset := ggui.If(f.Text.Map(func(v string) bool { return v != "" }), func() ggui.Widget {
 			return ui.Button("Reset item icon", g.action(func() { binding.Set(""); m.commitField(f) })).Ghost()
 		})
 		control = ggui.Column(control, reset).Gap(6)
@@ -126,14 +125,14 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	return field
 }
 
-func (m *desktopModel) stepField(f *desktopField, direction int, large, commit bool) {
+func (m *desktopModel) stepField(f *fieldState, direction int, large, commit bool) {
 	g := m.editor
 	if !g.matchesField(f.ID) {
 		return
 	}
 	if g.active != f.ID.index {
 		if !g.commit() {
-			m.sync()
+			g.invalidate()
 			return
 		}
 		g.focus(f.ID.index)
@@ -144,5 +143,5 @@ func (m *desktopModel) stepField(f *desktopField, direction int, large, commit b
 	if commit {
 		g.commit()
 	}
-	m.sync()
+	g.invalidate()
 }

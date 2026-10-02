@@ -178,7 +178,7 @@ type statusView struct {
 
 func closeDialogView(m *desktopModel) ggui.Widget {
 	g := m.editor
-	keepEditing := func() { g.confirmClose = false; m.sync() }
+	keepEditing := func() { g.confirmClose = false; g.invalidate() }
 	saveAndClose := g.action(func() {
 		if g.save() {
 			g.requestQuit()
@@ -191,7 +191,7 @@ func closeDialogView(m *desktopModel) ggui.Widget {
 		ui.Button("Discard changes", g.requestQuit).Outline(),
 		ui.Button("Save & close", saveAndClose),
 	).Gap(8).Justify(ggui.JustifyEnd)
-	open := ggui.Bind(m.Close.Get, func(v bool) { g.confirmClose = v; m.sync() })
+	open := ggui.Bind(m.Close.Get, func(v bool) { g.confirmClose = v; g.invalidate() })
 	return ui.Dialog(open, ggui.Column(ggui.Text("Your project has unsaved edits."), actions).Gap(20)).
 		Title("Save changes before closing?").Width(580)
 }
@@ -242,7 +242,7 @@ func buildDialogView(m *desktopModel, v buildDialogShape) ggui.Widget {
 	open := ggui.Bind(func() bool { return m.Modal.Get().Title != "" }, func(b bool) {
 		if !b && g.build != nil {
 			g.dismissBuild()
-			m.sync()
+			g.invalidate()
 		}
 	})
 	body = append(body, ggui.Row(actions...).Gap(8).Justify(ggui.JustifyEnd))

@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggui"
 
 	"github.com/ironpark/zapp"
 )
@@ -57,6 +58,10 @@ type formState struct {
 	input          Input
 	liveBase       *zapp.Project // the project before a draft was previewed in it
 	projectDirty   bool
+
+	states    map[fieldIdentity]*fieldState // the page's fields' states
+	focusRefs map[fieldIdentity]*ggui.FocusRef
+	kept      *keptDraft // a draft to put back while the page is rebuilt
 }
 
 // designerState is the DMG preview canvas: the selected item, a drag in
@@ -168,13 +173,11 @@ func (g *editor) dirty() bool {
 	return g.projectDirty || (g.drag != "" && g.dragMoved) || (g.active >= 0 && g.input.Dirty())
 }
 
-// The component owns the draft; applying it is a project transaction. A failed
+// The field owns the draft; applying it is a project transaction. A failed
 // validation restores the model while retaining the draft and cursor for repair.
 func (g *editor) commit() bool {
 	if g.liveBase != nil {
-		index, draft := g.active, g.input.Clone()
-		g.rebuild()
-		g.active, g.input = index, draft
+		g.keepingDraft(g.rebuild)
 	}
 	if g.active < 0 {
 		return true
@@ -191,11 +194,8 @@ func (g *editor) commit() bool {
 		return false
 	}
 	if err := g.s.validateLayout(); err != nil {
-		index, draft := g.active, g.input.Clone()
 		g.s.Project = before
-		g.rebuild()
-		g.focus(index)
-		g.input = draft
+		g.keepingDraft(g.rebuild)
 		g.fieldError(err)
 		return false
 	}
@@ -243,8 +243,14 @@ func (g *editor) focus(i int) {
 		return
 	}
 	i = max(0, min(i, len(g.fields)-1))
+	// A draft left in another field goes back to its committed value.
+	if g.active >= 0 && g.active < len(g.fields) && g.active != i {
+		g.input.SetText(g.input.Spec.Value)
+	}
+	f := g.fields[i]
 	g.active = i
-	g.input = NewInput(g.fields[i].InputSpec)
+	g.input = Input{Spec: f.InputSpec, text: f.state.Text}
+	g.input.SetText(f.Value)
 	g.revealField(i)
 }
 

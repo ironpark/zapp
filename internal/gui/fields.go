@@ -24,6 +24,9 @@ type field struct {
 	// mayNotExist marks a path the build creates, so Validate does not require
 	// it to be on disk already.
 	mayNotExist bool
+	// state is what the field keeps across rebuilds, given by attachStates
+	// to the fields of the page.
+	state *fieldState
 }
 
 func stringField(label string, value *string, hint string) field {
@@ -135,6 +138,7 @@ func (g *editor) rebuildFields() {
 			g.fields = append(g.fields, g.selectedItemFields(g.s.Project.DMG, item)...)
 		}
 	}
+	g.attachStates()
 }
 
 func (g *editor) refreshDerived() {

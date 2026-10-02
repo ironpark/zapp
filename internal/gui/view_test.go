@@ -90,7 +90,7 @@ func TestWidgetsStaleFieldBinding(t *testing.T) {
 	g.s.Project.PKG.Components = []zapp.Component{{ID: "first"}, {ID: "second"}}
 	g.rebuild()
 	m := newDesktopModel(g)
-	binding := m.fieldBinding(m.cache[g.fieldIdentity(2)])
+	binding := m.fieldBinding(g.fields[2].state)
 	g.componentIndex = 1
 	g.rebuild()
 	binding.Set("stale")
@@ -255,8 +255,8 @@ func TestDesktopIdleAndValueEditsRetainFieldModels(t *testing.T) {
 	g.tab = tabProject
 	g.rebuild()
 	p := widgetProbe(t, g)
-	original := append([]*desktopField(nil), g.desktop.Fields.Get()...)
-	g.desktop.sync()
+	original := append([]*fieldState(nil), g.desktop.Fields.Get()...)
+	g.invalidate()
 	setTextField(t, p, "Output directory", "retained")
 	for i, field := range original {
 		if field != g.desktop.Fields.Get()[i] {

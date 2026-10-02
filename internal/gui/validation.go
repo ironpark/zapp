@@ -56,7 +56,7 @@ func (g *editor) fieldIndex(label string) int {
 func (g *editor) fieldError(err error) {
 	if g.active >= 0 && g.active < len(g.fields) {
 		g.issue = &validationIssue{g.fieldLocation(g.active), err.Error()}
-		g.fields[g.active].Error = err.Error()
+		g.fields[g.active].state.Error.Set(err.Error())
 		g.revealField(g.active)
 	}
 	g.report(err, "")
@@ -64,7 +64,7 @@ func (g *editor) fieldError(err error) {
 
 func (g *editor) clearFieldError() {
 	if g.active >= 0 && g.active < len(g.fields) {
-		g.fields[g.active].Error = ""
+		g.fields[g.active].state.Error.Set("")
 	}
 }
 

@@ -39,7 +39,7 @@ func TestInvalidFieldErrorAndValidationNavigation(t *testing.T) {
 		}
 	}
 	g.input.SetText("bad")
-	if g.commit() || g.fields[g.active].Error == "" {
+	if g.commit() || g.fields[g.active].shownError() == "" {
 		t.Fatal("invalid draft did not get inline error")
 	}
 	g.input.SetText("96")
@@ -49,7 +49,7 @@ func TestInvalidFieldErrorAndValidationNavigation(t *testing.T) {
 	g.s.Project.App = "missing.app"
 	g.rebuild()
 	g.validate()
-	if g.tab != tabProject || g.active < 0 || g.fields[g.active].Label != "App bundle" || g.fields[g.active].Error == "" {
+	if g.tab != tabProject || g.active < 0 || g.fields[g.active].Label != "App bundle" || g.fields[g.active].shownError() == "" {
 		t.Fatal("validation did not navigate to invalid app")
 	}
 }

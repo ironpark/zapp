@@ -66,7 +66,7 @@ func TestHealthTracksProjectWithoutNavigating(t *testing.T) {
 	if !strings.Contains(g.health.Issues[tabDMG], "missing.png") || g.health.Count == 0 {
 		t.Fatalf("missing background not filed under DMG: %+v", g.health.Issues)
 	}
-	if g.issue != nil || g.fields[0].Error != "" {
+	if g.issue != nil || g.fields[0].shownError() != "" {
 		t.Fatal("checking marked a field")
 	}
 

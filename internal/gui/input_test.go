@@ -5,10 +5,8 @@ import "testing"
 func TestDraftIsolation(t *testing.T) {
 	i := NewInput(InputSpec{Value: "가나다"})
 	i.SetText("가🙂나다")
-	snapshot := i.Clone()
-	i.SetText("가다")
-	if i.Text() != "가다" || snapshot.Text() != "가🙂나다" {
-		t.Fatal("clone isolation failed")
+	if i.Text() != "가🙂나다" {
+		t.Fatalf("draft %q", i.Text())
 	}
 	if i.Spec.Value != "가나다" || !i.Dirty() {
 		t.Fatal("draft changed committed value")

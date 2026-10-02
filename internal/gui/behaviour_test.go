@@ -22,14 +22,14 @@ func TestSaveShortcutFollowsTheButton(t *testing.T) {
 		t.Fatal("the edit left the project clean")
 	}
 	g.confirmClose = true
-	g.desktop.sync()
+	g.invalidate()
 	p.Frame()
 	p.Key("cmd+s")
 	if !g.s.Dirty() {
 		t.Fatal("cmd+s saved behind the close dialog")
 	}
 	g.confirmClose = false
-	g.desktop.sync()
+	g.invalidate()
 	p.Frame()
 	p.Key("cmd+s")
 	if g.s.Dirty() || g.s.Project.Out != "elsewhere" {
@@ -47,7 +47,7 @@ func TestRevealFieldFocusesTheField(t *testing.T) {
 	g.revealField(i)
 	p.Frame()
 	p.Frame()
-	if !g.desktop.fieldFocus(g.fieldIdentity(i)).Focused() {
+	if !g.fieldFocus(g.fieldIdentity(i)).Focused() {
 		t.Fatal("revealField did not focus the field")
 	}
 }
@@ -68,7 +68,7 @@ func TestBuildLogFollowsTheEnd(t *testing.T) {
 			lines++
 		}
 		g.build.logDirty = true
-		g.desktop.sync()
+		g.invalidate()
 		p.Frame()
 		p.Frame()
 		return g.desktop.offset("build-log").Get()

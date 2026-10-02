@@ -22,7 +22,7 @@ func previewCard(m *desktopModel, v workspaceState) ggui.Widget {
 	reset := ui.Button("Reset layout", g.action(g.guard(g.resetLayout))).Ghost().Pad(5, 10).Disabled(v.DefaultLayout)
 	zoom := modeButtons("Preview zoom", []string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) {
 		g.previewActual, g.pan = i == 1, image.Point{}
-		m.sync()
+		g.invalidate()
 	})
 	return ui.Card(ggui.Column(
 		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(), reset, zoom).Gap(8),
@@ -78,7 +78,7 @@ func itemDetails(m *desktopModel) ggui.Widget {
 				}
 			}
 			return false
-		}, func(bool) { g.toggleItemLink(); m.sync() })
+		}, func(bool) { g.toggleItemLink(); g.invalidate() })
 		return ui.Card(ggui.Column(
 			ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(link, "Link")),
 			ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)),
@@ -146,7 +146,7 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 		}
 		g.selectPreviewItem(point)
 		g.startPan(point)
-		c.model.sync()
+		c.model.editor.invalidate()
 	case ggui.PointerDrag:
 		g.moveDesigner(p)
 	case ggui.PointerUp:
@@ -157,7 +157,7 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 			g.rebuild()
 			g.report(nil, "Position updated.")
 		}
-		c.model.sync()
+		c.model.editor.invalidate()
 	case ggui.PointerScroll:
 		return false
 	}
@@ -199,7 +199,7 @@ func (c *designerCanvas) HandleKey(e ggui.KeyEvent) {
 			}
 		}
 	}
-	c.model.sync()
+	c.model.editor.invalidate()
 }
 
 func (c *designerCanvas) HandleDrop(e ggui.DropEvent) bool {
@@ -211,7 +211,7 @@ func (c *designerCanvas) HandleDrop(e ggui.DropEvent) bool {
 	count, err := g.addDroppedPaths(e.Paths(), image.Pt(int(p.X), int(p.Y)))
 	g.report(err, fmt.Sprintf("Added %d item(s). Drag to arrange; Undo removes this batch.", count))
 	c.model.DropHover.Set(false)
-	c.model.sync()
+	c.model.editor.invalidate()
 	return true
 }
 

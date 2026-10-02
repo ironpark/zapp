@@ -74,7 +74,7 @@ func (g *editor) runWidgets() error {
 		}
 		g.pollBuild()
 		g.pollPosted()
-		m.sync()
+		g.invalidate()
 	}
 	g.wake = func() { app.Post(pump) }
 	// Build the fields only now: rebuild starts goroutines (app icons, keychain
