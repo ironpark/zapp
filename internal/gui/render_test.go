@@ -70,7 +70,7 @@ func (r *desktopRenderer) render() error {
 		}
 		s.Dir = "~/Projects/Example"
 		s.Project.DMG.Contents = map[string]zapp.Content{"Example.app": {Pos: &zapp.Position{120, 160}}, "/Applications": {Pos: &zapp.Position{380, 160}, Link: true}}
-		g := &editor{ctx: context.Background(), s: s, w: width, h: 760, active: -1, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
+		g := newEditor(context.Background(), s, width, 760)
 		g.rebuild()
 		m := newDesktopModel(g)
 		p := ggui.ProbeBuilder(func() ggui.Widget { return ggui.Provide(ggui.ReducedMotionKey, true, desktopView(m)) }, ggui.Sz(width, 760))

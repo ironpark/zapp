@@ -3,14 +3,15 @@ package gui
 import (
 	"image"
 	"testing"
-
-	"github.com/ironpark/ggfx"
 )
 
 func testEditor(t *testing.T) *editor {
 	t.Helper()
 	s := fixture(t, ".zapp.yaml", "version: 1\ndmg: {}\npkg: {}\n")
-	g := &editor{s: s, w: 1200, h: 840, active: -1, assets: map[string]*ggfx.Image{}}
+	// With no context the editor starts no background work: no app icon
+	// loads, keychain lookups or builds.
+	g := newEditor(nil, s, 1200, 840) //nolint:staticcheck
+	g.status = ""
 	g.rebuild()
 	return g
 }

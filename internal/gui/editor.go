@@ -9,60 +9,106 @@ import (
 	"github.com/ironpark/zapp"
 )
 
+// editor is the project being edited and everything the GUI shows of it.
+// Its state is grouped by what owns it; the groups are embedded, so their
+// fields read as the editor's own.
 type editor struct {
-	previewBounds                         image.Rectangle
-	desktop                               *desktopModel
-	helpOpen, pkgAdvanced, pkgRaw, depRaw bool
-	componentIndex                        int
-	signMode, notaryMode                  int
-	signModeSet, notaryModeSet            bool
-	signStash                             zapp.SignConfig
-	notaryStash                           zapp.NotarizeConfig
-	issue                                 *validationIssue
-	health                                projectHealth
-	signing                               signingAssist
-	projectIconPath                       string        // app whose icon projectIconKey holds
-	healthOf                              *zapp.Project // the project health describes
+	ctx     context.Context
+	s       *Session
+	desktop *desktopModel
+	w, h    int // the window's starting size
 
-	dmgYAML                                  bool
-	appIconPending                           map[string]bool
-	appIconPaths                             map[string]string
-	build                                    *buildJob
-	ctx                                      context.Context
-	s                                        *Session
-	disabled                                 zapp.Project
-	w, h, tab                                int
-	fields                                   []field
-	active                                   int
-	input                                    Input
-	inspectorStart                           int
-	status                                   string
-	failed, confirmClose, quit, projectDirty bool
+	pageState
+	formState
+	designerState
+	assetState
+	statusState
+	signing signingAssist
+	build   *buildJob
+
+	confirmClose, quit bool
 	// wake schedules the UI thread to apply finished background work and act
 	// on quit; nil outside a live window.
-	wake                   func()
-	posted                 chan func()
+	wake   func()
+	posted chan func()
+}
+
+// pageState is which page is shown and how: the tab, the PKG component,
+// raw or form views, and the methods chosen on the Signing and
+// Notarization tabs.
+type pageState struct {
+	tab, componentIndex        int
+	helpOpen                   bool
+	dmgYAML, pkgRaw, depRaw    bool
+	dmgAdvanced, pkgAdvanced   bool
+	signMode, notaryMode       int
+	signModeSet, notaryModeSet bool
+	signStash                  zapp.SignConfig     // the other sign methods' settings
+	notaryStash                zapp.NotarizeConfig // the other notary methods' settings
+	disabled                   zapp.Project        // the settings of sections switched off
+}
+
+// formState is the fields of the page and the one being edited, whose
+// draft is kept apart from the project until it commits.
+type formState struct {
+	fields         []field
+	inspectorStart int // fields from here on are the selected DMG item's
+	active         int // the field being edited, or -1
+	input          Input
+	liveBase       *zapp.Project // the project before a draft was previewed in it
+	projectDirty   bool
+}
+
+// designerState is the DMG preview canvas: the selected item, a drag in
+// progress and the actual-size view's pan.
+type designerState struct {
+	previewBounds          image.Rectangle
 	selected               string
 	drag                   string
 	dragX, dragY           float64
 	dragMoved              bool
-	assets                 map[string]*ggfx.Image
-	itemKinds              map[string]string
-	previewError           string
-	previewSig             string
-	liveBase               *zapp.Project
-	dmgAdvanced            bool
 	previewActual, panning bool
 	// pan is the actual-size view offset; panStart and panOrigin capture where
 	// the current drag began.
 	pan, panStart, panOrigin image.Point
 }
 
+// assetState is the images the GUI draws and what it knows of the files
+// behind them.
+type assetState struct {
+	assets          map[string]*ggfx.Image
+	appIconPending  map[string]bool
+	appIconPaths    map[string]string
+	itemKinds       map[string]string
+	projectIconPath string // app whose icon projectIconKey holds
+	previewError    string
+	previewSig      string
+}
+
+// statusState is what the status line, the health badge and Go to issue
+// report.
+type statusState struct {
+	status   string
+	failed   bool
+	issue    *validationIssue
+	health   projectHealth
+	healthOf *zapp.Project // the project health describes
+}
+
+// newEditor opens s in an editor whose window starts w by h.
+func newEditor(ctx context.Context, s *Session, w, h int) *editor {
+	return &editor{
+		ctx: ctx, s: s, w: w, h: h,
+		formState:   formState{active: -1},
+		assetState:  assetState{assets: map[string]*ggfx.Image{}},
+		statusState: statusState{status: "Edit settings, then Save. Validation checks build inputs without building."},
+	}
+}
+
 func Run(ctx context.Context, s *Session) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	g := &editor{ctx: ctx, s: s, w: 1200, h: 840, active: -1, assets: map[string]*ggfx.Image{}, status: "Edit settings, then Save. Validation checks build inputs without building."}
-	return g.runWidgets()
+	return newEditor(ctx, s, 1200, 840).runWidgets()
 }
 
 // wakeFunc returns the hook that asks the UI thread to apply finished
