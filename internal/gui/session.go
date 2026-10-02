@@ -113,6 +113,7 @@ func (s *Session) push(before *zapp.Project) {
 	}
 	s.redo = nil
 }
+
 func (s *Session) checkpoint()   { s.push(s.Project.Clone()) }
 func (s *Session) CanUndo() bool { return len(s.undo) > 0 }
 func (s *Session) CanRedo() bool { return len(s.redo) > 0 }
@@ -126,6 +127,7 @@ func (s *Session) pop(from, to *[]*zapp.Project) {
 	s.Project = (*from)[len(*from)-1]
 	*from = (*from)[:len(*from)-1]
 }
+
 func (s *Session) Undo() { s.pop(&s.undo, &s.redo) }
 func (s *Session) Redo() { s.pop(&s.redo, &s.undo) }
 
@@ -231,6 +233,7 @@ func (i layoutItem) content() zapp.Content {
 func (i layoutItem) title() string {
 	return dmg.Item{Name: i.Name, Path: i.Path}.ImageName()
 }
+
 func (s *Session) materialize() {
 	c := s.Project.DMG
 	if c.Contents != nil {

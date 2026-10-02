@@ -13,6 +13,7 @@ type buildResult struct {
 	artifacts zapp.Artifacts
 	err       error
 }
+
 type buildJob struct {
 	cancel                               context.CancelFunc
 	events                               chan string

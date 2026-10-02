@@ -31,7 +31,8 @@ func workspaceView(m *desktopModel, v workspaceState) ggui.Widget {
 		actions = append(actions, ui.Button("Help", func() { g.helpOpen = !g.helpOpen; m.sync() }).Ghost())
 	}
 	if sections[v.Tab].Optional() {
-		actions = append(actions, ui.Switch(ggui.Bind(func() bool { return m.Workspace.Get().Enabled }, func(bool) { g.guard(g.toggle)(); m.sync() }), status).Name("Enable "+sections[v.Tab].Name))
+		enabled := ggui.Controlled(v.Enabled, func(bool) { g.guard(g.toggle)(); m.sync() })
+		actions = append(actions, ui.Switch(enabled, status).Name("Enable "+sections[v.Tab].Name))
 	}
 	header := ggui.Row(actions...).Gap(12).Align(ggui.AlignCenter)
 	var body ggui.Widget
@@ -49,6 +50,7 @@ func workspaceView(m *desktopModel, v workspaceState) ggui.Widget {
 	}
 	return ggui.Padding(ggui.Column(header, ggui.Expanded(body)).Gap(16).Align(ggui.AlignStretch), 16)
 }
+
 func boolIndex(b bool) int {
 	if b {
 		return 1
@@ -66,6 +68,7 @@ func modeButtons(name string, labels []string, index int, selectMode func(int)) 
 	}
 	return ui.ToggleGroup(ggui.Controlled(index, selectMode)).Options(options).Format(func(i int) string { return labels[i] }).Name(name)
 }
+
 func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	title := "Settings"
 	if v.Tab == tabDMG {
@@ -86,18 +89,21 @@ func settingsView(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
 	if v.Tab == tabSign {
 		check := m.Signing.Map(func(s signingState) signCheck { return s.Check })
-		children = append(children, ggui.Row(modeButtons("Signing method", []string{"Keychain", "PKCS#12", "PEM"}, v.SignMethod, g.actionSelect(g.selectSignMethod)),
-			ui.Tooltip(ui.Button("Check", g.action(g.checkSigning)).Outline().BindDisabled(check.Map(func(c signCheck) bool { return c.Checking })), "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter),
-			ggui.If(check.Map(func(c signCheck) bool { return c.Shown }), func() ggui.Widget { return ggui.View(check, checkResult) }))
+		method := modeButtons("Signing method", signMethodLabels, v.SignMethod, g.actionSelect(g.selectSignMethod))
+		checkButton := ui.Button("Check", g.action(g.checkSigning)).Outline().BindDisabled(check.Map(func(c signCheck) bool { return c.Checking }))
+		result := ggui.If(check.Map(func(c signCheck) bool { return c.Shown }), func() ggui.Widget { return ggui.View(check, checkResult) })
+		children = append(children,
+			ggui.Row(method, ui.Tooltip(checkButton, "Find the certificate these settings sign with, without building")).Gap(16).Align(ggui.AlignCenter),
+			result)
 	}
 	if v.Tab == tabNotarize {
-		children = append(children, modeButtons("Notarization method", []string{"Profile", "Apple ID", "API key"}, v.NotaryMethod, g.actionSelect(g.selectNotaryMethod)))
+		children = append(children, modeButtons("Notarization method", notaryMethodLabels, v.NotaryMethod, g.actionSelect(g.selectNotaryMethod)))
 	}
 	var content ggui.Widget = formView(m, m.Fields)
 	switch {
 	case v.Tab == tabProject:
 		content = ggui.Column(appCard(m), content, buildSteps(m)).Gap(28).Align(ggui.AlignStretch)
-	case v.Tab == tabSign && v.SignMethod == 0:
+	case v.Tab == tabSign && v.SignMethod == signKeychain:
 		listed := m.Signing.Map(func(s signingState) bool { return s.IdentitiesListed })
 		content = ggui.Column(content, ggui.If(listed, func() ggui.Widget {
 			return ggui.View(m.Signing, func(s signingState) ggui.Widget { return identitySuggestions(m, s) })
@@ -140,10 +146,12 @@ func identitySuggestions(m *desktopModel, v signingState) ggui.Widget {
 		"Look up the keychain again, as after importing a certificate")
 	children := []ggui.Widget{ggui.Row(ggui.Expanded(ggui.Text("In your keychain").Size(12).Color(uitheme.Use().Primary)), refresh).Align(ggui.AlignCenter)}
 	if v.Identities == "" {
-		children = append(children, ui.Caption("No valid signing identities were found. Import your Developer ID certificate, then refresh, or use the PKCS#12 or PEM method."))
+		children = append(children, ui.Caption("No valid signing identities were found. "+
+			"Import your Developer ID certificate, then refresh, or use the PKCS#12 or PEM method."))
 	} else {
 		for _, name := range strings.Split(v.Identities, "\n") {
-			children = append(children, ui.ButtonOf(ggui.Row(ggui.Expanded(ggui.Text(name).NoWrap().Ellipsis())), g.action(func() { g.useIdentity(name) })).Name("Use "+name).Outline())
+			label := ggui.Row(ggui.Expanded(ggui.Text(name).NoWrap().Ellipsis()))
+			children = append(children, ui.ButtonOf(label, g.action(func() { g.useIdentity(name) })).Name("Use "+name).Outline())
 		}
 		children = append(children, ui.Caption("Leave the identity blank to pick the first matching Developer ID automatically."))
 	}
@@ -201,7 +209,9 @@ func buildSteps(m *desktopModel) ggui.Widget {
 			case health.Issues[tab] != "":
 				detail, detailCol = health.Issues[tab], t.Destructive
 			}
-			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap().Ellipsis()).Gap(3)), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).Gap(12).Align(ggui.AlignCenter)
+			text := ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap().Ellipsis()).Gap(3)
+			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(text), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).
+				Gap(12).Align(ggui.AlignCenter)
 			rows = append(rows, ui.ButtonOf(row, func() { m.selectTab(tab) }).Name("Open "+sections[tab].Name).Ghost().Pad(8, 6))
 		}
 		return ggui.Column(rows...).Gap(4).Align(ggui.AlignStretch)
@@ -253,9 +263,18 @@ func componentSidebar(m *desktopModel, v workspaceState) ggui.Widget {
 	rows := ui.ListBox(m.Components, func(c componentRow) int { return c.Index }, func(c ggui.Readable[componentRow]) ggui.Widget {
 		return ggui.TextOf(ggui.Map(c, func(c componentRow) string { return c.Label })).NoWrap().Ellipsis()
 	}).RowName(func(c componentRow) string { return "Component " + c.Label }).Name("Components").BindSelected(selected)
-	content := ggui.Column(ggui.TextOf(m.Components.Map(func(c []componentRow) string { return fmt.Sprintf("Components · %d", len(c)) })), ui.Caption("Installer payloads"), ggui.Expanded(ggui.Scroll(rows).BindOffset(m.offset("components"))), ui.Button("Add component", g.action(g.guard(g.addComponent))).Outline(), ui.Button("Remove", g.action(g.guard(g.removeComponent))).Ghost().BindDisabled(ggui.Derived(func() bool { return m.Workspace.Get().Raw || len(m.Components.Get()) == 0 }))).Gap(10).Align(ggui.AlignStretch)
+	count := m.Components.Map(func(c []componentRow) string { return fmt.Sprintf("Components · %d", len(c)) })
+	cannotRemove := ggui.Derived(func() bool { return m.Workspace.Get().Raw || len(m.Components.Get()) == 0 })
+	content := ggui.Column(
+		ggui.TextOf(count),
+		ui.Caption("Installer payloads"),
+		ggui.Expanded(ggui.Scroll(rows).BindOffset(m.offset("components"))),
+		ui.Button("Add component", g.action(g.guard(g.addComponent))).Outline(),
+		ui.Button("Remove", g.action(g.guard(g.removeComponent))).Ghost().BindDisabled(cannotRemove),
+	).Gap(10).Align(ggui.AlignStretch)
 	return ggui.Box(ui.Card(content)).Width(210)
 }
+
 func helpView(tab int) ggui.Widget {
 	t := uitheme.Use()
 	children := []ggui.Widget{ggui.Column(ui.Title("About this step"), ui.Caption(sections[tab].Description)).Gap(6).Align(ggui.AlignStretch)}

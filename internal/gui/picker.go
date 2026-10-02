@@ -43,6 +43,7 @@ func pathField(label string, value *string, hint string, mode pickMode) field {
 	f.picker = mode
 	return f
 }
+
 func (g *editor) browse(index int) {
 	if index < 0 || index >= len(g.fields) || !g.fields[index].Browse {
 		return

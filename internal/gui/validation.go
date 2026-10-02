@@ -18,11 +18,13 @@ func (g *editor) fieldError(err error) {
 	}
 	g.report(err, "")
 }
+
 func (g *editor) clearFieldError() {
 	if g.active >= 0 && g.active < len(g.fields) {
 		g.fields[g.active].Error = ""
 	}
 }
+
 func (g *editor) showFieldError(tab int, label string, err error) {
 	g.tab = tab
 	if tab == tabDep {
@@ -48,22 +50,22 @@ func (g *editor) showFieldError(tab int, label string, err error) {
 	if tab == tabSign {
 		switch label {
 		case "Signing identity":
-			g.signMode = 0
+			g.signMode = signKeychain
 		case "PKCS#12 certificate", "Password file":
-			g.signMode = 1
+			g.signMode = signP12
 		case "PEM certificate":
-			g.signMode = 2
+			g.signMode = signPEM
 		}
 		g.signModeSet = true
 	}
 	if tab == tabNotarize {
 		switch label {
 		case "Keychain profile":
-			g.notaryMode = 0
+			g.notaryMode = notaryProfile
 		case "Apple ID", "Team ID", "App-specific password":
-			g.notaryMode = 1
+			g.notaryMode = notaryAppleID
 		case "API key file":
-			g.notaryMode = 2
+			g.notaryMode = notaryAPIKey
 		}
 		g.notaryModeSet = true
 	}

@@ -27,6 +27,7 @@ type previewTransform struct {
 func (t previewTransform) content(x, y float64) (float64, float64) {
 	return (x - t.x) / t.scale, (y - t.y) / t.scale
 }
+
 func (g *editor) previewArea() image.Rectangle { return g.previewBounds }
 func (g *editor) clampPan() {
 	l := g.s.layout()
@@ -35,6 +36,7 @@ func (g *editor) clampPan() {
 	g.pan.X = max(-limit.X, min(limit.X, g.pan.X))
 	g.pan.Y = max(-limit.Y, min(limit.Y, g.pan.Y))
 }
+
 func (g *editor) transform() previewTransform {
 	l := g.s.layout()
 	available := g.previewArea()

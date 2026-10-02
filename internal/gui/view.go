@@ -14,42 +14,78 @@ import (
 
 func desktopView(m *desktopModel) ggui.Widget {
 	return ggui.Reactive(func() ggui.Widget {
-		t := uitheme.Use()
-		g := m.editor
-		toolbar := ggui.Padding(ggui.Row(
-			ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9),
-			ggui.Expanded(ggui.Column(ggui.TextOf(m.Title).Size(15).NoWrap().Ellipsis(), ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap().Ellipsis()).Gap(3)),
-			ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
-			// Undo and Redo leave their keys to a focused text field, which has
-			// its own history, so the runtime's OnKey handles them, not Shortcut.
-			ui.Tooltip(ghostIcon(lucide.Icon("undo-2"), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(m.CanUndo.Map(func(v bool) bool { return !v })), "Undo").Shortcut("cmd+z"),
-			ui.Tooltip(ghostIcon(lucide.Icon("redo-2"), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(m.CanRedo.Map(func(v bool) bool { return !v })), "Redo").Shortcut("cmd+shift+z"),
-			healthBadge(m),
-			// A button's shortcut works while it is enabled and no dialog is
-			// open over it, which is when the button itself would.
-			ui.Tooltip(ui.Button("Save", g.action(func() { g.save() })).Shortcut("cmd+s").Outline().BindDisabled(m.Busy), "Save"),
-			ui.Tooltip(ui.Button("Build", g.action(g.startBuild)).Shortcut("cmd+b").BindDisabled(m.Busy), "Build"),
-			ggui.View(m.Dark, func(dark bool) ggui.Widget {
-				icon, label := "sun", "Light appearance"
-				if !dark {
-					icon, label = "moon", "Dark appearance"
-				}
-				return iconButton(icon, label, func() { m.Dark.Set(!dark) })
-			}),
-		).Gap(10).Align(ggui.AlignCenter), 10, 16)
-		footer := ggui.View(ggui.Combine(m.Status, m.Failed, func(message string, failed bool) statusView { return statusView{message, failed} }), func(v statusView) ggui.Widget {
-			color := t.MutedFg
-			if v.failed {
-				color = t.Destructive
-			}
-			return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)), ggui.If(m.IssueTab.Map(func(tab int) bool { return tab >= 0 }), func() ggui.Widget { return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost() })).Gap(8), 5, 16)
-		})
 		// Selecting a DMG item rebuilds only the item details, which follow
 		// Selected themselves, not the whole workspace.
-		page := ggui.ViewOf(m.Workspace, func(v workspaceState) workspaceState { v.Selected = ""; return v }, func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
-		body := ggui.Column(toolbar, ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), footer).Align(ggui.AlignStretch)
-		return ggui.Column(ggui.Expanded(body), closeDialogView(m), ggui.ViewOf(m.Modal, buildShape, func(v buildDialogShape) ggui.Widget { return buildDialogView(m, v) })).Align(ggui.AlignStretch)
+		page := ggui.ViewOf(m.Workspace,
+			func(v workspaceState) workspaceState { v.Selected = ""; return v },
+			func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
+		body := ggui.Column(toolbar(m), ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), statusLine(m)).
+			Align(ggui.AlignStretch)
+		buildDialog := ggui.ViewOf(m.Modal, buildShape, func(v buildDialogShape) ggui.Widget { return buildDialogView(m, v) })
+		return ggui.Column(ggui.Expanded(body), closeDialogView(m), buildDialog).Align(ggui.AlignStretch)
 	})
+}
+
+// toolbar is the strip along the top: the project, its save state, history,
+// health and the Save and Build actions.
+func toolbar(m *desktopModel) ggui.Widget {
+	t := uitheme.Use()
+	g := m.editor
+	logo := ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9)
+	project := ggui.Column(
+		ggui.TextOf(m.Title).Size(15).NoWrap().Ellipsis(),
+		ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap().Ellipsis(),
+	).Gap(3)
+	// Undo and Redo leave their keys to a focused text field, which has its
+	// own history, so the runtime's OnKey handles them, not Shortcut.
+	undo := ghostIcon(lucide.Icon("undo-2"), "Undo", g.action(g.guard(func() { g.history(false) }))).BindDisabled(not(m.CanUndo))
+	redo := ghostIcon(lucide.Icon("redo-2"), "Redo", g.action(g.guard(func() { g.history(true) }))).BindDisabled(not(m.CanRedo))
+	// A button's shortcut works while it is enabled and no dialog is open over
+	// it, which is when the button itself would.
+	save := ui.Button("Save", g.action(func() { g.save() })).Shortcut("cmd+s").Outline().BindDisabled(m.Busy)
+	build := ui.Button("Build", g.action(g.startBuild)).Shortcut("cmd+b").BindDisabled(m.Busy)
+	appearance := ggui.View(m.Dark, func(dark bool) ggui.Widget {
+		icon, label := "sun", "Light appearance"
+		if !dark {
+			icon, label = "moon", "Dark appearance"
+		}
+		return iconButton(icon, label, func() { m.Dark.Set(!dark) })
+	})
+	return ggui.Padding(ggui.Row(
+		logo,
+		ggui.Expanded(project),
+		ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
+		ui.Tooltip(undo, "Undo").Shortcut("cmd+z"),
+		ui.Tooltip(redo, "Redo").Shortcut("cmd+shift+z"),
+		healthBadge(m),
+		ui.Tooltip(save, "Save"),
+		ui.Tooltip(build, "Build"),
+		appearance,
+	).Gap(10).Align(ggui.AlignCenter), 10, 16)
+}
+
+// statusLine is the strip along the bottom: the last report, and Go to issue
+// while there is one.
+func statusLine(m *desktopModel) ggui.Widget {
+	g := m.editor
+	status := ggui.Combine(m.Status, m.Failed, func(message string, failed bool) statusView { return statusView{message, failed} })
+	return ggui.View(status, func(v statusView) ggui.Widget {
+		t := uitheme.Use()
+		color := t.MutedFg
+		if v.failed {
+			color = t.Destructive
+		}
+		message := ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)
+		goToIssue := ggui.If(m.IssueTab.Map(func(tab int) bool { return tab >= 0 }), func() ggui.Widget {
+			return ui.Button("Go to issue", g.action(g.goToIssue)).Ghost()
+		})
+		return ggui.Padding(ggui.Row(ggui.Text("●").Color(color), ggui.Expanded(message), goToIssue).Gap(8), 5, 16)
+	})
+}
+
+// not is the negation of r, for binding Disabled to a "can".
+func not(r ggui.Readable[bool]) ggui.Readable[bool] {
+	return ggui.Map(r, func(v bool) bool { return !v })
 }
 
 // readyColor marks a project that passes its checks. The theme has no
@@ -142,14 +178,22 @@ type statusView struct {
 
 func closeDialogView(m *desktopModel) ggui.Widget {
 	g := m.editor
-	open := ggui.Bind(m.Close.Get, func(v bool) { g.confirmClose = v; m.sync() })
-	return ui.Dialog(open, ggui.Column(ggui.Text("Your project has unsaved edits."), ggui.Row(ui.Button("Keep editing", func() { g.confirmClose = false; m.sync() }).Ghost(), ui.Button("Discard changes", func() { g.requestQuit() }).Outline(), ui.Button("Save & close", g.action(func() {
+	keepEditing := func() { g.confirmClose = false; m.sync() }
+	saveAndClose := g.action(func() {
 		if g.save() {
 			g.requestQuit()
 		} else {
 			g.confirmClose = false
 		}
-	}))).Gap(8).Justify(ggui.JustifyEnd)).Gap(20)).Title("Save changes before closing?").Width(580)
+	})
+	actions := ggui.Row(
+		ui.Button("Keep editing", keepEditing).Ghost(),
+		ui.Button("Discard changes", g.requestQuit).Outline(),
+		ui.Button("Save & close", saveAndClose),
+	).Gap(8).Justify(ggui.JustifyEnd)
+	open := ggui.Bind(m.Close.Get, func(v bool) { g.confirmClose = v; m.sync() })
+	return ui.Dialog(open, ggui.Column(ggui.Text("Your project has unsaved edits."), actions).Gap(20)).
+		Title("Save changes before closing?").Width(580)
 }
 
 // buildDialogShape is what the build dialog is built from: its log and
@@ -165,6 +209,7 @@ func buildShape(v modalState) buildDialogShape {
 	shape.Log, shape.Message = "", ""
 	return shape
 }
+
 func buildDialogView(m *desktopModel, v buildDialogShape) ggui.Widget {
 	if v.Title == "" {
 		return ggui.Box()
@@ -176,9 +221,12 @@ func buildDialogView(m *desktopModel, v buildDialogShape) ggui.Widget {
 		t := uitheme.Use()
 		// The log follows new lines until the user scrolls up, and again once
 		// they scroll back to the end.
-		log := ggui.Scroll(ggui.Padding(ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Log })).Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 12}).Color(t.MutedFg), 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
+		text := ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Log })).
+			Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 12}).Color(t.MutedFg)
+		log := ggui.Scroll(ggui.Padding(text, 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
+		copyLog := func() { ggui.CurrentClipboard().Write(ggui.Untrack(m.Modal.Get).Log) }
 		body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
-		actions = append(actions, ui.Button("Copy log", func() { ggui.CurrentClipboard().Write(ggui.Untrack(m.Modal.Get).Log) }).Ghost(), ggui.Spacer())
+		actions = append(actions, ui.Button("Copy log", copyLog).Ghost(), ggui.Spacer())
 	}
 	if v.Reveal != "" {
 		actions = append(actions, ui.Button(revealLabel(), func() { g.reveal(v.Reveal) }).Outline())

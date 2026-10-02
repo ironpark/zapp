@@ -29,6 +29,7 @@ type field struct {
 func stringField(label string, value *string, hint string) field {
 	return field{Label: label, Value: *value, Hint: hint, Placeholder: fieldPlaceholders[label], set: func(s string) error { *value = s; return nil }}
 }
+
 func choiceField(label string, value *string, choices ...string) field {
 	f := stringField(label, value, "")
 	f.Choices = choices
@@ -376,26 +377,28 @@ func (g *editor) depFields() []field {
 	}
 	return fields
 }
+
 func (g *editor) signFields() []field {
 	fields := g.signAllFields()
 	entitlements := fields[4]
 	switch g.signMethod() {
-	case 1:
+	case signP12:
 		return []field{fields[1], fields[3], entitlements}
-	case 2:
+	case signPEM:
 		return []field{fields[2], entitlements}
 	default:
 		return []field{fields[0], entitlements}
 	}
 }
+
 func (g *editor) notarizeFields() []field {
 	fields := g.notaryAllFields()
 	switch g.notaryMethod() {
-	case 1:
+	case notaryAppleID:
 		password := stringField("App-specific password", &g.s.Project.Notarize.Password, "Session only · never saved to the project")
 		password.Secret = true
 		return append([]field{fields[1], fields[2], password}, fields[4:]...)
-	case 2:
+	case notaryAPIKey:
 		return append([]field{fields[3]}, fields[4:]...)
 	default:
 		return append([]field{fields[0]}, fields[4:]...)

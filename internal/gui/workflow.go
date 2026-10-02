@@ -40,48 +40,68 @@ func switchMethod(current, next int, groups [][][2]*string) {
 	}
 }
 
+// The Signing tab's methods, in the order its switch shows them.
+const (
+	signKeychain = iota
+	signP12
+	signPEM
+)
+
+var signMethodLabels = []string{"Keychain", "PKCS#12", "PEM"}
+
+// The Notarization tab's methods, in the order its switch shows them.
+const (
+	notaryProfile = iota
+	notaryAppleID
+	notaryAPIKey
+)
+
+var notaryMethodLabels = []string{"Profile", "Apple ID", "API key"}
+
 func (g *editor) signMethod() int {
 	c := g.s.Project.Sign
 	if c != nil {
 		if c.P12File != "" || c.P12PasswordFile != "" {
-			return 1
+			return signP12
 		}
 		if c.PEMFile != "" {
-			return 2
+			return signPEM
 		}
 		if c.Identity != "" {
-			return 0
+			return signKeychain
 		}
 	}
 	if g.signModeSet {
 		return g.signMode
 	}
 	if runtime.GOOS != "darwin" {
-		return 1
+		return signP12
 	}
-	return 0
+	return signKeychain
 }
+
 func (g *editor) notaryMethod() int {
 	c := g.s.Project.Notarize
 	if c != nil {
 		if c.APIKeyFile != "" {
-			return 2
+			return notaryAPIKey
 		}
 		if c.Profile != "" {
-			return 0
+			return notaryProfile
 		}
 		if c.AppleID != "" || c.TeamID != "" || c.Password != "" {
-			return 1
+			return notaryAppleID
 		}
 	}
 	if g.notaryModeSet {
 		return g.notaryMode
 	}
 	if runtime.GOOS != "darwin" {
-		return 2
+		return notaryAPIKey
 	}
-	return 0
+	return notaryProfile
 }
+
 func (g *editor) selectSignMethod(index int) {
 	if !g.commit() || index == g.signMethod() {
 		return
@@ -103,6 +123,7 @@ func (g *editor) setSignMethod(index int) {
 	g.issue = nil
 	g.signMode, g.signModeSet = index, true
 }
+
 func (g *editor) selectNotaryMethod(index int) {
 	if !g.commit() || index == g.notaryMethod() {
 		return
@@ -119,6 +140,7 @@ func (g *editor) selectNotaryMethod(index int) {
 	g.notaryMode, g.notaryModeSet = index, true
 	g.rebuild()
 }
+
 func (g *editor) componentListVisible() bool {
 	return g.tab == tabPKG && g.s.Project.PKG != nil && g.s.Project.PKG.HasFullForm()
 }

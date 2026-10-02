@@ -153,6 +153,7 @@ func (g *editor) requestQuit() {
 		g.wake()
 	}
 }
+
 func (g *editor) report(err error, success string) {
 	defer g.invalidate()
 	g.failed = err != nil
@@ -162,6 +163,7 @@ func (g *editor) report(err error, success string) {
 		g.status = success
 	}
 }
+
 func (g *editor) dirty() bool {
 	return g.projectDirty || (g.drag != "" && g.dragMoved) || (g.active >= 0 && g.input.Dirty())
 }
@@ -205,6 +207,7 @@ func (g *editor) commit() bool {
 	g.report(nil, "Unsaved changes")
 	return true
 }
+
 func (g *editor) save() bool {
 	if !g.commit() {
 		return false
@@ -214,6 +217,7 @@ func (g *editor) save() bool {
 	g.report(err, "Saved "+g.s.Path)
 	return err == nil
 }
+
 func (g *editor) validate() {
 	g.issue = nil
 	if !g.commit() {

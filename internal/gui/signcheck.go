@@ -52,7 +52,7 @@ func (g *editor) listIdentities() {
 func (g *editor) lookupIdentities() {
 	a := &g.signing
 	if runtime.GOOS != "darwin" || a.listing || g.ctx == nil ||
-		g.tab != tabSign || !g.enabled() || g.signMethod() != 0 {
+		g.tab != tabSign || !g.enabled() || g.signMethod() != signKeychain {
 		return
 	}
 	a.listing = true

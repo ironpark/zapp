@@ -37,13 +37,18 @@ func formView(m *desktopModel, source ggui.Readable[[]*desktopField]) ggui.Widge
 		return ggui.Column(children...).Gap(20).Align(ggui.AlignStretch)
 	})
 }
+
 func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	g, spec := m.editor, f.Spec
 	binding := m.fieldBinding(f)
 	var control ggui.Widget
 	switch {
 	case spec.Boolean:
-		control = ui.Switch(ggui.Bind(func() bool { return f.Value.Get() == "true" }, func(v bool) { binding.Set(strconv.FormatBool(v)); m.commitField(f) }), spec.Label).Name(spec.Label)
+		on := ggui.Bind(func() bool { return f.Value.Get() == "true" }, func(v bool) {
+			binding.Set(strconv.FormatBool(v))
+			m.commitField(f)
+		})
+		control = ui.Switch(on, spec.Label).Name(spec.Label)
 	case len(spec.Choices) > 0:
 		control = ui.Select(binding).Options(spec.Choices).Name(spec.Label).Format(func(value string) string {
 			if value == "" {
@@ -84,10 +89,13 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 		control = f.focus.Attach(input)
 	}
 	if spec.Number != nil {
-		control = ggui.Row(ggui.Expanded(control), ggui.Column(iconButton("chevron-up", spec.Label+" +", func() { m.stepField(f, 1, false, true) }), iconButton("chevron-down", spec.Label+" −", func() { m.stepField(f, -1, false, true) }))).Gap(6)
+		up := iconButton("chevron-up", spec.Label+" +", func() { m.stepField(f, 1, false, true) })
+		down := iconButton("chevron-down", spec.Label+" −", func() { m.stepField(f, -1, false, true) })
+		control = ggui.Row(ggui.Expanded(control), ggui.Column(up, down)).Gap(6)
 	}
 	if spec.Browse {
-		control = ggui.Row(ggui.Expanded(control), ui.Button("Browse", g.action(func() { g.browse(f.ID.index) })).Name("Browse "+spec.Label).Outline()).Gap(8)
+		browse := ui.Button("Browse", g.action(func() { g.browse(f.ID.index) })).Name("Browse " + spec.Label).Outline()
+		control = ggui.Row(ggui.Expanded(control), browse).Gap(8)
 	}
 	if f.ID.tab == tabDep && !g.depRaw && f.ID.index < len(g.s.Project.Dep.Libs) {
 		control = ggui.Row(ggui.Expanded(control), iconButton("x", "Remove "+spec.Label, g.action(func() { removeLibrary(g, f.ID.index) }))).Gap(8)
@@ -117,6 +125,7 @@ func fieldView(m *desktopModel, f *desktopField) ggui.Widget {
 	}
 	return field
 }
+
 func (m *desktopModel) stepField(f *desktopField, direction int, large, commit bool) {
 	g := m.editor
 	if !g.matchesField(f.ID) {

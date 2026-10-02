@@ -28,6 +28,15 @@ func (g *editor) toggleItemLink() {
 	}
 }
 
+// resetLayout drops the arranged contents, so the DMG lays its items out
+// automatically again.
+func (g *editor) resetLayout() {
+	g.s.checkpoint()
+	g.s.Project.DMG.Contents = nil
+	g.selected = ""
+	g.rebuild()
+}
+
 // Removing contents only changes the DMG layout; source files stay on disk.
 func (g *editor) removeSelected() {
 	if g.tab != tabDMG || !g.enabled() || g.selected == "" || !g.commit() {

@@ -42,6 +42,7 @@ type desktopModel struct {
 	// focused before sync builds it, as revealField does after a tab switch.
 	focus map[fieldIdentity]*ggui.FocusRef
 }
+
 type workspaceState struct {
 	Tab, Component, SignMethod, NotaryMethod            int
 	Enabled, Full, Raw, Advanced, Actual, DefaultLayout bool
@@ -55,20 +56,24 @@ type signingState struct {
 	IdentitiesListed, IdentitiesListing bool
 	Check                               signCheck
 }
+
 type componentRow struct {
 	Index int
 	Label string
 }
+
 type modalState struct {
 	Title, Message              string
 	Log                         string // the build's lines so far
 	Reveal                      string // artifact to show in the file manager
 	Finished, Cancelling, Issue bool
 }
+
 type fieldIdentity struct {
 	tab, component, index int
 	item, label, syntax   string
 }
+
 type desktopField struct {
 	ID           fieldIdentity
 	Spec         InputSpec
@@ -80,6 +85,7 @@ func (g *editor) fieldIdentity(i int) fieldIdentity {
 	f := g.fields[i]
 	return fieldIdentity{g.tab, g.componentIndex, i, g.selected, f.Label, f.Syntax}
 }
+
 func (g *editor) matchesField(id fieldIdentity) bool {
 	return id.index >= 0 && id.index < len(g.fields) && g.fieldIdentity(id.index) == id
 }
@@ -145,11 +151,13 @@ func newDesktopModel(g *editor) *desktopModel {
 	m.sync()
 	return m
 }
+
 func (g *editor) invalidate() {
 	if g.desktop != nil {
 		g.desktop.sync()
 	}
 }
+
 func (g *editor) action(fn func()) func() {
 	return func() {
 		if fn != nil {
@@ -158,6 +166,7 @@ func (g *editor) action(fn func()) func() {
 		g.invalidate()
 	}
 }
+
 func (m *desktopModel) sync() {
 	g := m.editor
 	v := workspaceState{Tab: g.tab, Component: g.componentIndex, Enabled: g.enabled(), Selected: g.selected, Actual: g.previewActual}
@@ -281,6 +290,7 @@ func (m *desktopModel) fieldFocus(id fieldIdentity) *ggui.FocusRef {
 	}
 	return m.focus[id]
 }
+
 func (m *desktopModel) offset(key string) *ggui.StateValue[float64] {
 	if m.scroll[key] == nil {
 		m.scroll[key] = ggui.State(0.0)
@@ -307,6 +317,7 @@ func (m *desktopModel) fieldBinding(f *desktopField) ggui.Binding[string] {
 		m.sync()
 	})
 }
+
 func (m *desktopModel) commitField(f *desktopField) {
 	g := m.editor
 	if g.matchesField(f.ID) && g.active == f.ID.index {
@@ -316,6 +327,7 @@ func (m *desktopModel) commitField(f *desktopField) {
 	}
 	m.sync()
 }
+
 func (m *desktopModel) selectTab(i int) {
 	g := m.editor
 	if i == g.tab {
@@ -324,10 +336,12 @@ func (m *desktopModel) selectTab(i int) {
 	g.switchTab(i)
 	m.sync()
 }
+
 func (m *desktopModel) source(raw bool) {
 	m.editor.setRaw(raw)
 	m.sync()
 }
+
 func (m *desktopModel) advanced() {
 	m.editor.toggleAdvanced()
 	m.sync()
@@ -364,6 +378,7 @@ func (g *editor) toggleAdvanced() bool {
 	g.rebuild()
 	return true
 }
+
 func (m *desktopModel) selectComponent(i int) {
 	g := m.editor
 	if !g.commit() {

@@ -65,6 +65,7 @@ type Input struct {
 func NewInput(spec InputSpec) Input {
 	return Input{Spec: spec, buffer: []rune(spec.Value)}
 }
+
 func (i Input) Text() string      { return string(i.buffer) }
 func (i Input) Dirty() bool       { return i.Text() != i.Spec.Value }
 func (i Input) Clone() Input      { i.buffer = append([]rune(nil), i.buffer...); return i }

@@ -26,9 +26,14 @@ func editorTheme(dark bool) uitheme.Theme {
 	t.CardPad = ggui.Insets(16)
 	return t
 }
+
 func (g *editor) runWidgets() error {
 	m := newDesktopModel(g)
-	app := ggui.New(ggui.Config{Title: "Zapp — Project settings", Width: g.w, Height: g.h, Resizable: true, Inspector: "f1", Accessibility: ggui.AccessibilityAlways}, func() ggui.Widget { return desktopView(m) })
+	config := ggui.Config{
+		Title: "Zapp — Project settings", Width: g.w, Height: g.h, Resizable: true,
+		Inspector: "f1", Accessibility: ggui.AccessibilityAlways,
+	}
+	app := ggui.New(config, func() ggui.Widget { return desktopView(m) })
 	m.dialogs = app.Dialogs()
 	app.Setup(func() { uitheme.Bind(m.Dark, editorTheme(true), editorTheme(false)) })
 	ready := func(fn func()) func() {

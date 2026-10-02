@@ -11,22 +11,36 @@ import (
 )
 
 func designerView(m *desktopModel, v workspaceState) ggui.Widget {
+	side := ggui.Box(ui.Resizable(m.InspectorSplit, contentsList(m), itemDetails(m)).Vertical().MinSizes(130, 220)).Width(248)
+	right := ggui.Row(ggui.Expanded(previewCard(m, v)), side).Gap(12).Align(ggui.AlignStretch)
+	return ui.Resizable(m.Split, settingsView(m, v), right).MinSizes(290, 570).WithHandle()
+}
+
+// previewCard holds the Finder-like canvas the DMG is arranged on.
+func previewCard(m *desktopModel, v workspaceState) ggui.Widget {
 	g := m.editor
-	canvas := &designerCanvas{model: m}
-	preview := ui.Card(ggui.Column(
-		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(),
-			ui.Button("Reset layout", g.action(g.guard(func() { g.s.checkpoint(); g.s.Project.DMG.Contents = nil; g.selected = ""; g.rebuild() }))).Ghost().Pad(5, 10).Disabled(v.DefaultLayout),
-			modeButtons("Preview zoom", []string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) { g.previewActual = i == 1; g.pan = image.Point{}; m.sync() })).Gap(8),
+	reset := ui.Button("Reset layout", g.action(g.guard(g.resetLayout))).Ghost().Pad(5, 10).Disabled(v.DefaultLayout)
+	zoom := modeButtons("Preview zoom", []string{"Fit", "100%"}, boolIndex(v.Actual), func(i int) {
+		g.previewActual, g.pan = i == 1, image.Point{}
+		m.sync()
+	})
+	return ui.Card(ggui.Column(
+		ggui.Row(ggui.Text("DMG preview"), ggui.Spacer(), reset, zoom).Gap(8),
 		ui.Caption("Drop files or folders · Drag to arrange"),
-		ggui.Expanded(canvas),
+		ggui.Expanded(&designerCanvas{model: m}),
 		ggui.View(m.PreviewError, designerHint),
 	).Gap(12).Align(ggui.AlignStretch))
-	// The canvas, which the arrow keys move items on, keeps the focus when it
-	// selects an item; the list scrolls to the item by itself.
+}
+
+// contentsList lists the DMG's items beside the preview. The canvas, which
+// the arrow keys move items on, keeps the focus when it selects an item;
+// the list scrolls to the item by itself.
+func contentsList(m *desktopModel) ggui.Widget {
+	g := m.editor
 	selected := ggui.Bind(func() string { return m.Workspace.Get().Selected }, func(path string) {
 		g.action(g.guard(func() { g.selected = path; g.rebuild() }))()
 	})
-	contents := ui.ListBox(m.Items, func(i layoutItem) string { return i.Path }, func(item ggui.Readable[layoutItem]) ggui.Widget {
+	row := func(item ggui.Readable[layoutItem]) ggui.Widget {
 		return ggui.Reactive(func() ggui.Widget {
 			m.Assets.Get()
 			row := item.Get()
@@ -35,30 +49,42 @@ func designerView(m *desktopModel, v workspaceState) ggui.Widget {
 				kind = "Link"
 			}
 			icon := ggui.Image(g.assets["item:"+row.Path]).Size(28, 28)
-			return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(row.title()).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3))).Gap(8).Align(ggui.AlignCenter)
+			text := ggui.Column(ggui.Text(row.title()).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3)
+			return ggui.Row(icon, ggui.Expanded(text)).Gap(8).Align(ggui.AlignCenter)
 		})
-	}).RowName(func(i layoutItem) string { return "Item " + i.title() }).Name("DMG contents").BindSelected(selected).
+	}
+	contents := ui.ListBox(m.Items, func(i layoutItem) string { return i.Path }, row).
+		RowName(func(i layoutItem) string { return "Item " + i.title() }).Name("DMG contents").BindSelected(selected).
 		Else(func() ggui.Widget { return ui.Caption("Drop files onto the preview to add contents.") })
-	list := ui.Card(ggui.Column(ggui.Row(ggui.TextOf(m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile)))), ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).Gap(10).Align(ggui.AlignStretch))
-	details := ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
+	count := m.Items.Map(func(items []layoutItem) string { return fmt.Sprintf("Contents · %d", len(items)) })
+	header := ggui.Row(ggui.TextOf(count), ggui.Spacer(), iconButton("plus", "Add file", g.action(g.guard(g.addFile))))
+	return ui.Card(ggui.Column(header, ggui.Expanded(ggui.Scroll(contents).BindOffset(m.offset("items")))).
+		Gap(10).Align(ggui.AlignStretch))
+}
+
+// itemDetails edits the selected item.
+func itemDetails(m *desktopModel) ggui.Widget {
+	g := m.editor
+	return ggui.ViewOf(m.Workspace, func(state workspaceState) string { return state.Selected }, func(selected string) ggui.Widget {
 		if selected == "" {
 			return ui.Card(ggui.Column(ggui.Text("Item details"), ui.Caption("Select an item to edit its name and position.")).Gap(12))
 		}
 		// Read Link from m.Items when the switch paints: toggling it does not
 		// change m.Workspace, so this View would not rebuild with a new value.
-		link := func() bool {
+		link := ggui.Bind(func() bool {
 			for _, item := range m.Items.Get() {
 				if item.Path == selected {
 					return item.Link
 				}
 			}
 			return false
-		}
-		return ui.Card(ggui.Column(ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(ggui.Bind(link, func(bool) { g.toggleItemLink(); m.sync() }), "Link")), ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)), ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline()).Gap(12).Align(ggui.AlignStretch))
+		}, func(bool) { g.toggleItemLink(); m.sync() })
+		return ui.Card(ggui.Column(
+			ggui.Row(ggui.Text("Item details"), ggui.Spacer(), ui.Switch(link, "Link")),
+			ggui.Expanded(ggui.Scroll(formView(m, m.Inspector)).Key("inspector:"+selected)),
+			ui.Button("Remove from DMG", g.action(g.removeSelected)).Outline(),
+		).Gap(12).Align(ggui.AlignStretch))
 	})
-	side := ggui.Box(ui.Resizable(m.InspectorSplit, list, details).Vertical().MinSizes(130, 220)).Width(248)
-	right := ggui.Row(ggui.Expanded(preview), side).Gap(12).Align(ggui.AlignStretch)
-	return ui.Resizable(m.Split, settingsView(m, v), right).MinSizes(290, 570).WithHandle()
 }
 
 // The only custom widget is the Finder-like canvas. Layout supplies its size;
@@ -74,6 +100,7 @@ func (c *designerCanvas) Layout(l ggui.Constraints, env ggui.Env) ggui.Size {
 	c.theme = uitheme.From(env)
 	return l.Constrain(ggui.Sz(l.MaxW, l.MaxH))
 }
+
 func (c *designerCanvas) HitID() any                     { return "dmg-canvas" }
 func (c *designerCanvas) Semantics() (ggui.Role, string) { return ggui.RoleGroup, "DMG preview canvas" }
 func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
@@ -103,9 +130,11 @@ func designerHint(previewError string) ggui.Widget {
 	}
 	return ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan")
 }
+
 func (c *designerCanvas) local(p ggui.Point) ggui.Point {
 	return ggui.Pt(p.X-c.rect.Origin.X, p.Y-c.rect.Origin.Y)
 }
+
 func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 	g := c.model.editor
 	p := c.local(e.Pos)
@@ -134,6 +163,7 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 	}
 	return true
 }
+
 func (c *designerCanvas) HandleKey(e ggui.KeyEvent) {
 	if e.Kind != ggui.KeyPress {
 		return
@@ -171,6 +201,7 @@ func (c *designerCanvas) HandleKey(e ggui.KeyEvent) {
 	}
 	c.model.sync()
 }
+
 func (c *designerCanvas) HandleDrop(e ggui.DropEvent) bool {
 	g := c.model.editor
 	if !g.commit() {
@@ -183,10 +214,12 @@ func (c *designerCanvas) HandleDrop(e ggui.DropEvent) bool {
 	c.model.sync()
 	return true
 }
+
 func (c *designerCanvas) HandleDrag(e ggui.DragEvent) bool {
 	c.model.DropHover.Set(e.Kind == ggui.DragOver)
 	return true
 }
+
 func (g *editor) moveDesigner(pos ggui.Point) {
 	p := image.Pt(int(pos.X), int(pos.Y))
 	if g.panning {

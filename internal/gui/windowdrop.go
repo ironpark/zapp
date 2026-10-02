@@ -27,10 +27,10 @@ func (g *editor) dropFiles(paths []string) {
 		g.tab = tabProject
 		g.report(nil, "App bundle set to "+path)
 	case ".p12", ".pfx":
-		g.useCertificate(func(c *zapp.SignConfig) { c.P12File = path }, 1)
+		g.useCertificate(func(c *zapp.SignConfig) { c.P12File = path }, signP12)
 		g.report(nil, "Signing with the PKCS#12 certificate "+path)
 	case ".pem":
-		g.useCertificate(func(c *zapp.SignConfig) { c.PEMFile = path }, 2)
+		g.useCertificate(func(c *zapp.SignConfig) { c.PEMFile = path }, signPEM)
 		g.report(nil, "Signing with the PEM certificate "+path)
 	default:
 		g.report(errors.New("Drop a .app bundle, or a .p12 or .pem certificate"), "")

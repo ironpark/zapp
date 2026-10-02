@@ -10,6 +10,7 @@ import (
 func nsString(value string) objc.ID {
 	return objc.ID(objc.GetClass("NSString")).Send(objc.RegisterName("stringWithUTF8String:"), value)
 }
+
 func onMainQueue(fn func()) {
 	block := objc.NewBlock(func(_ objc.Block) { fn() })
 	defer block.Release()

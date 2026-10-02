@@ -26,6 +26,7 @@ func (g *editor) addComponent() {
 	g.componentIndex = len(c.Components) - 1
 	g.rebuild()
 }
+
 func (g *editor) removeComponent() {
 	c := g.s.Project.PKG
 	if g.componentIndex < 0 || g.componentIndex >= len(c.Components) {
