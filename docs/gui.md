@@ -274,18 +274,19 @@ The desktop is composed like ggui's `examples/sqlite`: a reactive model,
 `Row`/`Column`/`Expanded` layouts, native `Scroll`, labelled fields and dialogs.
 There is no absolute-positioned widget scene or full-screen revision counter.
 
-- `ggui_model.go` exposes per-field value/error state and separate workspace,
+- `model.go` exposes per-field value/error state and separate workspace,
   status, history and modal state. Project/session transactions own save, undo,
   validation and builds.
-- `ggui_view.go` composes the toolbar, underline tabs, settings, component sidebar,
-  Help and dialogs. Settings expand until Help is opened. The toolbar also offers
-  light/dark themes.
-- `ggui_form.go` builds labelled controls and grouped rows. ggui handles clipping,
+- `view.go` composes the toolbar, underline tabs, status line and dialogs;
+  `workspace.go` the page under the tabs: settings, component sidebar and Help.
+  Settings expand until Help is opened. The toolbar also offers light/dark
+  themes.
+- `form.go` builds labelled controls and grouped rows. ggui handles clipping,
   keyboard focus and automatic reveal. Each form/source view retains its scroll
   position. Path fields accept a dropped file or folder.
-- `ggui_designer.go` composes resizable DMG panels around a custom Finder canvas.
+- `designer.go` composes resizable DMG panels around a custom Finder canvas.
   Canvas input/drop coordinates are local to the space assigned by the layout.
-- `ggui_runtime.go` connects lifecycle, shortcuts and native ggui file dialogs.
+- `app.go` connects lifecycle, shortcuts and native ggui file dialogs.
   The ggui version is pinned to a commit because its API is under development.
 
 `go test ./internal/gui/...` runs headless widget tests, including save/undo,

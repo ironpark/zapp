@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -328,6 +329,17 @@ func (g *editor) pkgFields() []field {
 		fields = append(fields, distribution)
 	}
 	return fields
+}
+
+// removeLibrary drops the i-th bundled library from the Dependencies tab.
+func removeLibrary(g *editor, i int) {
+	if !g.commit() {
+		return
+	}
+	g.s.checkpoint()
+	g.s.Project.Dep.Libs = slices.Delete(g.s.Project.Dep.Libs, i, i+1)
+	g.clearIssue(tabDep)
+	g.rebuild()
 }
 
 func (g *editor) depFields() []field {
