@@ -274,16 +274,18 @@ The desktop is composed like ggui's `examples/sqlite`: a reactive model,
 `Row`/`Column`/`Expanded` layouts, native `Scroll`, labelled fields and dialogs.
 There is no absolute-positioned widget scene or full-screen revision counter.
 
-- The editor (`editor.go`) is the one source of truth. `model.go` derives what
-  the window shows from it, recomputed when the editor reports a change, so
-  nothing is copied across and kept in step by hand. A field's text and error
+- The editor (`editor.go`) is the one source of truth, held in a
+  `ggui.Store`. `model.go` selects what the window shows from it, recomputed
+  when the editor publishes a change, so nothing is copied across and kept in
+  step by hand; a `ggui_debug` build reports a change left unpublished. A field's text and error
   are the editor's own reactive state (`formstate.go`), which the inputs bind
   to: the draft being edited is that text, not a second copy. Project/session
   transactions own save, undo, validation and builds.
 - `view.go` composes the toolbar, underline tabs, status line and dialogs;
   `workspace.go` the page under the tabs: settings, component sidebar and Help.
   Settings expand until Help is opened. The toolbar also offers light/dark
-  themes.
+  themes. The window is built once: colors are theme tokens such as
+  `uitheme.MutedFg`, so a theme switch rebuilds nothing.
 - `form.go` builds labelled controls and grouped rows. ggui handles clipping,
   keyboard focus and automatic reveal. Each form/source view retains its scroll
   position. Path fields accept a dropped file or folder.
