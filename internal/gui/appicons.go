@@ -88,5 +88,5 @@ func (g *editor) applyAppIcon(path string, data []byte) {
 		g.assets[key] = texture
 	}
 	g.pruneAssets()
-	g.assetsChanged()
+	g.invalidate()
 }

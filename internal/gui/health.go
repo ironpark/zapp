@@ -144,5 +144,5 @@ func (g *editor) refreshProjectIcon() {
 		g.loadAppIcon(projectIconKey, app.Path)
 	}
 	g.pruneAssets()
-	g.assetsChanged()
+	g.invalidate()
 }

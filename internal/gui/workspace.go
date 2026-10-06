@@ -2,10 +2,10 @@ package gui
 
 import (
 	"fmt"
-	"github.com/ironpark/ggfx"
 	"path/filepath"
 	"strings"
 
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	"github.com/ironpark/ggui/ui/icons/lucide"

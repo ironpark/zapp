@@ -336,6 +336,3 @@ func (m *desktopModel) selectComponent(i int) {
 	g.pkgRaw = false
 	g.rebuild()
 }
-
-// assetsChanged reports that an image arrived or went.
-func (g *editor) assetsChanged() { g.invalidate() }

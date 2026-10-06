@@ -2,10 +2,11 @@ package gui
 
 import (
 	"fmt"
-	"github.com/ironpark/ggfx"
 	"image"
+	"maps"
 	"math"
 
+	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggui"
 	"github.com/ironpark/ggui/ui"
 	uitheme "github.com/ironpark/ggui/ui/theme"
@@ -33,29 +34,34 @@ func previewCard(m *desktopModel, v workspaceState) ggui.Widget {
 	).Gap(12).Align(ggui.AlignStretch))
 }
 
-// contentsList lists the DMG's items beside the preview. The canvas, which
-// the arrow keys move items on, keeps the focus when it selects an item;
-// the list scrolls to the item by itself.
 // itemRow is what a row of the DMG contents shows of its item.
 type itemRow struct {
 	title, kind string
 	icon        *ggfx.Image
 }
 
+// contentsList lists the DMG's items beside the preview. The canvas, which
+// the arrow keys move items on, keeps the focus when it selects an item;
+// the list scrolls to the item by itself.
 func contentsList(m *desktopModel) ggui.Widget {
 	g := m.editor
 	selected := ggui.Bind(func() string { return m.Workspace.Get().Selected }, func(path string) {
 		g.action(g.guard(func() { g.selected = path; g.rebuild() }))()
 	})
-	row := func(item ggui.Readable[layoutItem]) ggui.Widget {
-		look := ggui.Select(m.store, func(g *editor) itemRow {
-			row := item.Get()
-			kind := g.itemKinds[row.Path]
-			if row.Link {
+	// One selection describes every row; each row picks its own from it.
+	looks := derive(m, func() map[string]itemRow {
+		looks := map[string]itemRow{}
+		for _, item := range ggui.Untrack(m.Items.Get) {
+			kind := g.itemKinds[item.Path]
+			if item.Link {
 				kind = "Link"
 			}
-			return itemRow{row.title(), kind, g.assets[itemAsset(row.Path)]}
-		})
+			looks[item.Path] = itemRow{item.title(), kind, g.assets[itemAsset(item.Path)]}
+		}
+		return looks
+	}).WithEqual(maps.Equal)
+	row := func(item ggui.Readable[layoutItem]) ggui.Widget {
+		look := ggui.Combine(item, looks, func(i layoutItem, looks map[string]itemRow) itemRow { return looks[i.Path] })
 		return ggui.View(look, func(r itemRow) ggui.Widget {
 			text := ggui.Column(ggui.Text(r.title).NoWrap().Ellipsis(), ui.Caption(r.kind)).Gap(3)
 			return ggui.Row(ggui.Image(r.icon).Size(28, 28), ggui.Expanded(text)).Gap(8).Align(ggui.AlignCenter)
@@ -156,8 +162,9 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 		g.startPan(point)
 		c.model.editor.invalidate()
 	case ggui.PointerDrag:
-		g.moveDesigner(p)
-		g.invalidate()
+		if g.moveDesigner(p) {
+			g.invalidate()
+		}
 	case ggui.PointerUp:
 		g.moveDesigner(p)
 		moved := g.dragMoved
@@ -229,14 +236,15 @@ func (c *designerCanvas) HandleDrag(e ggui.DragEvent) bool {
 	return true
 }
 
-func (g *editor) moveDesigner(pos ggui.Point) {
+// moveDesigner pans or drags to pos, and reports whether an item moved.
+func (g *editor) moveDesigner(pos ggui.Point) bool {
 	p := image.Pt(int(pos.X), int(pos.Y))
 	if g.panning {
 		g.pan = g.panOrigin.Add(p.Sub(g.panStart))
 		g.clampPan()
 	}
 	if g.drag == "" {
-		return
+		return false
 	}
 	x, y := g.transform().content(pos.X, pos.Y)
 	x -= g.dragX
@@ -248,5 +256,7 @@ func (g *editor) moveDesigner(pos ggui.Point) {
 			g.dragMoved = true
 		}
 		g.s.move(g.drag, nx, ny)
+		return true
 	}
+	return false
 }

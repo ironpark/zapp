@@ -7,7 +7,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/ironpark/ggfx v0.0.0-20261005073843-6475c0167651
-	github.com/ironpark/ggui v0.0.0-20261006091759-db720f1e9330
+	github.com/ironpark/ggui v0.0.0-20261006103500-3be7922ce0f0
 	github.com/urfave/cli/v3 v3.13.0
 	golang.org/x/sys v0.48.0
 	software.sslmate.com/src/go-pkcs12 v0.7.3

@@ -149,7 +149,7 @@ func (g *editor) refreshDerived() {
 		g.previewSig = sig
 		g.refreshPreview()
 		g.refreshItemKinds()
-		g.assetsChanged()
+		g.invalidate()
 	}
 }
 
