@@ -130,11 +130,10 @@ const formMaxWidth = 760
 
 // checkResult shows what the Signing tab's Check found.
 func checkResult(c signCheck) ggui.Widget {
-	t := uitheme.Use()
 	if c.Checking {
 		return ui.Caption("Checking the certificate…")
 	}
-	icon, col := statusIcon(t, c.OK)
+	icon, col := statusIcon(c.OK)
 	return ggui.Row(lucide.Icon(icon).Size(14).Color(col), ggui.Expanded(ggui.Text(c.Message).Size(12).Color(col))).Gap(6).Align(ggui.AlignStart)
 }
 
@@ -144,7 +143,7 @@ func identitySuggestions(m *desktopModel, v signingState) ggui.Widget {
 	g := m.editor
 	refresh := ui.Tooltip(ui.Button("Refresh", g.action(g.refreshIdentities)).Ghost().Pad(2, 8).Disabled(v.IdentitiesListing),
 		"Look up the keychain again, as after importing a certificate")
-	children := []ggui.Widget{ggui.Row(ggui.Expanded(ggui.Text("In your keychain").Size(12).Color(uitheme.Use().Primary)), refresh).Align(ggui.AlignCenter)}
+	children := []ggui.Widget{ggui.Row(ggui.Expanded(ggui.Text("In your keychain").Size(12).Color(uitheme.Primary)), refresh).Align(ggui.AlignCenter)}
 	if v.Identities == "" {
 		children = append(children, ui.Caption("No valid signing identities were found. "+
 			"Import your Developer ID certificate, then refresh, or use the PKCS#12 or PEM method."))
@@ -165,10 +164,9 @@ func appCard(m *desktopModel) ggui.Widget {
 	// Reactive rather than a memo of the summary: the icon can arrive later
 	// for the same app, and only Assets changes then.
 	return ggui.Reactive(func() ggui.Widget {
-		t := uitheme.Use()
 		app := m.Health.Get().App
 		m.Assets.Get()
-		var icon ggui.Widget = ggui.Box().Size(48, 48).Radius(10).Fill(t.Muted)
+		var icon ggui.Widget = ggui.Box().Size(48, 48).Radius(10).Fill(uitheme.Muted)
 		if img := g.assets[projectIconKey]; img != nil {
 			icon = ggui.Image(img).Size(48, 48)
 		}
@@ -177,7 +175,7 @@ func appCard(m *desktopModel) ggui.Widget {
 		case app.Path == "":
 			title, caption = "No app selected", ui.Caption("Choose the .app bundle below, or drop it anywhere in this window.")
 		case app.Error != "":
-			caption = ggui.Text(app.Error).Size(12).Color(t.Destructive)
+			caption = ggui.Text(app.Error).Size(12).Color(uitheme.Destructive)
 		default:
 			details := []string{}
 			if app.Version != "" {
@@ -197,20 +195,19 @@ func appCard(m *desktopModel) ggui.Widget {
 func buildSteps(m *desktopModel) ggui.Widget {
 	g := m.editor
 	return ggui.Reactive(func() ggui.Widget {
-		t := uitheme.Use()
 		health, enabled := m.Health.Get(), m.Enabled.Get()
-		rows := []ggui.Widget{ggui.Text("Build steps").Size(12).Color(t.Primary), ui.Divider()}
+		rows := []ggui.Widget{ggui.Text("Build steps").Size(12).Color(uitheme.Primary), ui.Divider()}
 		for _, tab := range []int{tabDep, tabSign, tabDMG, tabPKG, tabNotarize, tabDistribution} {
-			icon, col := statusIcon(t, health.Issues[tab] == "")
-			detail, detailCol := g.stepDetail(tab, health), t.MutedFg
+			icon, col := statusIcon(health.Issues[tab] == "")
+			detail, detailCol := g.stepDetail(tab, health), uitheme.MutedFg
 			switch {
 			case !enabled[tab] || detail == "":
-				icon, col, detail = "minus", t.MutedFg, "Off"
+				icon, col, detail = "minus", uitheme.MutedFg, "Off"
 			case health.Issues[tab] != "":
-				detail, detailCol = health.Issues[tab], t.Destructive
+				detail, detailCol = health.Issues[tab], uitheme.Destructive
 			}
 			text := ggui.Column(ggui.Text(sections[tab].Name), ggui.Text(detail).Size(12).Color(detailCol).NoWrap().Ellipsis()).Gap(3)
-			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(text), lucide.Icon("chevron-right").Size(14).Color(t.MutedFg)).
+			row := ggui.Row(lucide.Icon(icon).Size(16).Color(col), ggui.Expanded(text), lucide.Icon("chevron-right").Size(14).Color(uitheme.MutedFg)).
 				Gap(12).Align(ggui.AlignCenter)
 			rows = append(rows, ui.ButtonOf(row, func() { m.selectTab(tab) }).Name("Open "+sections[tab].Name).Ghost().Pad(8, 6))
 		}
@@ -276,10 +273,9 @@ func componentSidebar(m *desktopModel, v workspaceState) ggui.Widget {
 }
 
 func helpView(tab int) ggui.Widget {
-	t := uitheme.Use()
 	children := []ggui.Widget{ggui.Column(ui.Title("About this step"), ui.Caption(sections[tab].Description)).Gap(6).Align(ggui.AlignStretch)}
 	for _, h := range stepHelp[tab] {
-		children = append(children, ggui.Column(ggui.Text(h[0]).Size(12).Color(t.Primary), ggui.Text(h[1]).Size(13)).Gap(6).Align(ggui.AlignStretch))
+		children = append(children, ggui.Column(ggui.Text(h[0]).Size(12).Color(uitheme.Primary), ggui.Text(h[1]).Size(13)).Gap(6).Align(ggui.AlignStretch))
 	}
 	return ggui.Box(ui.Card(ggui.Scroll(ggui.Padding(ggui.Column(children...).Gap(20).Align(ggui.AlignStretch), 0, scrollGutter, 0, 0)))).Width(280)
 }

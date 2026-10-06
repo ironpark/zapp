@@ -24,7 +24,11 @@ func editorTheme(dark bool) uitheme.Theme {
 	t.Text.Size, t.Caption.Size, t.Title.Size = 13, 12, 19
 	t.ButtonPad, t.FieldPad = ggui.Insets(6, 10), ggui.Insets(6, 10)
 	t.CardPad = ggui.Insets(16)
-	return t
+	ready := color.Color(color.NRGBA{R: 21, G: 128, B: 61, A: 255})
+	if dark {
+		ready = color.NRGBA{R: 74, G: 222, B: 128, A: 255}
+	}
+	return t.Set(uitheme.CSSColor("success"), ready)
 }
 
 func (g *editor) runWidgets() error {

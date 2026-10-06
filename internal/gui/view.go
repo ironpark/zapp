@@ -12,26 +12,26 @@ import (
 	uitheme "github.com/ironpark/ggui/ui/theme"
 )
 
+// desktopView is the window. It is built once: what changes is bound, or
+// rebuilt by a View of its own, and colors are theme tokens, so a theme
+// switch rebuilds nothing.
 func desktopView(m *desktopModel) ggui.Widget {
-	return ggui.Reactive(func() ggui.Widget {
-		// Selecting a DMG item rebuilds only the item details, which follow
-		// Selected themselves, not the whole workspace.
-		page := ggui.ViewOf(m.Workspace,
-			func(v workspaceState) workspaceState { v.Selected = ""; return v },
-			func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
-		body := ggui.Column(toolbar(m), ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), statusLine(m)).
-			Align(ggui.AlignStretch)
-		buildDialog := ggui.ViewOf(m.Modal, buildShape, func(v buildDialogShape) ggui.Widget { return buildDialogView(m, v) })
-		return ggui.Column(ggui.Expanded(body), closeDialogView(m), buildDialog).Align(ggui.AlignStretch)
-	})
+	// Selecting a DMG item rebuilds only the item details, which follow
+	// Selected themselves, not the whole workspace.
+	page := ggui.ViewOf(m.Workspace,
+		func(v workspaceState) workspaceState { v.Selected = ""; return v },
+		func(v workspaceState) ggui.Widget { return workspaceView(m, v) })
+	body := ggui.Column(toolbar(m), ui.Divider(), stepTabs(m), ggui.Expanded(page), ui.Divider(), statusLine(m)).
+		Align(ggui.AlignStretch)
+	buildDialog := ggui.ViewOf(m.Modal, buildShape, func(v buildDialogShape) ggui.Widget { return buildDialogView(m, v) })
+	return ggui.Column(ggui.Expanded(body), closeDialogView(m), buildDialog).Align(ggui.AlignStretch)
 }
 
 // toolbar is the strip along the top: the project, its save state, history,
 // health and the Save and Build actions.
 func toolbar(m *desktopModel) ggui.Widget {
-	t := uitheme.Use()
 	g := m.editor
-	logo := ggui.Box(ggui.Text("Z").Color(t.PrimaryFg)).Fill(t.Primary).Radius(4).Pad(5, 9)
+	logo := ggui.Box(ggui.Text("Z").Color(uitheme.PrimaryFg)).Fill(uitheme.Primary).Radius(4).Pad(5, 9)
 	project := ggui.Column(
 		ggui.TextOf(m.Title).Size(15).NoWrap().Ellipsis(),
 		ui.Caption(filepath.Join(g.s.Dir, g.s.Name)).NoWrap().Ellipsis(),
@@ -54,7 +54,7 @@ func toolbar(m *desktopModel) ggui.Widget {
 	return ggui.Padding(ggui.Row(
 		logo,
 		ggui.Expanded(project),
-		ggui.TextOf(m.SaveState).Size(12).Color(t.MutedFg),
+		ggui.TextOf(m.SaveState).Size(12).Color(uitheme.MutedFg),
 		ui.Tooltip(undo, "Undo").Shortcut("cmd+z"),
 		ui.Tooltip(redo, "Redo").Shortcut("cmd+shift+z"),
 		healthBadge(m),
@@ -70,10 +70,9 @@ func statusLine(m *desktopModel) ggui.Widget {
 	g := m.editor
 	status := ggui.Combine(m.Status, m.Failed, func(message string, failed bool) statusView { return statusView{message, failed} })
 	return ggui.View(status, func(v statusView) ggui.Widget {
-		t := uitheme.Use()
-		color := t.MutedFg
+		color := uitheme.MutedFg
 		if v.failed {
-			color = t.Destructive
+			color = uitheme.Destructive
 		}
 		message := ui.Tooltip(ggui.Text(v.message).Size(12).Color(color).NoWrap().Ellipsis(), v.message)
 		goToIssue := ggui.If(m.IssueTab.Map(func(tab int) bool { return tab >= 0 }), func() ggui.Widget {
@@ -88,23 +87,16 @@ func not(r ggui.Readable[bool]) ggui.Readable[bool] {
 	return ggui.Map(r, func(v bool) bool { return !v })
 }
 
-// readyColor marks a project that passes its checks. The theme has no
-// success color of its own, so one is picked to suit its background.
-func readyColor(t uitheme.Theme) color.Color {
-	r, g, b, _ := t.Bg.RGBA()
-	if r+g+b < 3*0x8000 {
-		return color.NRGBA{R: 74, G: 222, B: 128, A: 255}
-	}
-	return color.NRGBA{R: 21, G: 128, B: 61, A: 255}
-}
+// success marks a check that passed. shadcn/ui leaves it to the app; the
+// themes set it to suit their background.
+var success = uitheme.Var("success")
 
 // healthBadge reports whether the project is ready to build. Clicking it runs
 // Validate, which moves to the first problem.
 func healthBadge(m *desktopModel) ggui.Widget {
 	g := m.editor
 	return ggui.View(m.Health.Map(func(h projectHealth) int { return h.Count }), func(count int) ggui.Widget {
-		t := uitheme.Use()
-		icon, col := statusIcon(t, count == 0)
+		icon, col := statusIcon(count == 0)
 		label, tip := "Ready", "Build inputs look complete"
 		if count > 0 {
 			label, tip = fmt.Sprintf("%d issue%s", count, plural(count)), "Show the first issue"
@@ -115,11 +107,11 @@ func healthBadge(m *desktopModel) ggui.Widget {
 }
 
 // statusIcon is the icon and color marking a check that passed or failed.
-func statusIcon(t uitheme.Theme, ok bool) (string, color.Color) {
+func statusIcon(ok bool) (string, color.Color) {
 	if ok {
-		return "check", readyColor(t)
+		return "check", success
 	}
-	return "circle-alert", t.Destructive
+	return "circle-alert", uitheme.Destructive
 }
 
 func plural(n int) string {
@@ -136,7 +128,6 @@ func plural(n int) string {
 func stepTabs(m *desktopModel) ggui.Widget {
 	selected := ggui.Bind(m.Tab.Get, m.selectTab)
 	return ggui.Reactive(func() ggui.Widget {
-		t := uitheme.Use()
 		health, enabled := m.Health.Get(), m.Enabled.Get()
 		pages := []ui.TabPage{}
 		for i, s := range sections {
@@ -144,11 +135,11 @@ func stepTabs(m *desktopModel) ggui.Widget {
 			if issue := health.Issues[i]; issue != "" || !enabled[i] {
 				label := ggui.Text(s.Name).NoWrap()
 				if !enabled[i] {
-					label.Color(fade(t.MutedFg, .55))
+					label.Color(uitheme.MutedFg.Alpha(.55))
 				}
 				head := []ggui.Widget{label}
 				if issue != "" {
-					head = append(head, ggui.Box().Size(6, 6).Radius(3).Fill(t.Destructive))
+					head = append(head, ggui.Box().Size(6, 6).Radius(3).Fill(uitheme.Destructive))
 				}
 				page = page.Header(ggui.Row(head...).Gap(6).Align(ggui.AlignCenter))
 			}
@@ -162,13 +153,6 @@ func stepTabs(m *desktopModel) ggui.Widget {
 		}
 		return ui.Tabs(selected, pages...).Line()
 	})
-}
-
-// fade scales a color's opacity.
-func fade(c color.Color, amount float64) color.Color {
-	n := color.NRGBAModel.Convert(c).(color.NRGBA)
-	n.A = uint8(float64(n.A) * amount)
-	return n
 }
 
 type statusView struct {
@@ -218,14 +202,13 @@ func buildDialogView(m *desktopModel, v buildDialogShape) ggui.Widget {
 	actions := []ggui.Widget{}
 	body := []ggui.Widget{ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Message }))}
 	if v.hasLog {
-		t := uitheme.Use()
 		// The log follows new lines until the user scrolls up, and again once
 		// they scroll back to the end.
 		text := ggui.TextOf(m.Modal.Map(func(v modalState) string { return v.Log })).
-			Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 12}).Color(t.MutedFg)
+			Style(ggui.TextStyle{Font: ggui.DefaultMonoFont(), Size: 12}).Color(uitheme.MutedFg)
 		log := ggui.Scroll(ggui.Padding(text, 10, 12)).BindOffset(m.offset("build-log")).FollowEnd()
 		copyLog := func() { ggui.CurrentClipboard().Write(ggui.Untrack(m.Modal.Get).Log) }
-		body = append(body, ggui.Box(log).Height(220).Fill(t.Muted).Radius(t.Radius))
+		body = append(body, ggui.Box(log).Height(220).Fill(uitheme.Muted).Radius(ggui.Untrack(uitheme.Use).Radius))
 		actions = append(actions, ui.Button("Copy log", copyLog).Ghost(), ggui.Spacer())
 	}
 	if v.Reveal != "" {

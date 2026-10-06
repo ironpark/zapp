@@ -126,7 +126,7 @@ func (c *designerCanvas) Paint(dst *ggui.Canvas, r ggui.Rect) {
 // could not be drawn; then it says why.
 func designerHint(previewError string) ggui.Widget {
 	if previewError != "" {
-		return ui.Caption(previewError).Color(uitheme.Use().Destructive)
+		return ui.Caption(previewError).Color(uitheme.Destructive)
 	}
 	return ui.Caption("Arrow keys move · Shift: 10 px · At 100%, drag empty space to pan")
 }

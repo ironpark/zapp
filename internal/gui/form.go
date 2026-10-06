@@ -14,7 +14,7 @@ func formView(m *desktopModel, source ggui.Readable[[]*fieldState]) ggui.Widget 
 		for i := 0; i < len(fields); {
 			first := fields[i]
 			if first.Spec.Group != "" {
-				children = append(children, ggui.Column(ggui.Text(first.Spec.Group).Size(12).Color(uitheme.Use().Primary), ui.Divider()).Gap(8))
+				children = append(children, ggui.Column(ggui.Text(first.Spec.Group).Size(12).Color(uitheme.Primary), ui.Divider()).Gap(8))
 			}
 			end := i + 1
 			for end < len(fields) && fields[end].Spec.SameRow {
@@ -109,7 +109,7 @@ func fieldView(m *desktopModel, f *fieldState) ggui.Widget {
 	}
 	if spec.Boolean {
 		// The switch carries the label itself; a caption above would repeat it.
-		return ggui.Column(control, ui.Caption(spec.Hint)).Gap(uitheme.Use().Space / 2).Align(ggui.AlignStretch)
+		return ggui.Column(control, ui.Caption(spec.Hint)).Gap(ggui.Untrack(uitheme.Use).Space / 2).Align(ggui.AlignStretch)
 	}
 	field := ui.Field(spec.Label, control).Help(spec.Hint).BindError(f.Error)
 	if spec.Browse {
