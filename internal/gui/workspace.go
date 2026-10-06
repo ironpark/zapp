@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"github.com/ironpark/ggfx"
 	"path/filepath"
 	"strings"
 
@@ -160,15 +161,15 @@ func identitySuggestions(m *desktopModel, v signingState) ggui.Widget {
 // appCard introduces the Project tab with the app being packaged, as its
 // Info.plist describes it, so a wrong bundle is obvious at once.
 func appCard(m *desktopModel) ggui.Widget {
-	g := m.editor
-	// Reactive rather than a memo of the summary: the icon can arrive later
-	// for the same app, and only Assets changes then.
-	return ggui.Reactive(func() ggui.Widget {
-		app := m.Health.Get().App
-		m.Assets.Get()
+	// The icon can arrive later for the same app, so it is part of the card.
+	card := ggui.Select(m.store, func(g *editor) appCardState {
+		return appCardState{g.health.App, g.assets[projectIconKey]}
+	})
+	return ggui.View(card, func(c appCardState) ggui.Widget {
+		app := c.app
 		var icon ggui.Widget = ggui.Box().Size(48, 48).Radius(10).Fill(uitheme.Muted)
-		if img := g.assets[projectIconKey]; img != nil {
-			icon = ggui.Image(img).Size(48, 48)
+		if c.icon != nil {
+			icon = ggui.Image(c.icon).Size(48, 48)
 		}
 		title, caption := app.Name, ggui.Widget(nil)
 		switch {
@@ -188,6 +189,11 @@ func appCard(m *desktopModel) ggui.Widget {
 		}
 		return ggui.Row(icon, ggui.Expanded(ggui.Column(ggui.Text(title).Size(16).NoWrap().Ellipsis(), caption).Gap(4))).Gap(14).Align(ggui.AlignCenter)
 	})
+}
+
+type appCardState struct {
+	app  appSummary
+	icon *ggfx.Image
 }
 
 // buildSteps lists what Build will do, in the order it does it, with each

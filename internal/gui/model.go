@@ -10,14 +10,14 @@ import (
 )
 
 // desktopModel is what the window shows of the editor, and the window's own
-// state. The editor is the one source of truth: every view of it below is
-// derived from it, recomputed when invalidate reports that it changed, so
-// none is a copy to keep in step. A field's text and error are the editor's
-// own reactive state, which the inputs bind to directly.
+// state. The editor is the one source of truth, held in a ggui.Store: every
+// view of it below is selected from it, recomputed when the store publishes
+// a change, so none is a copy to keep in step. A field's text and error are
+// the editor's own reactive state, which the inputs bind to directly.
 type desktopModel struct {
 	editor  *editor
+	store   *ggui.Store[*editor]
 	dialogs guiruntime.FilePicker
-	changed *ggui.StateValue[uint64] // bumped by editor.invalidate
 
 	Workspace                                   *ggui.DerivedValue[workspaceState]
 	Fields, Inspector                           *ggui.DerivedValue[[]*fieldState]
@@ -37,7 +37,6 @@ type desktopModel struct {
 	Signing      *ggui.DerivedValue[signingState]
 
 	// The window's own.
-	Assets                *ggui.StateValue[int] // bumped when an image arrives
 	Dark                  *ggui.StateValue[bool]
 	Split, InspectorSplit *ggui.StateValue[float64]
 	DropHover             *ggui.StateValue[bool]
@@ -97,8 +96,7 @@ func (m *desktopModel) allowClose() bool {
 func newDesktopModel(g *editor) *desktopModel {
 	m := &desktopModel{
 		editor:         g,
-		changed:        ggui.State[uint64](0),
-		Assets:         ggui.State(0),
+		store:          ggui.NewStore(g),
 		Dark:           ggui.State(true),
 		Split:          ggui.State(0.3),
 		InspectorSplit: ggui.State(0.7),
@@ -156,13 +154,10 @@ func newDesktopModel(g *editor) *desktopModel {
 	return m
 }
 
-// derive is fn as a value the window reads, recomputed whenever the editor
-// changes.
+// derive is fn as a value the window reads, selected from the editor's
+// store, so it is recomputed whenever the editor changes.
 func derive[T any](m *desktopModel, fn func() T) *ggui.DerivedValue[T] {
-	return ggui.Derived(func() T {
-		m.changed.Get()
-		return fn()
-	})
+	return ggui.Select(m.store, func(*editor) T { return fn() })
 }
 
 // workspace is what the page under the tabs is built from.
@@ -233,21 +228,23 @@ func (g *editor) modal() modalState {
 	return v
 }
 
-// invalidate reports that the editor changed, so what the window derives
-// from it is recomputed.
+// invalidate publishes a change to the editor, so what the window selects
+// from it is recomputed; inside an action, once the action ends.
 func (g *editor) invalidate() {
 	if g.desktop != nil {
-		g.desktop.changed.Update(func(n uint64) uint64 { return n + 1 })
+		g.desktop.store.Changed()
 	}
 }
 
-// action is fn as a handler: it runs fn, then reports the change.
+// action is fn as a handler: one change to the editor, published once
+// however many parts of it report one.
 func (g *editor) action(fn func()) func() {
 	return func() {
-		if fn != nil {
+		if g.desktop == nil {
 			fn()
+			return
 		}
-		g.invalidate()
+		g.desktop.store.Update(func(*editor) { fn() })
 	}
 }
 
@@ -340,8 +337,5 @@ func (m *desktopModel) selectComponent(i int) {
 	g.rebuild()
 }
 
-func (g *editor) assetsChanged() {
-	if g.desktop != nil {
-		g.desktop.Assets.Update(func(v int) int { return v + 1 })
-	}
-}
+// assetsChanged reports that an image arrived or went.
+func (g *editor) assetsChanged() { g.invalidate() }

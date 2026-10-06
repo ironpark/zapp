@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"github.com/ironpark/ggfx"
 	"image"
 	"math"
 
@@ -35,22 +36,29 @@ func previewCard(m *desktopModel, v workspaceState) ggui.Widget {
 // contentsList lists the DMG's items beside the preview. The canvas, which
 // the arrow keys move items on, keeps the focus when it selects an item;
 // the list scrolls to the item by itself.
+// itemRow is what a row of the DMG contents shows of its item.
+type itemRow struct {
+	title, kind string
+	icon        *ggfx.Image
+}
+
 func contentsList(m *desktopModel) ggui.Widget {
 	g := m.editor
 	selected := ggui.Bind(func() string { return m.Workspace.Get().Selected }, func(path string) {
 		g.action(g.guard(func() { g.selected = path; g.rebuild() }))()
 	})
 	row := func(item ggui.Readable[layoutItem]) ggui.Widget {
-		return ggui.Reactive(func() ggui.Widget {
-			m.Assets.Get()
+		look := ggui.Select(m.store, func(g *editor) itemRow {
 			row := item.Get()
 			kind := g.itemKinds[row.Path]
 			if row.Link {
 				kind = "Link"
 			}
-			icon := ggui.Image(g.assets[itemAsset(row.Path)]).Size(28, 28)
-			text := ggui.Column(ggui.Text(row.title()).NoWrap().Ellipsis(), ui.Caption(kind)).Gap(3)
-			return ggui.Row(icon, ggui.Expanded(text)).Gap(8).Align(ggui.AlignCenter)
+			return itemRow{row.title(), kind, g.assets[itemAsset(row.Path)]}
+		})
+		return ggui.View(look, func(r itemRow) ggui.Widget {
+			text := ggui.Column(ggui.Text(r.title).NoWrap().Ellipsis(), ui.Caption(r.kind)).Gap(3)
+			return ggui.Row(ggui.Image(r.icon).Size(28, 28), ggui.Expanded(text)).Gap(8).Align(ggui.AlignCenter)
 		})
 	}
 	contents := ui.ListBox(m.Items, func(i layoutItem) string { return i.Path }, row).
@@ -149,6 +157,7 @@ func (c *designerCanvas) HandlePointer(e ggui.PointerEvent) bool {
 		c.model.editor.invalidate()
 	case ggui.PointerDrag:
 		g.moveDesigner(p)
+		g.invalidate()
 	case ggui.PointerUp:
 		g.moveDesigner(p)
 		moved := g.dragMoved
