@@ -38,8 +38,11 @@ if [[ -z $requested ]]; then
   if [[ $ref =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     requested=$ref
   elif [[ $ref =~ ^v[0-9]+$ ]]; then
-    tag=$(gh api "repos/$repo/releases" --paginate \
-      -q ".[] | select(.prerelease | not) | .tag_name | select(startswith(\"$ref.\"))" | head -n 1)
+    # Not | head -n 1: head exits at the first line, and under pipefail the
+    # SIGPIPE that gh then takes fails the step with 141 whenever it races.
+    tags=$(gh api "repos/$repo/releases" --paginate \
+      -q ".[] | select(.prerelease | not) | .tag_name | select(startswith(\"$ref.\"))")
+    tag=${tags%%$'\n'*}
     if [[ -z $tag ]]; then
       echo "::error::no $ref.x release of $repo" >&2
       exit 1
