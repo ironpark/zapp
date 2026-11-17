@@ -54,7 +54,7 @@ var signCommand = &cli.Command{
 		&cli.StringFlag{
 			Name:    "identity",
 			Aliases: []string{"i"},
-			Usage:   "Keychain identity to sign with (macOS)",
+			Usage:   "Keychain identity to sign with, by name or SHA-1 fingerprint (macOS)",
 		},
 	}, certificateFlags()...),
 	SkipFlagParsing: false,

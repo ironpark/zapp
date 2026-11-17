@@ -29,8 +29,11 @@ zapp sign --target MyApp.dmg --identity "Developer ID Application: Me (TEAMID)"
 zapp notarize --target MyApp.dmg --profile my-profile --staple
 ```
 
-With no `--identity`, zapp picks the first keychain identity matching
-`Developer ID Application`, or `Developer ID Installer` for a `.pkg`.
+`--identity` takes any part of an identity's name, such as its team ID, or
+its SHA-1 fingerprint as `security find-identity -v -p codesigning` lists it,
+which tells apart two certificates of the same name. With no `--identity`, zapp
+picks the first keychain identity matching `Developer ID Application`, or
+`Developer ID Installer` for a `.pkg`.
 
 `--profile` names a profile stored with `xcrun notarytool store-credentials`.
 An App Store Connect API key, or an Apple ID, password and team ID, are instead

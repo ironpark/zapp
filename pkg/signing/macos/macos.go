@@ -19,8 +19,9 @@ import (
 // Options are the credentials Apple's tools take. The certificate comes from
 // the keychain: the user's own, or a temporary one holding a supplied PKCS#12.
 type Options struct {
-	// Identity names a keychain identity. Empty means the best matching
-	// Developer ID is chosen for the artifact being signed.
+	// Identity names a keychain identity: its SHA-1 fingerprint, as
+	// `security find-identity` lists it, or part of its name. Empty means the
+	// best matching Developer ID is chosen for the artifact being signed.
 	Identity string
 
 	// Entitlements is a plist of entitlements to sign an app with. Empty
@@ -125,7 +126,7 @@ func (b *Backend) identity(ctx context.Context, ext string) (Identity, error) {
 		return Identity{}, fmt.Errorf("the keychain holds no signing identities")
 	}
 	for _, identity := range identities {
-		if strings.Contains(identity.String(), want) {
+		if identity.matches(want) {
 			b.resolved[want] = identity
 			return identity, nil
 		}

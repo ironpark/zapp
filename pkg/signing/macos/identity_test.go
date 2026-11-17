@@ -48,3 +48,27 @@ func TestParseFindIdentityOutput(t *testing.T) {
 	}
 	got[1].SecureString()
 }
+
+// An identity is named by its SHA-1 fingerprint, in either case, or by part of
+// its name.
+func TestIdentityMatches(t *testing.T) {
+	got, err := parseFindIdentityOutput(`  1) A1B2C3D4E5F60718293A4B5C6D7E8F9012345678 "Developer ID Application: Jane Doe (ABCDE12345)"
+     1 valid identities found
+`)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("parsed %+v, %v", got, err)
+	}
+	identity := got[0]
+	for want, ok := range map[string]bool{
+		"A1B2C3D4E5F60718293A4B5C6D7E8F9012345678": true,
+		"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678": true,
+		"Developer ID Application":                 true,
+		"ABCDE12345":                               true,
+		"Developer ID Installer":                   false,
+		"A1B2C3D4E5F60718293A4B5C6D7E8F9012345679": false,
+	} {
+		if identity.matches(want) != ok {
+			t.Errorf("matches(%q) = %v, want %v", want, !ok, ok)
+		}
+	}
+}
