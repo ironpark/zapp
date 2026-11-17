@@ -20,6 +20,12 @@ type Identity struct {
 	DeveloperID   string
 }
 
+// matches reports whether want names the identity: its SHA-1 fingerprint, in
+// either case, or any part of its name.
+func (i Identity) matches(want string) bool {
+	return strings.EqualFold(i.Fingerprint, want) || strings.Contains(i.String(), want)
+}
+
 // SecureString renders the identity with the developer name fully masked and
 // all but the first few characters of the developer ID masked, so it is safe to
 // print in logs and CI output.

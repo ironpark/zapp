@@ -31,8 +31,9 @@ import (
 // the ones it was given; Select works out which toolchain that implies and
 // hands it the subset it understands.
 type Credentials struct {
-	// Identity names a keychain identity, for Apple's tools. An empty value
-	// means the best matching Developer ID is chosen.
+	// Identity names a keychain identity, for Apple's tools: its SHA-1
+	// fingerprint, or part of its name such as "Developer ID Application" or a
+	// team ID. An empty value means the best matching Developer ID is chosen.
 	Identity string
 
 	// P12File and P12Base64 supply a PKCS#12 certificate and private key: as a
