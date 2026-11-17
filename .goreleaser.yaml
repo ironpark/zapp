@@ -92,3 +92,9 @@ changelog:
       - "^test:"
       - "^build:"
       - "README"
+
+git:
+  # The lib module's tags (pkg/signing/rcodesign/lib/vX.Y.Z) are not
+  # releases of zapp: a snapshot would take the newest of them for its version.
+  ignore_tags:
+    - "pkg/signing/rcodesign/lib/*"
