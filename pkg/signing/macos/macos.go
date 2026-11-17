@@ -33,9 +33,9 @@ type Options struct {
 	P12         []byte
 	P12Password string
 
-	// Profile is a stored notarytool keychain profile. When it is empty a
-	// temporary one is created from the App Store Connect API key, or else
-	// from the Apple ID trio below.
+	// Profile is a stored notarytool keychain profile. When it is empty
+	// notarytool is given the App Store Connect API key, or else the Apple ID
+	// trio below, on each call; no profile is stored for them.
 	Profile  string
 	AppleID  string
 	Password string
@@ -191,29 +191,18 @@ func (b *Backend) Sign(ctx context.Context, path string) error {
 	}
 }
 
-// Submit uploads through notarytool, storing a temporary keychain profile first
-// when the caller gave an Apple ID rather than a profile name.
+// Submit uploads through notarytool, authenticated by the stored profile the
+// caller named, or else by the API key or Apple ID passed to each call; no
+// credentials are stored in a keychain on the caller's behalf.
 func (b *Backend) Submit(ctx context.Context, path string) error {
-	profile := b.opts.Profile
-	if profile == "" {
-		profile = "temp_profile"
-		var err error
-		switch {
-		case b.opts.APIKeyFile != "":
-			err = notaryStoreAPIKey(ctx, b.opts.APIKeyFile, profile)
-		case b.opts.AppleID != "" && b.opts.Password != "" && b.opts.TeamID != "":
-			err = notaryStoreCredentials(ctx, b.opts.AppleID, b.opts.Password, b.opts.TeamID, profile)
-		default:
-			return fmt.Errorf("notarizing with Apple's tools needs a keychain profile, " +
-				"an App Store Connect API key, or all of the Apple ID, password and team ID")
-		}
-		if err != nil {
-			return fmt.Errorf("failed to store credentials: %w", err)
-		}
+	auth, cleanup, err := notaryAuth(b.opts)
+	defer cleanup()
+	if err != nil {
+		return err
 	}
 
 	start := time.Now()
-	result, err := notarySubmit(ctx, path, profile, b.opts.NotarizeTimeout)
+	result, err := notarySubmit(ctx, path, auth, b.opts.NotarizeTimeout)
 	if err != nil {
 		return err
 	}
@@ -225,7 +214,7 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 				return timedOut(result.ID, b.opts.NotarizeTimeout)
 			}
 		}
-		if result, err = notaryWait(ctx, result.ID, profile, left); err != nil {
+		if result, err = notaryWait(ctx, result.ID, auth, left); err != nil {
 			return err
 		}
 		if result.Status == "In Progress" {
@@ -233,16 +222,16 @@ func (b *Backend) Submit(ctx context.Context, path string) error {
 		}
 	}
 	if result.Status != "Accepted" {
-		return rejected(ctx, result, profile)
+		return rejected(ctx, result, auth)
 	}
 	return nil
 }
 
 // rejected reports a submission the notary refused, with the issues its log
 // lists, which name the files at fault.
-func rejected(ctx context.Context, result *submissionResult, profile string) error {
+func rejected(ctx context.Context, result *submissionResult, auth []string) error {
 	err := fmt.Errorf("notarization of submission %s ended %s", result.ID, result.Status)
-	if log, logErr := notaryLog(ctx, result.ID, profile); logErr == nil {
+	if log, logErr := notaryLog(ctx, result.ID, auth); logErr == nil {
 		if summary := notarylog.Summary([]byte(log)); summary != "" {
 			return fmt.Errorf("%w: %s", err, summary)
 		}
