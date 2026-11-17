@@ -3,14 +3,10 @@
 package rcodesign
 
 /*
-// Prebuilt archives ship in the Go module, so go install needs no download
-// or generation step. Keep each archive before its system library dependencies.
-#cgo linux,amd64 LDFLAGS: ${SRCDIR}/lib/linux_amd64.a
-#cgo linux,arm64 LDFLAGS: ${SRCDIR}/lib/linux_arm64.a
-#cgo linux LDFLAGS: -ldl -lpthread -lm
-#cgo windows,amd64 LDFLAGS: ${SRCDIR}/lib/windows_amd64.a
-#cgo windows,arm64 LDFLAGS: ${SRCDIR}/lib/windows_arm64.a
-#cgo windows LDFLAGS: -static -lws2_32 -luserenv -lbcrypt -lntdll -lcrypt32 -lncrypt -lsecur32 -liphlpapi -lole32 -loleaut32 -lruntimeobject
+// The prebuilt archive the declarations below resolve against, and the system
+// libraries it needs, are linked by the lib module imported below. It is a
+// module of its own so that only this build constraint downloads it; go
+// install needs no download or generation step beyond the module itself.
 #include <stdlib.h>
 #include "zapp_rcodesign.h"
 */
@@ -21,6 +17,8 @@ import (
 	"encoding/json"
 	"errors"
 	"unsafe"
+
+	_ "github.com/ironpark/zapp/pkg/signing/rcodesign/lib"
 )
 
 func Available() error { return nil }

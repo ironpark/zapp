@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Refresh the bundled libcodesign static library for one target.
 
-Prebuilt libraries from github.com/ironpark/libcodesign are checked into the
-Go module. Consumers need a C toolchain but no Rust toolchain or download step.
-scripts/libcodesign.json pins the release
+Prebuilt libraries from github.com/ironpark/libcodesign are checked into
+pkg/signing/rcodesign/lib, a Go module of its own that only cgo builds for
+Linux and Windows download. Consumers need a C toolchain but no Rust toolchain
+or download step. scripts/libcodesign.json pins the release
 and the SHA-256 of every archive; a download that does not match its pin is
 rejected, and `--update <version>` is the only thing that rewrites the pins.
 
@@ -20,8 +21,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = Path(__file__).resolve().parent / "libcodesign.json"
-# Keep only link inputs and redistribution notices in the Go package.
-DESTINATION = ROOT / "pkg/signing/rcodesign"
+# The binding compiles against the header; the archives and the notices that
+# must travel with them go to the lib module, which links them.
+BINDING = ROOT / "pkg/signing/rcodesign"
+LIBRARIES = BINDING / "lib"
 TARGETS = ("linux_amd64", "linux_arm64", "windows_amd64", "windows_arm64")
 
 
@@ -57,11 +60,11 @@ def fetch(target):
 
     goos = target.split("_")[0]
     files = {
-        "lib/libzapp_rcodesign.a": f"lib/{target}.a",
-        "include/zapp_rcodesign.h": "zapp_rcodesign.h",
-        "LICENSE": "LICENSE.libcodesign",
-        "NOTICE": "NOTICE.libcodesign",
-        "THIRD_PARTY_LICENSES.html": f"licenses/{goos}.html",
+        "lib/libzapp_rcodesign.a": LIBRARIES / f"{target}.a",
+        "include/zapp_rcodesign.h": BINDING / "zapp_rcodesign.h",
+        "LICENSE": LIBRARIES / "LICENSE",
+        "NOTICE": LIBRARIES / "NOTICE",
+        "THIRD_PARTY_LICENSES.html": LIBRARIES / "licenses" / f"{goos}.html",
     }
     # Validate every required member before changing any bundled file. Never
     # extract the upstream README, Cargo.lock, or arbitrary archive paths.
@@ -72,14 +75,13 @@ def fetch(target):
             if not member.isfile():
                 raise SystemExit(f"{name}: {source} is not a regular file")
             payload = tar.extractfile(member).read()
-            if not destination.endswith(".a"):
+            if destination.suffix != ".a":
                 payload = payload.replace(b"\r\n", b"\n")
             payloads[destination] = payload
-    for destination, payload in payloads.items():
-        path = DESTINATION / destination
+    for path, payload in payloads.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(payload)
-    library = DESTINATION / f"lib/{target}.a"
+    library = LIBRARIES / f"{target}.a"
     print(f"{name} -> {library}", flush=True)
     return library
 

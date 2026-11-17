@@ -1,0 +1,5 @@
+go 1.27.0
+
+use .
+
+replace github.com/ironpark/zapp/pkg/signing/rcodesign/lib => ./pkg/signing/rcodesign/lib

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['*.go', 'pkg/signing/**', 'scripts/**', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
+    paths: ['*.go', 'pkg/signing/**', 'scripts/**', 'pkg/dmg/**', 'pkg/macpkg/**', 'cmd/**', 'go.mod', 'go.sum', 'go.work', 'go.work.sum', '.github/workflows/signing.yaml', '.github/workflows/release.yaml', '.goreleaser.yaml']
 
 permissions:
   contents: read
@@ -82,3 +82,15 @@ jobs:
             echo 'macOS binary must not include rcodesign'
             exit 1
           fi
+      - name: Verify only cgo builds for Linux and Windows load the native libraries
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          lib=github.com/ironpark/zapp/pkg/signing/rcodesign/lib
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            if GOOS="${target%/*}" GOARCH="${target#*/}" go list -deps ./... | grep -qx "$lib"; then
+              echo "$target without cgo must not import $lib"
+              exit 1
+            fi
+          done
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go list -deps ./cmd/zapp | grep -qx "$lib"

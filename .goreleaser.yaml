@@ -10,8 +10,14 @@ version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
+    # A release must build as `go install github.com/ironpark/zapp/cmd/zapp@v…`
+    # will, without go.work: go.mod and go.sum have to be tidy and the lib
+    # module version go.mod requires has to be published (docs/signing.md,
+    # Releasing). A pull request's snapshot may come before that tag exists,
+    # so it only prints the go version.
+    - cmd: '{{ if .IsSnapshot }}go version{{ else }}go mod tidy -diff{{ end }}'
+      env:
+        - GOWORK=off
 
 builds:
   - main: ./cmd/zapp
