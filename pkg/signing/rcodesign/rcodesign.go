@@ -18,7 +18,7 @@ var ErrUnavailable = errors.New("rcodesign static binding is unavailable in this
 
 // errNoCertificate is returned when no signing certificate was named. rcodesign
 // would sign ad-hoc instead, which is rarely what a release build wants.
-var errNoCertificate = errors.New("no signing certificate was given; pass --p12-file, --p12-base64 or --pem-file")
+var errNoCertificate = errors.New("no signing certificate was given; rcodesign signs with a PKCS#12 or PEM certificate")
 
 // Options are the credentials rcodesign takes. It has no keychain to consult,
 // so the certificate is named by file, and it reaches the notary service
