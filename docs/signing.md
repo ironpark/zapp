@@ -355,34 +355,41 @@ Rust dependency license notices, which the macOS archive has no need of.
 The repository holds two modules, and Go reads a nested module's versions from
 tags prefixed with its directory. The lib module is tagged
 `pkg/signing/rcodesign/lib/vX.Y.Z`; the root module, as before, `vX.Y.Z`. The
-root `go.mod` requires the lib version it was built against, and `go.sum`
-carries that version's checksums, so tag in this order:
+root `go.mod` requires the lib version a release links, and `go.sum` carries
+that version's checksums. When `pkg/signing/rcodesign/lib` changed since its
+last tag, release in this order:
 
-1. If `pkg/signing/rcodesign/lib` changed since its last tag, pick its next
-   version, require it in the root `go.mod`
-   (`go mod edit -require=github.com/ironpark/zapp/pkg/signing/rcodesign/lib@vX.Y.Z`),
-   and add its checksums to `go.sum`, which can be computed before the tag
-   exists because they hash the directory's files, or added by
-   `GOWORK=off go mod tidy` once it is published. Merge that to main.
-2. Tag the lib module on main and push the tag:
+1. Merge the change to main. `go.work` builds and tests it from the checkout,
+   whatever version the root `go.mod` requires.
+2. Tag the lib module on main and push the tag. No workflow runs for it.
 
    ```sh
    git tag pkg/signing/rcodesign/lib/vX.Y.Z
    git push origin pkg/signing/rcodesign/lib/vX.Y.Z
    ```
 
-   This tag starts no workflow; check it resolves before going on:
-   `GOWORK=off GOPROXY=https://proxy.golang.org go list -m github.com/ironpark/zapp/pkg/signing/rcodesign/lib@vX.Y.Z`.
-3. Tag the root module, which runs the release workflow:
+3. Require it, outside the workspace, and merge that to main:
+
+   ```sh
+   GOWORK=off go get github.com/ironpark/zapp/pkg/signing/rcodesign/lib@vX.Y.Z
+   GOWORK=off go mod tidy
+   ```
+
+4. Tag the root module, which runs the release workflow. GoReleaser runs
+   `GOWORK=off go mod tidy -diff` first, which fails if the required lib
+   version is not published or `go.sum` does not match it.
 
    ```sh
    git tag vA.B.C
    git push origin vA.B.C
    ```
 
-A lib tag, once fetched through the module proxy, is permanent: never move or
-reuse one, and never change the directory's files without a new tag. When the
-lib module has not changed, skip to step 3.
+When the lib module has not changed, only step 4 is needed. A lib tag, once
+fetched through the module proxy, is permanent: never move or reuse one. If
+`go.sum` already lists a lib version that is not yet tagged, as when the lib
+module was first split out, and the directory changes before the tag, delete
+that version's lines from `go.sum` before step 3, or the checksums will not
+match.
 
 Windows DMG creation writes the icon into the image, but cannot attach Finder
 metadata to the host `.dmg` file or import macOS extended attributes from source
