@@ -32,6 +32,10 @@ zapp notarize --target MyApp.dmg --profile my-profile --staple
 With no `--identity`, zapp picks the first keychain identity matching
 `Developer ID Application`, or `Developer ID Installer` for a `.pkg`.
 
+`--profile` names a profile stored with `xcrun notarytool store-credentials`.
+An App Store Connect API key, or an Apple ID, password and team ID, are instead
+handed to notarytool for each call; zapp stores no keychain profile for them.
+
 ### PKCS#12 certificates on macOS
 
 A certificate exported from Keychain Access as a `.p12` can be used without
