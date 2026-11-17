@@ -2,9 +2,9 @@ name: macpkg
 
 on:
   pull_request:
-    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', 'go.work', 'go.work.sum', '.github/workflows/macpkg.yaml']
   push:
-    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', '.github/workflows/macpkg.yaml']
+    paths: ['pkg/macpkg/**', 'pkg/plist/**', 'go.mod', 'go.sum', 'go.work', 'go.work.sum', '.github/workflows/macpkg.yaml']
   workflow_dispatch:
     inputs:
       large:

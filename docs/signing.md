@@ -254,10 +254,17 @@ macOS needs only Go and Apple's tools:
 CGO_ENABLED=0 go build ./cmd/zapp
 ```
 
-Windows and Linux signing builds need Go and a C toolchain. The Go module
-includes prebuilt static libraries for all four targets under
-`pkg/signing/rcodesign/lib/`; `go install` links the matching archive
-without fetching files or building Rust.
+Windows and Linux signing builds need Go and a C toolchain. Prebuilt static
+libraries for all four targets live in `pkg/signing/rcodesign/lib/`, a Go
+module of its own (`github.com/ironpark/zapp/pkg/signing/rcodesign/lib`);
+`go install` links the matching archive without fetching files or building
+Rust.
+
+The binding imports that module only under its own build constraint -- cgo, on
+`linux` or `windows`, `amd64` or `arm64` -- so Go downloads its 120 MB of
+archives only for those builds. A macOS build, a `CGO_ENABLED=0` build, and any
+program that uses zapp's packages without linking the signing library never
+fetch it.
 
 | Build target | C compiler |
 | --- | --- |
@@ -300,11 +307,20 @@ for target in linux_amd64 linux_arm64 windows_amd64 windows_arm64; do
 done
 ```
 
-Commit the updated pin, four `lib/<target>.a` files, shared `zapp_rcodesign.h`,
-and license notices in `pkg/signing/rcodesign`. Only build inputs and license
-notices are copied from the release; upstream READMEs, Cargo.lock files, and
-version stamps are not bundled. Keep the libraries as regular Git files so
-they are available in Go module downloads.
+Commit the updated pin, the four `<target>.a` files, `LICENSE`, `NOTICE` and
+`licenses/` in `pkg/signing/rcodesign/lib`, and the shared `zapp_rcodesign.h`
+in `pkg/signing/rcodesign`, whose binding compiles against it. Only build inputs
+and license notices are copied from the release; upstream READMEs, Cargo.lock
+files, and version stamps are not bundled. Keep the libraries as regular Git
+files so they are available in Go module downloads.
+
+Inside this repository `go.work` replaces the lib module with the directory, so
+builds, tests and CI always use the archives in the checkout. Programs that
+depend on zapp, and `go install github.com/ironpark/zapp/cmd/zapp@<version>`,
+ignore `go.work` and use the version of the lib module that the root `go.mod`
+requires, which has to be published first. A change to anything under
+`pkg/signing/rcodesign/lib` therefore needs a new tag of that module before
+the release that uses it; see [Releasing](#releasing).
 
 For release builds, `python scripts/build-native.py linux_amd64 --test` runs
 native tests and writes a version-stamped CLI to `dist/linux_amd64/`. It uses the
@@ -326,6 +342,40 @@ the two halves of a release cannot drift apart; editing the archive layout in
 `.goreleaser.yaml` is enough, and changing its `name_template` fails packaging
 with an explicit message. Each Windows/Linux archive additionally carries the
 Rust dependency license notices, which the macOS archive has no need of.
+
+### Releasing
+
+The repository holds two modules, and Go reads a nested module's versions from
+tags prefixed with its directory. The lib module is tagged
+`pkg/signing/rcodesign/lib/vX.Y.Z`; the root module, as before, `vX.Y.Z`. The
+root `go.mod` requires the lib version it was built against, and `go.sum`
+carries that version's checksums, so tag in this order:
+
+1. If `pkg/signing/rcodesign/lib` changed since its last tag, pick its next
+   version, require it in the root `go.mod`
+   (`go mod edit -require=github.com/ironpark/zapp/pkg/signing/rcodesign/lib@vX.Y.Z`),
+   and add its checksums to `go.sum`, which can be computed before the tag
+   exists because they hash the directory's files, or added by
+   `GOWORK=off go mod tidy` once it is published. Merge that to main.
+2. Tag the lib module on main and push the tag:
+
+   ```sh
+   git tag pkg/signing/rcodesign/lib/vX.Y.Z
+   git push origin pkg/signing/rcodesign/lib/vX.Y.Z
+   ```
+
+   This tag starts no workflow; check it resolves before going on:
+   `GOWORK=off GOPROXY=https://proxy.golang.org go list -m github.com/ironpark/zapp/pkg/signing/rcodesign/lib@vX.Y.Z`.
+3. Tag the root module, which runs the release workflow:
+
+   ```sh
+   git tag vA.B.C
+   git push origin vA.B.C
+   ```
+
+A lib tag, once fetched through the module proxy, is permanent: never move or
+reuse one, and never change the directory's files without a new tag. When the
+lib module has not changed, skip to step 3.
 
 Windows DMG creation writes the icon into the image, but cannot attach Finder
 metadata to the host `.dmg` file or import macOS extended attributes from source

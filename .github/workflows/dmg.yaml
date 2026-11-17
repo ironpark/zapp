@@ -2,9 +2,9 @@ name: dmg
 
 on:
   pull_request:
-    paths: ['*.go', 'iconfile.icns', 'cmd/zapp/**', 'internal/gui/**', 'pkg/dmg/**', 'pkg/macfs/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
+    paths: ['*.go', 'iconfile.icns', 'cmd/zapp/**', 'internal/gui/**', 'pkg/dmg/**', 'pkg/macfs/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', 'go.work', 'go.work.sum', '.github/workflows/dmg.yaml']
   push:
-    paths: ['*.go', 'iconfile.icns', 'cmd/zapp/**', 'internal/gui/**', 'pkg/dmg/**', 'pkg/macfs/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', '.github/workflows/dmg.yaml']
+    paths: ['*.go', 'iconfile.icns', 'cmd/zapp/**', 'internal/gui/**', 'pkg/dmg/**', 'pkg/macfs/**', 'pkg/udif/**', 'pkg/lzfse/**', 'pkg/alias/**', 'pkg/dsstore/**', 'go.mod', 'go.sum', 'go.work', 'go.work.sum', '.github/workflows/dmg.yaml']
   workflow_dispatch:
 
 permissions:
