@@ -15,9 +15,7 @@ before:
     # module version go.mod requires has to be published (docs/signing.md,
     # Releasing). A pull request's snapshot may come before that tag exists,
     # so it only prints the go version.
-    - cmd: '{{ if .IsSnapshot }}go version{{ else }}go mod tidy -diff{{ end }}'
-      env:
-        - GOWORK=off
+    - '{{ if .IsSnapshot }}go version{{ else }}env GOWORK=off go mod tidy -diff{{ end }}'
 
 builds:
   - main: ./cmd/zapp
