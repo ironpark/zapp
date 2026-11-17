@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -17,7 +18,9 @@ import (
 // Select uses the statically linked Rust backend away from macOS.
 func Select(c Credentials) (Backend, error) {
 	if c.namesKeychainIdentity() {
-		return nil, fmt.Errorf("keychain and Apple ID credentials are macOS-only; use --p12-file, --p12-base64 or --pem-file and --api-key-file")
+		return nil, errors.New("keychain identities, notarytool profiles and Apple ID credentials are macOS-only; " +
+			"elsewhere sign with a PKCS#12 or PEM certificate (P12File, P12Base64 or PEMFile) " +
+			"and notarize with an App Store Connect API key (APIKeyFile)")
 	}
 	if err := c.checkP12(); err != nil {
 		return nil, err

@@ -76,13 +76,13 @@ func (c Credentials) namesP12() bool { return c.P12File != "" || c.P12Base64 != 
 // a PEM certificate alongside it.
 func (c Credentials) checkP12() error {
 	if c.P12File != "" && c.P12Base64 != "" {
-		return errors.New("pass the PKCS#12 certificate once: --p12-file or --p12-base64, not both")
+		return errors.New("the PKCS#12 certificate was given both as a file and as base64 (P12File and P12Base64); give it once")
 	}
 	if !c.namesP12() && (c.P12Password != "" || c.P12PasswordFile != "") {
-		return errors.New("a PKCS#12 password was given without --p12-file or --p12-base64")
+		return errors.New("a PKCS#12 password was given without a PKCS#12 certificate (P12File or P12Base64)")
 	}
 	if c.namesP12() && c.PEMFile != "" {
-		return errors.New("pass one certificate: --pem-file or a PKCS#12 certificate, not both")
+		return errors.New("both a PEM certificate (PEMFile) and a PKCS#12 certificate were given; give one")
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (c Credentials) p12() ([]byte, error) {
 	}
 	data, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(c.P12Base64), ""))
 	if err != nil {
-		return nil, fmt.Errorf("--p12-base64 is not valid base64: %w", err)
+		return nil, fmt.Errorf("the PKCS#12 certificate (P12Base64) is not valid base64: %w", err)
 	}
 	return data, nil
 }
